@@ -31,18 +31,6 @@
     "contributes": {
         "commands": [
             {
-                "command": "key-shepherd-vscode.superviseSecret",
-                "title": "KeyShepherd: Supervise this secret..."
-            },
-            {
-                "command": "key-shepherd-vscode.controlSecret",
-                "title": "KeyShepherd: Control this secret..."
-            },
-            {
-                "command": "key-shepherd-vscode.insertSecret",
-                "title": "KeyShepherd: Insert a secret here..."
-            },
-            {
                 "command": "key-shepherd-vscode.disguiseSecrets",
                 "title": "KeyShepherd: Disguise all controlled secrets in this project"
             },
@@ -50,38 +38,111 @@
                 "command": "key-shepherd-vscode.revealSecrets",
                 "title": "KeyShepherd: Reveal all controlled secrets in this project"
             },
+
             {
-                "command": "key-shepherd-vscode.hideSecrets",
-                "title": "KeyShepherd: Hide secrets in this file"
+                "command": "key-shepherd-vscode.maskSecrets",
+                "title": "KeyShepherd: Mask Secrets in Current File"
             },
             {
-                "command": "key-shepherd-vscode.showSecrets",
-                "title": "KeyShepherd: Unhide secrets in this file"
+                "command": "key-shepherd-vscode.unmaskSecrets",
+                "title": "KeyShepherd: Unmask Secrets in Current File"
+            },
+
+            {
+                "command": "key-shepherd-vscode.editor-context.superviseSecret",
+                "title": "Supervise this Secret..."
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.controlSecret",
+                "title": "Control this Secret..."
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.insertSupervisedSecret",
+                "title": "Insert a Supervised Secret Here..."
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.insertControlledSecret",
+                "title": "Insert a Controlled Secret Here..."
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.maskSecrets",
+                "title": "Mask Secrets"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.unmaskSecrets",
+                "title": "Unmask Secrets"
+            }
+        ],
+
+        "commandPalette": [
+            {
+                "command": "key-shepherd-vscode.editor-context.superviseSecret",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.controlSecret",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.insertSupervisedSecret",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.insertControlledSecret",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.maskSecrets",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.unmaskSecrets",
+                "when": "never"
+            }
+        ],
+
+
+        "submenus": [
+            {
+                "id": "key-shepherd-vscode.editor-context-submenu",
+                "label": "KeyShepherd"
             }
         ],
         "menus": {
+
             "editor/context": [
                 {
-                    "command": "key-shepherd-vscode.superviseSecret",
+                    "submenu": "key-shepherd-vscode.editor-context-submenu"
+                }
+            ],
+
+            "key-shepherd-vscode.editor-context-submenu": [
+
+                {
+                    "command": "key-shepherd-vscode.editor-context.superviseSecret",
                     "when": "editorHasSelection",
-                    "group": "key-shepherd-vscode-group@1"
+                    "group": "key-shepherd-vscode.editor-context-group@1"
                 },
                 {
-                    "command": "key-shepherd-vscode.controlSecret",
+                    "command": "key-shepherd-vscode.editor-context.controlSecret",
                     "when": "editorHasSelection",
-                    "group": "key-shepherd-vscode-group@2"
+                    "group": "key-shepherd-vscode.editor-context-group@2"
                 },
                 {
-                    "command": "key-shepherd-vscode.insertSecret",
-                    "group": "key-shepherd-vscode-group@3"
+                    "command": "key-shepherd-vscode.editor-context.insertSupervisedSecret",
+                    "group": "key-shepherd-vscode.editor-context-group@3"
                 },
                 {
-                    "command": "key-shepherd-vscode.hideSecrets",
-                    "group": "key-shepherd-vscode-group@4"
+                    "command": "key-shepherd-vscode.editor-context.insertControlledSecret",
+                    "group": "key-shepherd-vscode.editor-context-group@4"
                 },
                 {
-                    "command": "key-shepherd-vscode.showSecrets",
-                    "group": "key-shepherd-vscode-group@5"
+                    "command": "key-shepherd-vscode.editor-context.maskSecrets",
+                    "group": "key-shepherd-vscode.editor-context-group@5"
+                },
+                {
+                    "command": "key-shepherd-vscode.editor-context.unmaskSecrets",
+                    "group": "key-shepherd-vscode.editor-context-group@6"
                 }
             ]
         }

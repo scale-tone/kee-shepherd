@@ -16,7 +16,7 @@ export class KeyMapRepo {
     static async create(storageFolder: string): Promise<KeyMapRepo> {
         
         if (!fs.existsSync(storageFolder)) {
-            await fs.promises.mkdir(storageFolder);
+            await fs.promises.mkdir(storageFolder, {recursive: true});
         }
 
         return new KeyMapRepo(storageFolder);
@@ -45,7 +45,7 @@ export class KeyMapRepo {
         }
 
         if (!map.length) {
-            await fs.promises.rm(mapFilePath);
+            await fs.promises.rm(mapFilePath, {force: true});
 
             if (!(await fs.promises.readdir(mapFileFolder)).length) {
                 // Removing the empty folder as well

@@ -64,7 +64,7 @@ export class KeyMetadataRepo {
     static async create(storageFolder: string): Promise<KeyMetadataRepo> {
 
         if (!fs.existsSync(storageFolder)) {
-            await fs.promises.mkdir(storageFolder);
+            await fs.promises.mkdir(storageFolder, {recursive: true});
         }
 
         // Reading existing metadata from given folder

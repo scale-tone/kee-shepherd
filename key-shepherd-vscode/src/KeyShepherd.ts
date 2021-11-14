@@ -12,7 +12,8 @@ export class KeyShepherd {
     private constructor(private readonly _repo: KeyMetadataRepo, private readonly _mapRepo: KeyMapRepo) {
         
         this._hiddenTextDecoration = vscode.window.createTextEditorDecorationType({
-            opacity: '0'
+            opacity: '0',
+            backgroundColor: 'grey'
         });
     }
 
@@ -30,12 +31,14 @@ export class KeyShepherd {
 
         console.log(azureAccount);
 
+        const storageFolder = context.globalStorageUri.fsPath;
+
         return new KeyShepherd(
-            await KeyMetadataRepo.create(path.join(context.extensionPath, 'key-metadata')),
-            await KeyMapRepo.create(path.join(context.extensionPath, 'key-maps')));
+            await KeyMetadataRepo.create(path.join(storageFolder, 'key-metadata')),
+            await KeyMapRepo.create(path.join(storageFolder, 'key-maps')));
     }
 
-    async showSecretsInThisFile(): Promise<void> {
+    async unmaskSecretsInThisFile(): Promise<void> {
 
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -45,7 +48,7 @@ export class KeyShepherd {
         editor.setDecorations(this._hiddenTextDecoration, []);
     }
 
-    async hideSecretsInThisFile(): Promise<void> {
+    async maskSecretsInThisFile(): Promise<void> {
 
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
