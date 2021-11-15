@@ -31,14 +31,13 @@
     "contributes": {
         "commands": [
             {
-                "command": "key-shepherd-vscode.disguiseSecrets",
-                "title": "KeyShepherd: Disguise all controlled secrets in this project"
+                "command": "key-shepherd-vscode.stashSecrets",
+                "title": "KeyShepherd: Stash all controlled secrets in this project"
             },
             {
-                "command": "key-shepherd-vscode.revealSecrets",
-                "title": "KeyShepherd: Reveal all controlled secrets in this project"
+                "command": "key-shepherd-vscode.unstashSecrets",
+                "title": "KeyShepherd: Unstash all controlled secrets in this project"
             },
-
             {
                 "command": "key-shepherd-vscode.maskSecrets",
                 "title": "KeyShepherd: Mask Secrets in Current File"
@@ -47,7 +46,6 @@
                 "command": "key-shepherd-vscode.unmaskSecrets",
                 "title": "KeyShepherd: Unmask Secrets in Current File"
             },
-
             {
                 "command": "key-shepherd-vscode.editor-context.superviseSecret",
                 "title": "Supervise this Secret..."
@@ -73,7 +71,6 @@
                 "title": "Unmask Secrets"
             }
         ],
-
         "commandPalette": [
             {
                 "command": "key-shepherd-vscode.editor-context.superviseSecret",
@@ -100,8 +97,6 @@
                 "when": "never"
             }
         ],
-
-
         "submenus": [
             {
                 "id": "key-shepherd-vscode.editor-context-submenu",
@@ -109,15 +104,12 @@
             }
         ],
         "menus": {
-
             "editor/context": [
                 {
                     "submenu": "key-shepherd-vscode.editor-context-submenu"
                 }
             ],
-
             "key-shepherd-vscode.editor-context-submenu": [
-
                 {
                     "command": "key-shepherd-vscode.editor-context.superviseSecret",
                     "when": "editorHasSelection",
@@ -176,5 +168,11 @@
     },
     "extensionDependencies": [
         "ms-vscode.azure-account"
-    ]
+    ],
+    "dependencies": {
+        "@azure/arm-resourcegraph": "^4.2.1",
+        "@azure/keyvault-secrets": "^4.3.0",
+        "@azure/ms-rest-azure-env": "^2.0.0",
+        "@azure/ms-rest-nodeauth": "^3.1.0"
+    }
 }

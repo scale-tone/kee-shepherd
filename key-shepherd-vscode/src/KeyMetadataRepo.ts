@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 export enum SecretTypeEnum {
-    Custom = 0,
+    Unknown = 0,
     AzureKeyVault,
     AzureStorage,
 }
@@ -20,7 +20,7 @@ export type ControlledSecret = {
     type: SecretTypeEnum;
     controlType: ControlTypeEnum;
     filePath: string;
-    link?: string
+    properties: any;
 }
 
 export function getHashCode(str: string): number {
