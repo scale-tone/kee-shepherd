@@ -5,6 +5,7 @@ import { getHashCode, getFullPathThatFits, encodePathSegment } from './KeyMetada
 
 export type SecretMapEntry = {
     name: string;
+    hash: string;
     pos: number;
     length: number;
 }

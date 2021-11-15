@@ -49,6 +49,50 @@ export class KeyShepherd {
         }, 'KeyShepherd failed to unmask secrets');
     }
 
+    private async internalMaskSecrets(editor: vscode.TextEditor, secretsMap: SecretMapEntry[]): Promise<string[]> {
+        
+        const decorations: vscode.Range[] = [];
+        const missingSecrets: string[] = [];
+
+        // Need to sort the map by positions
+        secretsMap.sort((a, b) => a.pos - b.pos);
+
+        // Need to adjust positions, if there're some stashed secrets in there
+        var posShift = 0;
+
+        for (var secretPos of secretsMap) {
+
+            const anchorName = this.getAnchorName(secretPos.name);
+
+            const secretText = editor.document.getText(new vscode.Range(
+                editor.document.positionAt(secretPos.pos + posShift),
+                editor.document.positionAt(secretPos.pos + secretPos.length + posShift)
+            ));
+
+            if (secretText.startsWith(anchorName)) {
+
+                // If this secret is stashed, then keeping it as it is and adjusting posShift
+                posShift += anchorName.length - secretPos.length;
+
+            } else if (this._repo.getHash(secretText) !== secretPos.hash ) {
+                
+                missingSecrets.push(secretPos.name);
+            
+            } else {
+
+                // Masking this secret
+                decorations.push(new vscode.Range(
+                    editor.document.positionAt(secretPos.pos + posShift),
+                    editor.document.positionAt(secretPos.pos + secretPos.length + posShift)
+                ));
+            }
+        }
+
+        editor.setDecorations(this._hiddenTextDecoration, decorations);
+
+        return missingSecrets;
+    }
+
     async maskSecretsInThisFile(): Promise<void> {
 
         await this.doAndShowError(async () => {
@@ -62,12 +106,28 @@ export class KeyShepherd {
             if (!currentFile) {
                 return;
             }
-    
-            const secretsMap = await this._mapRepo.getSecretMapForFile(currentFile);
-    
-            const decorations = secretsMap.map(secretPos => new vscode.Range(editor.document.positionAt(secretPos.pos), editor.document.positionAt(secretPos.pos + secretPos.length)));
-    
-            editor.setDecorations(this._hiddenTextDecoration, decorations);
+
+            var secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
+
+            var missingSecrets = await this.internalMaskSecrets(editor, secretMap);
+
+            // If some secrets were not found, then trying to update the map and then mask again
+            if (missingSecrets.length > 0) {
+               
+                // Using empty values in a hope that updateSecretMapForFile() will be able to match by hashes
+//                const secretValues = secretMap.reduce((result, currentEntry) => ({ ...result, [currentEntry.name]: '' }), {});
+                await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
+
+                secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
+
+                missingSecrets = await this.internalMaskSecrets(editor, secretMap);
+            }
+
+            if (missingSecrets.length > 0) {
+
+                // Notifying the user that there're still some secrets missing
+                await this.askUserAboutMissingSecrets(currentFile, missingSecrets);
+            }
 
         }, 'KeyShepherd failed to mask secrets');
     }
@@ -80,8 +140,11 @@ export class KeyShepherd {
                 return;
             }
 
-            const secretsPromise = Promise.all(vscode.workspace.workspaceFolders.map(f => this._repo.getSecretsInFolder(f.uri.toString())));
-            const secrets = (await secretsPromise).flat();
+            // Making sure there're no dirty files open
+            await vscode.workspace.saveAll();
+
+            const secretPromises = vscode.workspace.workspaceFolders.map(f => this._repo.getSecretsInFolder(f.uri.toString()));
+            const secrets = (await Promise.all(secretPromises)).flat();
 
             // This must be done sequentially by now
             const secretValues = await this.getSecretValues(secrets);
@@ -93,8 +156,8 @@ export class KeyShepherd {
                     result[currentSecret.filePath] = {};
                 }
 
-                // For unstash getting all secrets, for stash - controlled secrets only
-                if (!stash || currentSecret.controlType === ControlTypeEnum.Controlled) {
+                // Getting controlled secrets only
+                if (currentSecret.controlType === ControlTypeEnum.Controlled) {
                     
                     result[currentSecret.filePath][currentSecret.name] = secretValues[currentSecret.name];
                 }
@@ -191,9 +254,8 @@ export class KeyShepherd {
         await this.doAndShowError(async () => {
 
             await this.addSecret(SecretTypeEnum.Unknown, ControlTypeEnum.Controlled);
-
+            
         }, 'KeyShepherd failed to add a controlled secret');
-       
     }
     
     private async addSecret(type: SecretTypeEnum, controlType: ControlTypeEnum, secretName: string | undefined = undefined, properties: any = undefined): Promise<boolean> {
@@ -207,6 +269,14 @@ export class KeyShepherd {
         if (!currentFile) {
             return false;
         }
+
+        const secretValue = editor.document.getText(editor.selection);
+
+        if (secretValue.length < 3) {
+            throw new Error(`Secret should be at least 3 symbols long`);
+        }
+
+        const secretHash = this._repo.getHash(secretValue);
 
         // Asking user for a secret name
         secretName = await vscode.window.showInputBox({
@@ -223,6 +293,8 @@ export class KeyShepherd {
             type,
             controlType,
             filePath: currentFile,
+            hash: secretHash,
+            length: secretValue.length,
             properties
         });
 
@@ -239,7 +311,7 @@ export class KeyShepherd {
     private async getSecretValue(secret: ControlledSecret): Promise<string> {
 
         if (secret.type !== SecretTypeEnum.AzureKeyVault || !secret.properties) {
-            throw new Error(`Cannot retrieve the value of ${secret.name}`);
+            return '';
         }
 
         // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
@@ -249,11 +321,7 @@ export class KeyShepherd {
 
         const keyVaultSecret = await keyVaultClient.getSecret(secret.properties.keyVaultSecretName);
 
-        if (!keyVaultSecret.value) {
-            throw new Error(`${secret.properties.keyVaultSecretName} is empty`);
-        }
-
-        return keyVaultSecret.value;
+        return keyVaultSecret.value ?? '';
     }
 
     private async getSecretValues(secrets: ControlledSecret[]): Promise<{[name: string]: string}> {
@@ -278,9 +346,15 @@ export class KeyShepherd {
         return result;
     }
 
-    private toggleSecretsInText(text: string, secrets: { [name: string]: string }, secretsToAnchors: boolean): string {
+    private getAnchorName(secretName: string): string {
+        return `@KeyShepherd(${secretName})`;
+    }
+
+    private async toggleSecretsInText(filePath: string, text: string, secrets: { [name: string]: string }, secretsToAnchors: boolean): Promise<string> {
 
         var outputText = '';
+
+        const missingSecrets: { [name: string]: string } = {...secrets};
 
         var pos = 0, prevPos = 0;
         while (pos < text.length) {
@@ -290,17 +364,31 @@ export class KeyShepherd {
             // checking if any of the secrets appears at current position
             for (var secretName in secrets) {
 
-                const anchorName = `@KeyShepherd(${secretName})`;
+                const anchorName = this.getAnchorName(secretName);
 
                 const toFind = secretsToAnchors ? secrets[secretName]: anchorName;
                 const toReplace = secretsToAnchors ? anchorName : secrets[secretName];
 
                 if (!!text.startsWith(toFind, pos)) {
 
+                    // Copying a replacement into output
                     outputText += text.substring(prevPos, pos) + toReplace;
 
                     pos += toFind.length;
                     prevPos = pos;
+                    delete missingSecrets[secretName];
+
+                    somethingFound = true;
+
+                } else if (!!text.startsWith(toReplace, pos)) {
+
+                    // This secret is already in its resulting form, so just skipping it
+                    outputText += text.substring(prevPos, pos) + toReplace;
+
+                    pos += toReplace.length;
+                    prevPos = pos;
+                    delete missingSecrets[secretName];
+
                     somethingFound = true;
                 }
             }
@@ -311,6 +399,13 @@ export class KeyShepherd {
         }
 
         outputText += text.substr(prevPos);
+
+        // Checking if any of these secrets were not found and need to be removed
+        const missingSecretNames = Object.keys(missingSecrets);
+        if (missingSecretNames.length > 0) {
+            
+            await this.askUserAboutMissingSecrets(filePath, missingSecretNames);
+        }
 
         return outputText;
     }
@@ -323,23 +418,20 @@ export class KeyShepherd {
 
             // Reading current file contents
             const fileBytes = await vscode.workspace.fs.readFile(fileUri);
-            var fileText = Buffer.from(fileBytes).toString('utf8');
+            var fileText = Buffer.from(fileBytes).toString();
 
             // Replacing secret values with @KeyShepherd() links
-            const outputFileText = this.toggleSecretsInText(fileText, controlledSecretValues, true);
+            const outputFileText = await this.toggleSecretsInText(filePath, fileText, controlledSecretValues, true);
 
             // Saving file contents back
-            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(outputFileText, 'utf8'));
-
-            // Also dropping secret map for this file, as it is now incorrect
-            await this._mapRepo.saveSecretMapForFile(filePath, []);
+            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(outputFileText));
 
         } catch (err) {
             vscode.window.showErrorMessage(`KeyShepherd failed to stash secrets in ${filePath}. ${(err as any).message ?? err}`);
         }
     }
 
-    private async unstashSecretsInFile(filePath: string, secretValues: {[name:string]:string}): Promise<void> {
+    private async unstashSecretsInFile(filePath: string, controlledSecretValues: {[name:string]:string}): Promise<void> {
 
         try {
 
@@ -347,23 +439,22 @@ export class KeyShepherd {
 
             // Reading current file contents
             const fileBytes = await vscode.workspace.fs.readFile(fileUri);
-            var fileText = Buffer.from(fileBytes).toString('utf8');
+            var fileText = Buffer.from(fileBytes).toString();
 
             // Replacing @KeyShepherd() links with secret values
-            const outputFileText = this.toggleSecretsInText(fileText, secretValues, false);
+            const outputFileText = await this.toggleSecretsInText(filePath, fileText, controlledSecretValues, false);
 
             // Saving file contents back
-            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(outputFileText, 'utf8'));
-
-            // Also updating and saving secrets map into another file
-            await this.updateSecretMapForFile(filePath, outputFileText, secretValues);
+            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(outputFileText));
 
         } catch (err) {
             vscode.window.showErrorMessage(`KeyShepherd failed to unstash secrets in ${filePath}. ${(err as any).message ?? err}`);
         }
     }
 
-    private async updateSecretMapForFile(filePath: string, text: string, secrets: { [name: string]: string }): Promise<void> {
+    private async updateSecretMapForFile(filePath: string, text: string, secretValues: { [name: string]: string }): Promise<void> {
+
+        const secrets = await this._repo.getSecretsInFile(filePath);
         
         const outputMap: SecretMapEntry[] = []
 
@@ -374,16 +465,35 @@ export class KeyShepherd {
             var somethingFound = false;
 
             // checking if any of the secrets appears at current position
-            for (var secretName in secrets) {
+            for (var secret of secrets) {
 
-                const secretValue = secrets[secretName];
+                const secretValue = secretValues[secret.name];
 
-                if (!!text.startsWith(secretValue, pos)) {
+                if (!!secretValue) {
+                    
+                    // If we know the secret value, then just checking whether it matches
+                    if (!!text.startsWith(secretValue, pos)) {
 
-                    outputMap.push({ name: secretName, pos, length: secretValue.length });
+                        // Found this secret's position. Let's write it down.
+                        outputMap.push({ name: secret.name, hash: secret.hash, pos, length: secretValue.length });
 
-                    pos += secretValue.length;
-                    somethingFound = true;
+                        pos += secretValue.length;
+                        somethingFound = true;
+                    }
+
+                } else {
+
+                    // Otherwise calculating and trying to match the hash
+                    const currentHash = this._repo.getHash(text.substr(pos, secret.length));
+                    
+                    if (currentHash === secret.hash) {
+
+                        // Found this secret's position. Let's write it down.
+                        outputMap.push({ name: secret.name, hash: secret.hash, pos, length: secret.length });
+
+                        pos += secret.length;
+                        somethingFound = true;
+                    }
                 }
             }
 
@@ -506,5 +616,19 @@ export class KeyShepherd {
         }
 
         this._inProgress = false;
+    }
+
+    private async askUserAboutMissingSecrets(filePath: string, missingSecrets: string[]): Promise<void> {
+
+        const userResponse = await vscode.window.showWarningMessage(
+            `The following secrets: ${missingSecrets.join(', ')} were not found in ${path.basename(filePath)}. Do you want to forget them?`,
+            'Yes', 'No');
+        
+        if (userResponse === 'Yes') {
+            
+            await this._repo.removeSecrets(filePath, missingSecrets);
+
+            vscode.window.showInformationMessage(`KeyShepherd: ${missingSecrets.length} secrets were dropped`);
+        }
     }
 }

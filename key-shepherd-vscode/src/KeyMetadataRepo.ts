@@ -1,7 +1,7 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as vscode from 'vscode';
+import * as CryptoJS from 'crypto-js';
 
 export enum SecretTypeEnum {
     Unknown = 0,
@@ -20,6 +20,8 @@ export type ControlledSecret = {
     type: SecretTypeEnum;
     controlType: ControlTypeEnum;
     filePath: string;
+    hash: string;
+    length: number;
     properties: any;
 }
 
@@ -59,6 +61,37 @@ export class KeyMetadataRepo {
 
     get secretCount() { return this._secrets.length; }
 
+    private _salt: string = '';
+
+    get salt(): string {
+
+        if (!!this._salt) {
+            return this._salt;
+        }
+
+        const saltFileName = path.join(this._storageFolder, 'salt.dat');
+
+        try {
+
+            var newSalt = CryptoJS.lib.WordArray.random(128).toString(CryptoJS.enc.Base64);
+
+            // Making sure the file is being created exclusively
+            fs.writeFileSync(saltFileName, newSalt, { flag: 'wx' });
+            
+        } catch (err) {
+        }
+
+        this._salt = fs.readFileSync(saltFileName, 'utf8');
+
+        return this._salt;
+    }
+
+    getHash(str: string): string {
+
+        const hash = CryptoJS.SHA256(str + this.salt);
+        return hash.toString(CryptoJS.enc.Base64);
+    }
+
     private constructor(private _storageFolder: string, private _secrets: ControlledSecret[]) { }
 
     static async create(storageFolder: string): Promise<KeyMetadataRepo> {
@@ -67,12 +100,10 @@ export class KeyMetadataRepo {
             await fs.promises.mkdir(storageFolder, {recursive: true});
         }
 
-        // Reading existing metadata from given folder
+        // Getting list of folders
+        const folders = await KeyMetadataRepo.getSubFolders(storageFolder);
 
-        const folders = (await fs.promises.readdir(storageFolder))
-            .map(folderName => path.join(storageFolder, folderName))
-            .filter(async folderPath => !(await fs.promises.lstat(folderPath)).isDirectory());
-        
+        // Reading all secrets from those folders
         const secrets = await Promise.all(folders.map(KeyMetadataRepo.readSecretFilesFromFolder));
         
         return new KeyMetadataRepo(storageFolder, secrets.flat());
@@ -96,11 +127,25 @@ export class KeyMetadataRepo {
             await fs.promises.mkdir(path.dirname(secretFilePath));
         }
 
-        return fs.promises
-            .writeFile(secretFilePath, JSON.stringify(secret, null, 3), { flag: 'wx'} )
-            .then(() => {
-                this._secrets.push(secret);
-            });
+        await fs.promises.writeFile(secretFilePath, JSON.stringify(secret, null, 3), { flag: 'wx' });
+
+        this._secrets.push(secret);
+    }
+
+    async removeSecrets(filePath: string, names: string[]): Promise<void> {
+
+        const promises = names.map(secretName => {
+
+            const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(filePath)), `${encodePathSegment(secretName)}.json`);
+
+            return fs.promises.rm(secretFilePath, { force: true });
+        });
+
+        await Promise.all(promises);
+        
+        await this.cleanupEmptyFolders();
+
+        this._secrets = this._secrets.filter(s => !(s.filePath === filePath && names.includes(s.name)));
     }
 
     private static async readSecretFilesFromFolder(folderPath: string): Promise<ControlledSecret[]> {
@@ -108,5 +153,36 @@ export class KeyMetadataRepo {
         const jsonFileNames = (await fs.promises.readdir(folderPath)).filter(name => path.extname(name).toLowerCase() === '.json');
         const secretPromises = jsonFileNames.map(fileName => fs.promises.readFile(path.join(folderPath, fileName), 'utf8'));
         return (await Promise.all(secretPromises)).map(json => JSON.parse(json));
+    }
+
+    private static async getSubFolders(parentFolderName: string): Promise<string[]> {
+
+        const folderPromises = (await fs.promises.readdir(parentFolderName))
+            .map(folderName => {
+
+                const folderPath = path.join(parentFolderName, folderName);
+
+                return fs.promises.lstat(folderPath)
+                    .then(stat => stat.isDirectory() ? folderPath : '')
+            });
+
+        return (await Promise.all(folderPromises))
+            .filter(f => !!f);
+    }
+
+    private async cleanupEmptyFolders(): Promise<void> {
+
+        const folders = await KeyMetadataRepo.getSubFolders(this._storageFolder);
+
+        const promises = folders.map(async folderPath => {
+            try {
+
+                await fs.promises.rmdir(folderPath)
+
+            } catch (err) {
+            }
+        });
+
+        await Promise.all(promises);
     }
 }
