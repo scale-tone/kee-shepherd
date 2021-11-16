@@ -65,11 +65,11 @@ export class KeyShepherd {
             if (!!updateMapIfSomethingNotFound && missingSecrets.length > 0) {
                
                 // Using empty values in a hope that updateSecretMapForFile() will be able to match by hashes
-                await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
+                missingSecrets = await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
 
+                // Trying again
                 secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
-
-                missingSecrets = await this.internalMaskSecrets(editor, secretMap);
+                await this.internalMaskSecrets(editor, secretMap);
 
                 if (missingSecrets.length > 0) {
 
@@ -527,11 +527,12 @@ export class KeyShepherd {
         }
     }
 
-    private async updateSecretMapForFile(filePath: string, text: string, secretValues: { [name: string]: string }): Promise<void> {
+    private async updateSecretMapForFile(filePath: string, text: string, secretValues: { [name: string]: string }): Promise<string[]> {
 
         const secrets = await this._repo.getSecretsInFile(filePath);
         
         const outputMap: SecretMapEntry[] = []
+        const secretsFound: string[] = [];
 
         // Searching for all secrets in this text
         var pos = 0, posShift = 0;
@@ -552,6 +553,7 @@ export class KeyShepherd {
                     outputMap.push({ name: secret.name, hash: secret.hash, pos: pos + posShift, length: secret.length });
 
                     pos += anchorName.length;
+                    secretsFound.push(secret.name);
                     somethingFound = true;
 
                     posShift += secret.length - anchorName.length;
@@ -566,6 +568,7 @@ export class KeyShepherd {
                         outputMap.push({ name: secret.name, hash: secret.hash, pos: pos + posShift, length: secretValue.length });
 
                         pos += secretValue.length;
+                        secretsFound.push(secret.name);
                         somethingFound = true;
                     }
 
@@ -580,6 +583,7 @@ export class KeyShepherd {
                         outputMap.push({ name: secret.name, hash: secret.hash, pos: pos + posShift, length: secret.length });
 
                         pos += secret.length;
+                        secretsFound.push(secret.name);
                         somethingFound = true;
                     }
                 }
@@ -591,6 +595,9 @@ export class KeyShepherd {
         }
 
         await this._mapRepo.saveSecretMapForFile(filePath, outputMap);
+
+        // returning secrets that were not found
+        return secrets.filter(s => !secretsFound.includes(s.name)).map(s => s.name);
     }
 
     private pickUpKeyVault(subscription: AzureSubscription): Promise<string> {
@@ -716,7 +723,7 @@ export class KeyShepherd {
             
             await this._repo.removeSecrets(filePath, missingSecrets);
 
-            vscode.window.showInformationMessage(`KeyShepherd: ${missingSecrets.length} secrets were dropped`);
+            vscode.window.showInformationMessage(`KeyShepherd: ${missingSecrets.length} secrets have been forgotten`);
         }
     }
 }
