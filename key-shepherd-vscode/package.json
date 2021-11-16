@@ -29,13 +29,14 @@
     ],
     "main": "./dist/extension.js",
     "contributes": {
+
         "commands": [
             {
-                "command": "key-shepherd-vscode.stashSecrets",
+                "command": "key-shepherd-vscode.stashAllWorkspaceSecrets",
                 "title": "KeyShepherd: Stash all controlled secrets in this project"
             },
             {
-                "command": "key-shepherd-vscode.unstashSecrets",
+                "command": "key-shepherd-vscode.unstashAllWorkspaceSecrets",
                 "title": "KeyShepherd: Unstash all controlled secrets in this project"
             },
             {
@@ -45,6 +46,14 @@
             {
                 "command": "key-shepherd-vscode.unmaskSecrets",
                 "title": "KeyShepherd: Unmask Secrets in Current File"
+            },
+            {
+                "command": "key-shepherd-vscode.stashSecrets",
+                "title": "KeyShepherd: Stash Secrets in Current File"
+            },
+            {
+                "command": "key-shepherd-vscode.unstashSecrets",
+                "title": "KeyShepherd: Unstash Secrets in Current File"
             },
             {
                 "command": "key-shepherd-vscode.editor-context.superviseSecret",
@@ -69,6 +78,14 @@
             {
                 "command": "key-shepherd-vscode.editor-context.unmaskSecrets",
                 "title": "Unmask Secrets"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.stashSecrets",
+                "title": "Stash Secrets"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.unstashSecrets",
+                "title": "Unstash Secrets"
             }
         ],
         "commandPalette": [
@@ -95,6 +112,14 @@
             {
                 "command": "key-shepherd-vscode.editor-context.unmaskSecrets",
                 "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.stashSecrets",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.editor-context.unstashSecrets",
+                "when": "never"
             }
         ],
         "submenus": [
@@ -113,28 +138,36 @@
                 {
                     "command": "key-shepherd-vscode.editor-context.superviseSecret",
                     "when": "editorHasSelection",
-                    "group": "key-shepherd-vscode.editor-context-group@1"
+                    "group": "key-shepherd-vscode.editor-context-group1@1"
                 },
                 {
                     "command": "key-shepherd-vscode.editor-context.controlSecret",
                     "when": "editorHasSelection",
-                    "group": "key-shepherd-vscode.editor-context-group@2"
+                    "group": "key-shepherd-vscode.editor-context-group1@2"
                 },
                 {
                     "command": "key-shepherd-vscode.editor-context.insertSupervisedSecret",
-                    "group": "key-shepherd-vscode.editor-context-group@3"
+                    "group": "key-shepherd-vscode.editor-context-group1@3"
                 },
                 {
                     "command": "key-shepherd-vscode.editor-context.insertControlledSecret",
-                    "group": "key-shepherd-vscode.editor-context-group@4"
+                    "group": "key-shepherd-vscode.editor-context-group1@4"
+                },
+                {
+                    "command": "key-shepherd-vscode.editor-context.stashSecrets",
+                    "group": "key-shepherd-vscode.editor-context-group2@1"
+                },
+                {
+                    "command": "key-shepherd-vscode.editor-context.unstashSecrets",
+                    "group": "key-shepherd-vscode.editor-context-group2@2"
                 },
                 {
                     "command": "key-shepherd-vscode.editor-context.maskSecrets",
-                    "group": "key-shepherd-vscode.editor-context-group@5"
+                    "group": "key-shepherd-vscode.editor-context-group3@1"
                 },
                 {
                     "command": "key-shepherd-vscode.editor-context.unmaskSecrets",
-                    "group": "key-shepherd-vscode.editor-context-group@6"
+                    "group": "key-shepherd-vscode.editor-context-group3@2"
                 }
             ]
         }

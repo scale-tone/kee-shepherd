@@ -11,15 +11,6 @@ import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
 
 export class KeyShepherd {
 
-    private readonly _account = new AzureAccountWrapper();
-
-    private readonly _hiddenTextDecoration = vscode.window.createTextEditorDecorationType({
-        opacity: '0',
-        backgroundColor: 'grey'
-    });
-
-    private _inProgress: boolean = false;
-    
     private constructor(private readonly _repo: KeyMetadataRepo, private readonly _mapRepo: KeyMapRepo) {}
 
     dispose(): void {
@@ -49,51 +40,7 @@ export class KeyShepherd {
         }, 'KeyShepherd failed to unmask secrets');
     }
 
-    private async internalMaskSecrets(editor: vscode.TextEditor, secretsMap: SecretMapEntry[]): Promise<string[]> {
-        
-        const decorations: vscode.Range[] = [];
-        const missingSecrets: string[] = [];
-
-        // Need to sort the map by positions
-        secretsMap.sort((a, b) => a.pos - b.pos);
-
-        // Need to adjust positions, if there're some stashed secrets in there
-        var posShift = 0;
-
-        for (var secretPos of secretsMap) {
-
-            const anchorName = this.getAnchorName(secretPos.name);
-
-            const secretText = editor.document.getText(new vscode.Range(
-                editor.document.positionAt(secretPos.pos + posShift),
-                editor.document.positionAt(secretPos.pos + secretPos.length + posShift)
-            ));
-
-            if (secretText.startsWith(anchorName)) {
-
-                // If this secret is stashed, then keeping it as it is and adjusting posShift
-                posShift += anchorName.length - secretPos.length;
-
-            } else if (this._repo.getHash(secretText) !== secretPos.hash ) {
-                
-                missingSecrets.push(secretPos.name);
-            
-            } else {
-
-                // Masking this secret
-                decorations.push(new vscode.Range(
-                    editor.document.positionAt(secretPos.pos + posShift),
-                    editor.document.positionAt(secretPos.pos + secretPos.length + posShift)
-                ));
-            }
-        }
-
-        editor.setDecorations(this._hiddenTextDecoration, decorations);
-
-        return missingSecrets;
-    }
-
-    async maskSecretsInThisFile(): Promise<void> {
+    async maskSecretsInThisFile(updateMapIfSomethingNotFound: boolean): Promise<void> {
 
         await this.doAndShowError(async () => {
 
@@ -101,38 +48,76 @@ export class KeyShepherd {
             if (!editor) {
                 return;
             }
-    
+
             const currentFile = editor.document.uri.toString();
             if (!currentFile) {
                 return;
             }
 
             var secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
+            if (secretMap.length <= 0) {
+                return;
+            }
 
             var missingSecrets = await this.internalMaskSecrets(editor, secretMap);
 
             // If some secrets were not found, then trying to update the map and then mask again
-            if (missingSecrets.length > 0) {
+            if (!!updateMapIfSomethingNotFound && missingSecrets.length > 0) {
                
                 // Using empty values in a hope that updateSecretMapForFile() will be able to match by hashes
-//                const secretValues = secretMap.reduce((result, currentEntry) => ({ ...result, [currentEntry.name]: '' }), {});
                 await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
 
                 secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
 
                 missingSecrets = await this.internalMaskSecrets(editor, secretMap);
-            }
 
-            if (missingSecrets.length > 0) {
+                if (missingSecrets.length > 0) {
 
-                // Notifying the user that there're still some secrets missing
-                await this.askUserAboutMissingSecrets(currentFile, missingSecrets);
+                    // Notifying the user that there're still some secrets missing
+                    await this.askUserAboutMissingSecrets(currentFile, missingSecrets);
+                }
             }
 
         }, 'KeyShepherd failed to mask secrets');
     }
 
-    async toggleAllSecretsInThisProject(stash: boolean): Promise<void> {
+    async stashUnstashSecretsInThisFile(stash: boolean): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                return;
+            }
+
+            const currentFile = editor.document.uri.toString();
+            if (!currentFile) {
+                return;
+            }
+    
+            const secrets = await this._repo.getSecretsInFile(currentFile);
+            const secretValues = await this.getSecretValues(secrets);
+
+            const secretsValuesMap = secrets.reduce((result, currentSecret) => {
+
+                // Getting controlled secrets only
+                if (currentSecret.controlType === ControlTypeEnum.Controlled) {
+                    
+                    result[currentSecret.name] = secretValues[currentSecret.name];
+                }
+
+                return result;
+            
+            }, {} as { [f: string] : string });
+
+            await (!!stash ?
+                this.stashSecretsInFile(currentFile, secretsValuesMap) :
+                this.unstashSecretsInFile(currentFile, secretsValuesMap));
+
+        }, 'KeyShepherd failed');
+    }
+
+    async stashUnstashAllSecretsInThisProject(stash: boolean): Promise<void> {
 
         await this.doAndShowError(async () => {
 
@@ -257,6 +242,59 @@ export class KeyShepherd {
             
         }, 'KeyShepherd failed to add a controlled secret');
     }
+
+    private readonly _account = new AzureAccountWrapper();
+
+    private readonly _hiddenTextDecoration = vscode.window.createTextEditorDecorationType({
+        opacity: '0',
+        backgroundColor: 'grey'
+    });
+
+    private _inProgress: boolean = false;
+
+    private async internalMaskSecrets(editor: vscode.TextEditor, secretsMap: SecretMapEntry[]): Promise<string[]> {
+        
+        const decorations: vscode.Range[] = [];
+        const missingSecrets: string[] = [];
+
+        // Need to sort the map by positions
+        secretsMap.sort((a, b) => a.pos - b.pos);
+
+        // Need to adjust positions, if there're some stashed secrets in there
+        var posShift = 0;
+
+        for (var secretPos of secretsMap) {
+
+            const anchorName = this.getAnchorName(secretPos.name);
+
+            const secretText = editor.document.getText(new vscode.Range(
+                editor.document.positionAt(secretPos.pos + posShift),
+                editor.document.positionAt(secretPos.pos + posShift + secretPos.length)
+            ));
+
+            if (secretText.startsWith(anchorName)) {
+
+                // If this secret is stashed, then keeping it as it is and adjusting posShift
+                posShift += anchorName.length - secretPos.length;
+
+            } else if (this._repo.getHash(secretText) !== secretPos.hash ) {
+                
+                missingSecrets.push(secretPos.name);
+            
+            } else {
+
+                // Masking this secret
+                decorations.push(new vscode.Range(
+                    editor.document.positionAt(secretPos.pos + posShift),
+                    editor.document.positionAt(secretPos.pos + secretPos.length + posShift)
+                ));
+            }
+        }
+
+        editor.setDecorations(this._hiddenTextDecoration, decorations);
+
+        return missingSecrets;
+    }
     
     private async addSecret(type: SecretTypeEnum, controlType: ControlTypeEnum, secretName: string | undefined = undefined, properties: any = undefined): Promise<boolean> {
 
@@ -350,7 +388,15 @@ export class KeyShepherd {
         return `@KeyShepherd(${secretName})`;
     }
 
-    private async toggleSecretsInText(filePath: string, text: string, secrets: { [name: string]: string }, secretsToAnchors: boolean): Promise<string> {
+    private maskAllText(editor: vscode.TextEditor): void {
+        
+        editor.setDecorations(this._hiddenTextDecoration, [new vscode.Range(
+            editor.document.positionAt(0),
+            editor.document.positionAt(editor.document.getText().length)
+        )] );
+    }
+
+    private async stashUnstashSecrets(filePath: string, text: string, secrets: { [name: string]: string }, stash: boolean): Promise<string> {
 
         var outputText = '';
 
@@ -366,8 +412,8 @@ export class KeyShepherd {
 
                 const anchorName = this.getAnchorName(secretName);
 
-                const toFind = secretsToAnchors ? secrets[secretName]: anchorName;
-                const toReplace = secretsToAnchors ? anchorName : secrets[secretName];
+                const toFind = stash ? secrets[secretName]: anchorName;
+                const toReplace = stash ? anchorName : secrets[secretName];
 
                 if (!!text.startsWith(toFind, pos)) {
 
@@ -407,6 +453,9 @@ export class KeyShepherd {
             await this.askUserAboutMissingSecrets(filePath, missingSecretNames);
         }
 
+        // Updating secrets map
+        await this.updateSecretMapForFile(filePath, outputText, secrets);
+
         return outputText;
     }
 
@@ -421,7 +470,7 @@ export class KeyShepherd {
             var fileText = Buffer.from(fileBytes).toString();
 
             // Replacing secret values with @KeyShepherd() links
-            const outputFileText = await this.toggleSecretsInText(filePath, fileText, controlledSecretValues, true);
+            const outputFileText = await this.stashUnstashSecrets(filePath, fileText, controlledSecretValues, true);
 
             // Saving file contents back
             await vscode.workspace.fs.writeFile(fileUri, Buffer.from(outputFileText));
@@ -435,6 +484,11 @@ export class KeyShepherd {
 
         try {
 
+            var currentEditor = vscode.window.activeTextEditor;
+            if (!!currentEditor && (currentEditor.document.uri.toString() !== filePath)) {
+                currentEditor = undefined;
+            }
+
             const fileUri = vscode.Uri.parse(filePath);
 
             // Reading current file contents
@@ -442,7 +496,28 @@ export class KeyShepherd {
             var fileText = Buffer.from(fileBytes).toString();
 
             // Replacing @KeyShepherd() links with secret values
-            const outputFileText = await this.toggleSecretsInText(filePath, fileText, controlledSecretValues, false);
+            const outputFileText = await this.stashUnstashSecrets(filePath, fileText, controlledSecretValues, false);
+
+            // Temporarily hiding everything. This seems to be the only way to prevent secret values from flashing.
+            // Only doing this if the text has actually changed, because otherwise onDidChangeTextDocument event won't be triggered.
+            if (!!currentEditor && (outputFileText !== fileText)) {
+
+                this.maskAllText(currentEditor);
+            }
+
+            // Subscribing to document refresh event, if this is the active document. Needs to be done _before_ saving the text.
+            if (!!currentEditor) {
+                
+                const eventToken = vscode.workspace.onDidChangeTextDocument(async (evt) => {
+                    eventToken.dispose();
+
+                    if (evt.document.uri.toString() === filePath) {
+    
+                        var secretMap = await this._mapRepo.getSecretMapForFile(filePath);
+                        await this.internalMaskSecrets(currentEditor!, secretMap);
+                    }
+                });
+            }
 
             // Saving file contents back
             await vscode.workspace.fs.writeFile(fileUri, Buffer.from(outputFileText));
@@ -459,7 +534,7 @@ export class KeyShepherd {
         const outputMap: SecretMapEntry[] = []
 
         // Searching for all secrets in this text
-        var pos = 0;
+        var pos = 0, posShift = 0;
         while (pos < text.length) {
 
             var somethingFound = false;
@@ -467,15 +542,28 @@ export class KeyShepherd {
             // checking if any of the secrets appears at current position
             for (var secret of secrets) {
 
+                const anchorName = this.getAnchorName(secret.name);
                 const secretValue = secretValues[secret.name];
 
-                if (!!secretValue) {
+                if (!!text.startsWith(anchorName, pos)) {
+
+                    // This secret appears in its stashed form. Let's write it down and adjust further positions
+
+                    outputMap.push({ name: secret.name, hash: secret.hash, pos: pos + posShift, length: secret.length });
+
+                    pos += anchorName.length;
+                    somethingFound = true;
+
+                    posShift += secret.length - anchorName.length;
+
+                }
+                else if (!!secretValue) {
                     
                     // If we know the secret value, then just checking whether it matches
                     if (!!text.startsWith(secretValue, pos)) {
 
                         // Found this secret's position. Let's write it down.
-                        outputMap.push({ name: secret.name, hash: secret.hash, pos, length: secretValue.length });
+                        outputMap.push({ name: secret.name, hash: secret.hash, pos: pos + posShift, length: secretValue.length });
 
                         pos += secretValue.length;
                         somethingFound = true;
@@ -483,13 +571,13 @@ export class KeyShepherd {
 
                 } else {
 
-                    // Otherwise calculating and trying to match the hash
+                    // Otherwise calculating and trying to match the hash. Might take time, but no other options...
                     const currentHash = this._repo.getHash(text.substr(pos, secret.length));
                     
                     if (currentHash === secret.hash) {
 
                         // Found this secret's position. Let's write it down.
-                        outputMap.push({ name: secret.name, hash: secret.hash, pos, length: secret.length });
+                        outputMap.push({ name: secret.name, hash: secret.hash, pos: pos + posShift, length: secret.length });
 
                         pos += secret.length;
                         somethingFound = true;
