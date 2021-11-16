@@ -333,6 +333,7 @@ export class KeyShepherd {
             filePath: currentFile,
             hash: secretHash,
             length: secretValue.length,
+            timestamp: new Date(),
             properties
         });
 

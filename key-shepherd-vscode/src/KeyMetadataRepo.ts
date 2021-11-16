@@ -22,6 +22,7 @@ export type ControlledSecret = {
     filePath: string;
     hash: string;
     length: number;
+    timestamp: Date;
     properties: any;
 }
 
@@ -120,6 +121,17 @@ export class KeyMetadataRepo {
     }
 
     async addSecret(secret: ControlledSecret): Promise<void> {
+
+        // Allowing secrets with same name and hash, but disallowing secrets with same name and different hash
+        const secretsWithSameName = this._secrets.filter(s => s.filePath === secret.filePath && s.name === secret.name);
+        if (!!secretsWithSameName.find(s => s.hash != secret.hash)) {
+            
+            throw new Error('A secret with same name but different hash already exists in this file');
+
+        } else if (secretsWithSameName.length > 0) {
+            
+            return;
+        }
 
         const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(secret.filePath)), `${encodePathSegment(secret.name)}.json`);
 
