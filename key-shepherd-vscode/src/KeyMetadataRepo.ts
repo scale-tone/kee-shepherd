@@ -1,7 +1,7 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as CryptoJS from 'crypto-js';
+import * as Crypto from 'crypto';
 
 export enum SecretTypeEnum {
     Unknown = 0,
@@ -65,7 +65,7 @@ export class KeyMetadataRepo {
 
     private _salt: string = '';
 
-    get salt(): string {
+    private get salt(): string {
 
         if (!!this._salt) {
             return this._salt;
@@ -74,8 +74,8 @@ export class KeyMetadataRepo {
         const saltFileName = path.join(this._storageFolder, 'salt.dat');
 
         try {
-
-            var newSalt = CryptoJS.lib.WordArray.random(128).toString(CryptoJS.enc.Base64);
+           
+            const newSalt = Crypto.randomBytes(128).toString('hex');
 
             // Making sure the file is being created exclusively
             fs.writeFileSync(saltFileName, newSalt, { flag: 'wx' });
@@ -90,8 +90,7 @@ export class KeyMetadataRepo {
 
     getHash(str: string): string {
 
-        const hash = CryptoJS.SHA256(str + this.salt);
-        return hash.toString(CryptoJS.enc.Base64);
+        return Crypto.createHash('sha256').update(str + this.salt).digest('base64');
     }
 
     private constructor(private _storageFolder: string, private _secrets: ControlledSecret[]) { }
@@ -138,7 +137,7 @@ export class KeyMetadataRepo {
             return;
         }
 
-        const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(secret.filePath)), `${encodePathSegment(secret.name)}.json`);
+        const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(secret.filePath), `${encodePathSegment(secret.name)}.json`);
 
         if (!fs.existsSync(path.dirname(secretFilePath))) {
             await fs.promises.mkdir(path.dirname(secretFilePath));
@@ -153,7 +152,7 @@ export class KeyMetadataRepo {
 
         const promises = names.map(secretName => {
 
-            const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(filePath)), `${encodePathSegment(secretName)}.json`);
+            const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(filePath), `${encodePathSegment(secretName)}.json`);
 
             return fs.promises.rm(secretFilePath, { force: true });
         });
