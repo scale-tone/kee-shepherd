@@ -8,6 +8,8 @@ import { KeyMetadataRepo, SecretTypeEnum, ControlTypeEnum, ControlledSecret } fr
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
 import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
+import { StorageManagementClient } from '@azure/arm-storage';
+import axios from 'axios';
 
 export abstract class KeyShepherdBase {
 
@@ -118,20 +120,68 @@ export abstract class KeyShepherdBase {
         return true;
     }
 
-    protected async getSecretValue(secret: ControlledSecret): Promise<string> {
+    protected resourceManagerResponseToKeys(data: any): { label: string, value: string }[] | undefined {
+        
+        var keys;
 
-        if (secret.type !== SecretTypeEnum.AzureKeyVault || !secret.properties) {
-            return '';
+        if (!data) {
+        
+            return;
+        
+        } else if (!!data.keys && Array.isArray(data.keys)) {
+        
+            keys = data.keys.map((k: any) => { return { label: k.keyName, value: k.value }; });
+
+        } else {
+
+            keys = Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
         }
 
-        // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId, 'https://vault.azure.net');
+        return keys;
+    }
+
+    protected async getSecretValue(secret: ControlledSecret): Promise<string> {
+
+        switch (secret.type) {
+            case SecretTypeEnum.AzureKeyVault: {
+
+                // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
+                const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId, 'https://vault.azure.net');
                 
-        const keyVaultClient = new SecretClient(`https://${secret.properties.keyVaultName}.vault.azure.net`, tokenCredentials as any);
+                const keyVaultClient = new SecretClient(`https://${secret.properties.keyVaultName}.vault.azure.net`, tokenCredentials as any);
+                const keyVaultSecret = await keyVaultClient.getSecret(secret.properties.keyVaultSecretName);
+                return keyVaultSecret.value ?? '';
+            }   
+            case SecretTypeEnum.AzureStorage: {
 
-        const keyVaultSecret = await keyVaultClient.getSecret(secret.properties.keyVaultSecretName);
+                const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
+                const storageManagementClient = new StorageManagementClient(tokenCredentials, secret.properties.subscriptionId);
 
-        return keyVaultSecret.value ?? '';
+                const storageKeys = await storageManagementClient.storageAccounts.listKeys(secret.properties.resourceGroupName, secret.properties.storageAccountName);
+                if (!storageKeys.keys) {
+                    return '';
+                }
+
+                const storageKey = storageKeys.keys!.find(k => k.keyName === secret.properties.storageAccountKeyName);
+                return storageKey?.value ?? '';
+            }
+            case SecretTypeEnum.Custom: {
+
+                const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
+                const token = await tokenCredentials.getToken();
+
+                const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        
+                const keys = this.resourceManagerResponseToKeys(response.data);
+                if (!keys) {
+                    return '';
+                }
+
+                return keys.find(k => k.label === secret.properties.keyName)?.value ?? '';
+            }
+            default:
+                return '';
+        }
     }
 
     protected async getSecretValues(secrets: ControlledSecret[]): Promise<{[name: string]: string}> {
@@ -406,7 +456,7 @@ export abstract class KeyShepherdBase {
         });
     }
 
-    protected async pickUpSubscriptionAndKeyVault(): Promise<{ name: string, subscriptionId: string } | undefined> {
+    protected async pickUpSubscription(): Promise<AzureSubscription | undefined> {
         
         // Picking up a subscription
 
@@ -441,9 +491,7 @@ export abstract class KeyShepherdBase {
             subscription = subscriptions[0];
         }
 
-        const keyVaultName = await this.pickUpKeyVault(subscription);
-
-        return !!keyVaultName ? { name: keyVaultName, subscriptionId: subscription.subscription.subscriptionId } : undefined;
+        return subscription;
     }
 
     protected async doAndShowError(todo: () => Promise<void>, errorMessage: string): Promise<void> {

@@ -1,14 +1,19 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import axios from 'axios';
 
 import { SecretClient } from '@azure/keyvault-secrets';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
+import { StorageManagementClient } from '@azure/arm-storage';
+import { StorageAccount } from "@azure/arm-storage/src/models";
 
 import { KeyMetadataRepo, SecretTypeEnum, ControlTypeEnum, ControlledSecret } from './KeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
 import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
 import { KeyShepherdBase } from './KeyShepherdBase';
+
+type SelectedSecretType = { type: SecretTypeEnum, name: string, value: string, properties: any };
 
 export class KeyShepherd extends KeyShepherdBase {
 
@@ -61,7 +66,7 @@ export class KeyShepherd extends KeyShepherdBase {
             var missingSecrets = await this.internalMaskSecrets(editor, secretMap);
 
             // If some secrets were not found, then trying to update the map and then mask again
-            if (!!updateMapIfSomethingNotFound && missingSecrets.length > 0) {
+            if ( !!updateMapIfSomethingNotFound && missingSecrets.length > 0) {
                
                 // Using empty values in a hope that updateSecretMapForFile() will be able to match by hashes
                 missingSecrets = await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
@@ -114,10 +119,6 @@ export class KeyShepherd extends KeyShepherdBase {
 
             await this.stashUnstashSecretsInFile(currentFile, stash, secretsValuesMap);
 
-//            await (!!stash ?
-//                this.stashSecretsInFile(currentFile, secretsValuesMap) :
-//                this.unstashSecretsInFile(currentFile, secretsValuesMap));
-
         }, 'KeyShepherd failed');
     }
 
@@ -164,17 +165,258 @@ export class KeyShepherd extends KeyShepherdBase {
         }, 'KeyShepherd failed');
     }
 
-    protected async pickUpSecretFromKeyVault(): Promise<{ type: SecretTypeEnum, name: string, value: string, properties: any } | undefined> {
+    async controlSecret(controlType: ControlTypeEnum): Promise<void> {
 
-        const keyVault = await this.pickUpSubscriptionAndKeyVault();
-        if (!keyVault) {
+        await this.doAndShowError(async () => {
+
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                return;
+            }
+
+            const currentFile = editor.document.uri.toString();
+            if (!currentFile) {
+                return;
+            }
+
+            const secretValue = editor.document.getText(editor.selection);
+            const secretHash = this._repo.getHash(secretValue);
+
+            const secretName = await this.askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+
+            // Managed secrets always go to KeyVault, supervised go there only by user's request
+            var alsoAddToKeyVault = true;
+            if (controlType === ControlTypeEnum.Supervised) {
+                alsoAddToKeyVault = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Do you want to also put this secret to Azure Key Vault?' }) === 'Yes';
+            }
+
+            if (!alsoAddToKeyVault) {
+
+                // Just adding the secret as unknown
+
+                await this._repo.addSecret({
+                    name: secretName,
+                    type: SecretTypeEnum.Unknown,
+                    controlType,
+                    filePath: currentFile,
+                    hash: secretHash,
+                    length: secretValue.length,
+                    timestamp: new Date()
+                });
+                
+            } else {
+
+                const subscription = await this.pickUpSubscription();
+                if (!subscription) {
+                    return;
+                }
+                
+                const subscriptionId = subscription.subscription.subscriptionId;
+                const keyVaultName = await this.pickUpKeyVault(subscription);
+    
+                if (!keyVaultName) {
+                    return;
+                }
+    
+                // First adding the metadata
+    
+                await this._repo.addSecret({
+                    name: secretName,
+                    type: SecretTypeEnum.AzureKeyVault,
+                    controlType,
+                    filePath: currentFile,
+                    hash: secretHash,
+                    length: secretValue.length,
+                    timestamp: new Date(),
+                    properties: {
+                        subscriptionId: subscriptionId,
+                        keyVaultName: keyVaultName,
+                        keyVaultSecretName: secretName
+                    }
+                });
+    
+                // Then adding this secret to KeyVault
+                try {
+    
+                    // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
+                    const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
+    
+                    const keyVaultClient = new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
+    
+                    await keyVaultClient.setSecret(secretName, secretValue);
+                    
+                } catch (err) {
+                    
+                    // Dropping the just created secret upon failure
+                    this._repo.removeSecrets(currentFile, [secretName]);
+    
+                    throw err;
+                }    
+            }
+
+
+            // Also updating secret map for this file
+            const secrets = await this._repo.getSecretsInFile(currentFile);
+            const secretValues = await this.getSecretValues(secrets);
+            await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
+
+            vscode.window.showInformationMessage(`KeyShepherd: ${secretName} was added successfully.`);
+            
+        }, 'KeyShepherd failed to add a secret');
+    }
+
+
+    async insertSecret(controlType: ControlTypeEnum): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                return;
+            }
+
+            const currentFile = editor.document.uri.toString();
+            if (!currentFile) {
+                return;
+            }
+
+            const secretType = await vscode.window.showQuickPick(
+                [
+                    { label: 'Azure Key Vault', type: SecretTypeEnum.AzureKeyVault },
+                    { label: 'Azure Storage', type: SecretTypeEnum.AzureStorage },
+                    { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.Custom },
+                ], 
+                { title: 'Select where to take the secret from' }
+            );
+
+            if (!secretType) {
+                return;
+            }
+
+            var secret: SelectedSecretType | undefined;
+            switch (secretType.type) {
+                case SecretTypeEnum.AzureKeyVault:
+                    secret = await this.pickUpSecretFromKeyVault();
+                    break;
+                case SecretTypeEnum.AzureStorage:
+                    secret = await this.pickUpSecretFromStorage();
+                    break;
+                case SecretTypeEnum.Custom:
+                    secret = await this.pickUpCustomSecret();
+                    break;
+            }
+
+            if (!secret) {
+                return;
+            }
+            
+            // Pasting secret value at current cursor position
+            var success = await editor.edit(edit => {
+                edit.replace(editor.selection, secret!.value);
+            });
+
+            if (!success) {
+                return;
+            }
+
+            const localSecretName = await this.askUserForSecretName(secret.name);
+            if (!localSecretName) {
+                return;
+            }
+
+            success = !!await this.addSecret(secret.type, controlType, localSecretName, secret.properties);
+
+            if (!!success) {
+
+                await editor.document.save();
+
+                vscode.window.showInformationMessage(`KeyShepherd: ${localSecretName} was added successfully.`);
+            }
+
+        }, 'KeyShepherd failed to insert a secret');
+    }
+
+    protected async pickUpCustomSecret(): Promise<SelectedSecretType | undefined> {
+
+        var uri = await vscode.window.showInputBox({
+            prompt: 'Enter Azure Resource Manager REST API URL',
+            placeHolder: `e.g. '/subscriptions/my-subscription-id/resourceGroups/my-group-name/providers/Microsoft.Storage/storageAccounts/my-account/listKeys?api-version=2021-04-01'`
+        });
+        
+        if (!uri) {
+            return;
+        }
+
+        if (!uri.toLowerCase().startsWith('https://management.azure.com')) {
+
+            if (!uri.startsWith('/')) {
+                uri = '/' + uri;
+            }
+            
+            uri = 'https://management.azure.com' + uri;
+        }
+
+        if (!uri.includes('api-version=')) {
+            uri += '?api-version=2021-04-01';
+        }
+
+        // Extracting subscriptionId
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups/gi.exec(uri);
+        if (!match || match.length <= 0) {
+            return;
+        }
+        const subscriptionId = match[1];
+
+        // Obtaining default token
+        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
+        const token = await tokenCredentials.getToken();
+
+        const response = await axios.post(uri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        
+        const keys = this.resourceManagerResponseToKeys(response.data);
+        if (!keys) {
+            return;
+        }
+        
+        const key = await vscode.window.showQuickPick(keys, { title: 'Select which key to use' });
+
+        if (!key) {
+            return;
+        }
+
+        return {
+            type: SecretTypeEnum.Custom,
+            name: key.label,
+            value: key.value,
+            properties: {
+                subscriptionId,
+                resourceManagerUri: uri,
+                keyName: key.label
+            }
+        };
+    }
+
+    protected async pickUpSecretFromKeyVault(): Promise<SelectedSecretType | undefined> {
+
+        const subscription = await this.pickUpSubscription();
+        if (!subscription) {
+            return;
+        }
+        
+        const subscriptionId = subscription.subscription.subscriptionId;
+        const keyVaultName = await this.pickUpKeyVault(subscription);
+
+        if (!keyVaultName) {
             return;
         }
         
         // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-        const tokenCredentials = await this._account.getTokenCredentials(keyVault.subscriptionId, 'https://vault.azure.net');
+        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
 
-        const keyVaultClient = new SecretClient(`https://${keyVault.name}.vault.azure.net`, tokenCredentials as any);
+        const keyVaultClient = new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
 
         const secretNames = [];
         for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
@@ -197,127 +439,82 @@ export class KeyShepherd extends KeyShepherdBase {
             name: secretName,
             value: secret.value,
             properties: {
-                subscriptionId: keyVault.subscriptionId,
-                keyVaultName: keyVault.name,
+                subscriptionId: subscriptionId,
+                keyVaultName,
                 keyVaultSecretName: secretName
             }
         }
     }
 
-    async insertSecret(controlType: ControlTypeEnum): Promise<void> {
+    protected async pickUpSecretFromStorage(): Promise<SelectedSecretType | undefined> {
 
-        await this.doAndShowError(async () => {
+        const subscription = await this.pickUpSubscription();
+        if (!subscription) {
+            return;
+        }
+        
+        const subscriptionId = subscription.subscription.subscriptionId;
+        const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId);
 
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                return;
-            }
+        const storageAccounts: StorageAccount[] = [];
 
-            const currentFile = editor.document.uri.toString();
-            if (!currentFile) {
-                return;
-            }
+        var storageAccountsPartialResponse = await storageManagementClient.storageAccounts.list();
+        storageAccounts.push(...storageAccountsPartialResponse);
 
-            const secret = await this.pickUpSecretFromKeyVault();
-            if (!secret) {
-                return;
-            }
-            
-            var success = await editor.edit(edit => {
-                edit.replace(editor.selection, secret.value);
-            });
+        while (!!storageAccountsPartialResponse.nextLink) {
 
-            if (!success) {
-                return;
-            }
+            storageAccountsPartialResponse = await storageManagementClient.storageAccounts.listNext(storageAccountsPartialResponse.nextLink);
+            storageAccounts.push(...storageAccountsPartialResponse);
+        }
 
-            const localSecretName = await this.askUserForSecretName(secret.name);
-            if (!localSecretName) {
-                return;
-            }
-
-            success = !!await this.addSecret(SecretTypeEnum.AzureKeyVault, controlType, localSecretName, secret.properties);
-
-            if (!!success) {
-
-                await editor.document.save();
-
-                vscode.window.showInformationMessage(`KeyShepherd: ${localSecretName} was added successfully.`);
-            }
-
-        }, 'KeyShepherd failed to insert a secret');
-    }
-
-    async controlSecret(controlType: ControlTypeEnum): Promise<void> {
-
-        await this.doAndShowError(async () => {
-
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                return;
-            }
-
-            const currentFile = editor.document.uri.toString();
-            if (!currentFile) {
-                return;
-            }
-
-            const keyVault = await this.pickUpSubscriptionAndKeyVault();
-            if (!keyVault) {
-                return;
-            }
-
-            const secretName = await this.askUserForSecretName();
-            if (!secretName) {
-                return;
-            }
-
-            // First adding the metadata
-
-            const secretValue = editor.document.getText(editor.selection);
-            const secretHash = this._repo.getHash(secretValue);
-
-            await this._repo.addSecret({
-                name: secretName,
-                type: SecretTypeEnum.AzureKeyVault,
-                controlType,
-                filePath: currentFile,
-                hash: secretHash,
-                length: secretValue.length,
-                timestamp: new Date(),
-                properties: {
-                    subscriptionId: keyVault.subscriptionId,
-                    keyVaultName: keyVault.name,
-                    keyVaultSecretName: secretName
+        const storageAccount = await vscode.window.showQuickPick(storageAccounts.map(account => {
+                return {
+                    label: account.name!,
+                    description: account.kind,
+                    detail: account.location,
+                    account
                 }
-            });
+            }), 
+            { title: 'Select Storage Account' }
+        );
 
-            // Then adding this secret to KeyVault
-            try {
+        if (!storageAccount) {
+            return;
+        }
 
-                // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-                const tokenCredentials = await this._account.getTokenCredentials(keyVault.subscriptionId, 'https://vault.azure.net');
+        // Extracting resource group name
+        const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.account.id!);
+        if (!match || match.length <= 0) {
+            return;
+        }
+        const resourceGroupName = match[1];
 
-                const keyVaultClient = new SecretClient(`https://${keyVault.name}.vault.azure.net`, tokenCredentials as any);
+        const storageKeys = await storageManagementClient.storageAccounts.listKeys(resourceGroupName, storageAccount.account.name!);
 
-                await keyVaultClient.setSecret(secretName, secretValue);
-                
-            } catch (err) {
-                
-                // Dropping the just created secret upon failure
-                this._repo.removeSecrets(currentFile, [secretName]);
+        const storageKey = await vscode.window.showQuickPick(storageKeys.keys!.map(key => {
+                return {
+                    label: key.keyName!,
+                    description: `created ${key.creationTime}`,
+                    key
+                }
+            }), 
+            { title: 'Select Storage Account Key' }
+        );
 
-                throw err;
+        if (!storageKey) {
+            return;
+        }
+
+        return {
+            type: SecretTypeEnum.AzureStorage,
+            name: `${storageAccount.account.name}-${storageKey.key.keyName}`,
+            value: storageKey.key.value!,
+            properties: {
+                subscriptionId: subscriptionId,
+                resourceGroupName,
+                storageAccountName: storageAccount.account.name,
+                storageAccountKeyName: storageKey.key.keyName
             }
-
-            // Also updating secret map for this file
-            const secrets = await this._repo.getSecretsInFile(currentFile);
-            const secretValues = await this.getSecretValues(secrets);
-            await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
-
-            vscode.window.showInformationMessage(`KeyShepherd: ${secretName} was added successfully.`);
-            
-        }, 'KeyShepherd failed to add a secret');
+        }
     }
-
 }

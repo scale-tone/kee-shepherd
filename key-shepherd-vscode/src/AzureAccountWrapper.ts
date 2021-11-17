@@ -24,7 +24,7 @@ export class AzureAccountWrapper {
         return this._account.filters;
     }
 
-    async getTokenCredentials(subscriptionId: string, resourceId: string): Promise<DeviceTokenCredentials> {
+    async getTokenCredentials(subscriptionId: string, resourceId: string = ''): Promise<DeviceTokenCredentials> {
 
         const subscription = (await this.getSubscriptions()).find(s => s.subscription.subscriptionId === subscriptionId);
 
@@ -32,8 +32,13 @@ export class AzureAccountWrapper {
             throw new Error(`Invalid subscriptionId '${subscriptionId}'`);
         }
 
-        const tokenCredential = subscription.session.credentials2 as DeviceTokenCredentials;
+        if (!resourceId) {
+            
+            // Assuming the default resourceId and returning default credentials object
+            return subscription.session.credentials2 as DeviceTokenCredentials;
+        }
 
+        const tokenCredential = subscription.session.credentials2 as DeviceTokenCredentials;
         const environment = tokenCredential.environment;
 
         // Need to provide the correct resourceId for the token.

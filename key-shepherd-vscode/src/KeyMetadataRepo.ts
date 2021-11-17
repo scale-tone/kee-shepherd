@@ -7,6 +7,7 @@ export enum SecretTypeEnum {
     Unknown = 0,
     AzureKeyVault,
     AzureStorage,
+    Custom,
 }
 
 export enum ControlTypeEnum {
@@ -23,7 +24,7 @@ export type ControlledSecret = {
     hash: string;
     length: number;
     timestamp: Date;
-    properties: any;
+    properties?: any;
 }
 
 export function getHashCode(str: string): number {
