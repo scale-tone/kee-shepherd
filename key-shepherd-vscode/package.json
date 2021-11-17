@@ -32,11 +32,11 @@
         "commands": [
             {
                 "command": "key-shepherd-vscode.stashAllWorkspaceSecrets",
-                "title": "KeyShepherd: Stash all controlled secrets in this project"
+                "title": "KeyShepherd: Stash All Secrets in this Project"
             },
             {
                 "command": "key-shepherd-vscode.unstashAllWorkspaceSecrets",
-                "title": "KeyShepherd: Unstash all controlled secrets in this project"
+                "title": "KeyShepherd: Unstash All Secrets in this Project"
             },
             {
                 "command": "key-shepherd-vscode.maskSecrets",
@@ -60,15 +60,15 @@
             },
             {
                 "command": "key-shepherd-vscode.editor-context.controlSecret",
-                "title": "Control this Secret..."
+                "title": "Manage this Secret..."
             },
             {
                 "command": "key-shepherd-vscode.editor-context.insertSupervisedSecret",
                 "title": "Insert a Supervised Secret Here..."
             },
             {
-                "command": "key-shepherd-vscode.editor-context.insertControlledSecret",
-                "title": "Insert a Controlled Secret Here..."
+                "command": "key-shepherd-vscode.editor-context.insertManagedSecret",
+                "title": "Insert a Managed Secret Here..."
             },
             {
                 "command": "key-shepherd-vscode.editor-context.maskSecrets",
@@ -101,7 +101,7 @@
                 "when": "never"
             },
             {
-                "command": "key-shepherd-vscode.editor-context.insertControlledSecret",
+                "command": "key-shepherd-vscode.editor-context.insertManagedSecret",
                 "when": "never"
             },
             {
@@ -149,7 +149,7 @@
                     "group": "key-shepherd-vscode.editor-context-group1@3"
                 },
                 {
-                    "command": "key-shepherd-vscode.editor-context.insertControlledSecret",
+                    "command": "key-shepherd-vscode.editor-context.insertManagedSecret",
                     "group": "key-shepherd-vscode.editor-context-group1@4"
                 },
                 {

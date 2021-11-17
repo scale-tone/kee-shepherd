@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { ControlTypeEnum } from './KeyMetadataRepo';
+import { ControlTypeEnum } from './KeyMetadataHelpers';
 import { KeyShepherd } from './KeyShepherd';
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -12,10 +12,10 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
 
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.superviseSecret', () => shepherd.controlSecret(ControlTypeEnum.Supervised)),
-        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.controlSecret', () => shepherd.controlSecret(ControlTypeEnum.Controlled)),
+        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.controlSecret', () => shepherd.controlSecret(ControlTypeEnum.Managed)),
 
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.insertSupervisedSecret', () => shepherd.insertSecret(ControlTypeEnum.Supervised)),
-        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.insertControlledSecret', () => shepherd.insertSecret(ControlTypeEnum.Controlled)),
+        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.insertManagedSecret', () => shepherd.insertSecret(ControlTypeEnum.Managed)),
 
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.maskSecrets', () => shepherd.maskSecretsInThisFile(true)),
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.unmaskSecrets', () => shepherd.unmaskSecretsInThisFile()),

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { getHashCode, getFullPathThatFits, encodePathSegment } from './KeyMetadataRepo';
+import { getHashCode, getFullPathThatFits, encodePathSegment } from './KeyMetadataHelpers';
 
 export type SecretMapEntry = {
     name: string;

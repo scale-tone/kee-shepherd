@@ -4,7 +4,8 @@ import * as vscode from 'vscode';
 import { SecretClient } from '@azure/keyvault-secrets';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
-import { KeyMetadataRepo, SecretTypeEnum, ControlTypeEnum, ControlledSecret } from './KeyMetadataRepo';
+import { SecretTypeEnum, ControlTypeEnum, ControlledSecret } from './KeyMetadataHelpers';
+import { KeyMetadataRepo } from './KeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
 import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
@@ -281,7 +282,7 @@ export abstract class KeyShepherdBase {
         return outputText;
     }
     
-    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, controlledSecretValues: {[name:string]:string}): Promise<void> {
+    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: {[name:string]:string}): Promise<void> {
 
         try {
 
@@ -297,7 +298,7 @@ export abstract class KeyShepherdBase {
             var fileText = Buffer.from(fileBytes).toString();
 
             // Replacing @KeyShepherd() links with secret values
-            const outputFileText = await this.internalStashUnstashSecrets(filePath, fileText, controlledSecretValues, stash);
+            const outputFileText = await this.internalStashUnstashSecrets(filePath, fileText, managedSecretValues, stash);
 
             // Temporarily hiding everything. This seems to be the only way to prevent secret values from flashing.
             // Only doing this if the text has actually changed, because otherwise onDidChangeTextDocument event won't be triggered.

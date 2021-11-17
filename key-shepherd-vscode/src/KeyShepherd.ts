@@ -3,14 +3,12 @@ import * as vscode from 'vscode';
 import axios from 'axios';
 
 import { SecretClient } from '@azure/keyvault-secrets';
-import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
 
-import { KeyMetadataRepo, SecretTypeEnum, ControlTypeEnum, ControlledSecret } from './KeyMetadataRepo';
+import { SecretTypeEnum, ControlTypeEnum } from './KeyMetadataHelpers';
+import { KeyMetadataRepo } from './KeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
-import { SecretMapEntry } from './KeyMapRepo';
-import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
 import { KeyShepherdBase } from './KeyShepherdBase';
 
 type SelectedSecretType = { type: SecretTypeEnum, name: string, value: string, properties: any };
@@ -107,8 +105,8 @@ export class KeyShepherd extends KeyShepherdBase {
 
             const secretsValuesMap = secrets.reduce((result, currentSecret) => {
 
-                // Getting controlled secrets only
-                if (currentSecret.controlType === ControlTypeEnum.Controlled) {
+                // Getting managed secrets only
+                if (currentSecret.controlType === ControlTypeEnum.Managed) {
                     
                     result[currentSecret.name] = secretValues[currentSecret.name];
                 }
@@ -146,8 +144,8 @@ export class KeyShepherd extends KeyShepherdBase {
                     result[currentSecret.filePath] = {};
                 }
 
-                // Getting controlled secrets only
-                if (currentSecret.controlType === ControlTypeEnum.Controlled) {
+                // Getting managed secrets only
+                if (currentSecret.controlType === ControlTypeEnum.Managed) {
                     
                     result[currentSecret.filePath][currentSecret.name] = secretValues[currentSecret.name];
                 }
