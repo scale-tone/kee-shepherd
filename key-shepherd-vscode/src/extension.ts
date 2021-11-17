@@ -7,10 +7,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const shepherd = await KeyShepherd.create(context);
 
+    await shepherd.maskSecretsInThisFile(false);
+
     context.subscriptions.push(
 
-        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.superviseSecret', () => shepherd.superviseSecret()),
-        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.controlSecret', () => shepherd.controlSecret()),
+        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.superviseSecret', () => shepherd.controlSecret(ControlTypeEnum.Supervised)),
+        vscode.commands.registerCommand('key-shepherd-vscode.editor-context.controlSecret', () => shepherd.controlSecret(ControlTypeEnum.Controlled)),
 
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.insertSupervisedSecret', () => shepherd.insertSecret(ControlTypeEnum.Supervised)),
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.insertControlledSecret', () => shepherd.insertSecret(ControlTypeEnum.Controlled)),

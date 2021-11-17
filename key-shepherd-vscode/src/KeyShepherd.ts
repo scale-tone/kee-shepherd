@@ -94,6 +94,9 @@ export class KeyShepherd {
             if (!currentFile) {
                 return;
             }
+
+            // Making sure the file is not dirty
+            await editor.document.save();
     
             const secrets = await this._repo.getSecretsInFile(currentFile);
             const secretValues = await this.getSecretValues(secrets);
@@ -211,7 +214,12 @@ export class KeyShepherd {
                 return;
             }
 
-            success = await this.addSecret(SecretTypeEnum.AzureKeyVault, controlType, secretName, {
+            const localSecretName = await this.askUserForSecretName(secretName);
+            if (!localSecretName) {
+                return;
+            }
+
+            success = !!await this.addSecret(SecretTypeEnum.AzureKeyVault, controlType, localSecretName, {
                 subscriptionId: keyVault.subscriptionId,
                 keyVaultName: keyVault.name,
                 keyVaultSecretName: secretName
@@ -220,27 +228,83 @@ export class KeyShepherd {
             if (!!success) {
 
                 await editor.document.save();
+
+                vscode.window.showInformationMessage(`KeyShepherd: ${secretName} was added successfully.`);
             }
 
-        }, 'KeyShepherd failed');
+        }, 'KeyShepherd failed to insert a secret');
     }
 
-    async superviseSecret(): Promise<void> {
-        
-        await this.doAndShowError(async () => {
-
-            await this.addSecret(SecretTypeEnum.Unknown, ControlTypeEnum.Supervised);
-
-        }, 'KeyShepherd failed to add a supervised secret');
-    }
-
-    async controlSecret(): Promise<void> {
+    async controlSecret(controlType: ControlTypeEnum): Promise<void> {
 
         await this.doAndShowError(async () => {
 
-            await this.addSecret(SecretTypeEnum.Unknown, ControlTypeEnum.Controlled);
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                return;
+            }
+
+            const currentFile = editor.document.uri.toString();
+            if (!currentFile) {
+                return;
+            }
+
+            const keyVault = await this.pickUpSubscriptionAndKeyVault();
+            if (!keyVault) {
+                return;
+            }
+
+            const secretName = await this.askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+
+            // First adding the metadata
+
+            const secretValue = editor.document.getText(editor.selection);
+            const secretHash = this._repo.getHash(secretValue);
+
+            await this._repo.addSecret({
+                name: secretName,
+                type: SecretTypeEnum.AzureKeyVault,
+                controlType,
+                filePath: currentFile,
+                hash: secretHash,
+                length: secretValue.length,
+                timestamp: new Date(),
+                properties: {
+                    subscriptionId: keyVault.subscriptionId,
+                    keyVaultName: keyVault.name,
+                    keyVaultSecretName: secretName
+                }
+            });
+
+            // Then adding this secret to KeyVault
+            try {
+
+                // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
+                const tokenCredentials = await this._account.getTokenCredentials(keyVault.subscriptionId, 'https://vault.azure.net');
+
+                const keyVaultClient = new SecretClient(`https://${keyVault.name}.vault.azure.net`, tokenCredentials as any);
+
+                await keyVaultClient.setSecret(secretName, secretValue);
+                
+            } catch (err) {
+                
+                // Dropping the just created secret upon failure
+                this._repo.removeSecrets(currentFile, [secretName]);
+
+                throw err;
+            }
+
+            // Also updating secret map for this file
+            const secrets = await this._repo.getSecretsInFile(currentFile);
+            const secretValues = await this.getSecretValues(secrets);
+            await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
+
+            vscode.window.showInformationMessage(`KeyShepherd: ${secretName} was added successfully.`);
             
-        }, 'KeyShepherd failed to add a controlled secret');
+        }, 'KeyShepherd failed to add a secret');
     }
 
     private readonly _account = new AzureAccountWrapper();
@@ -295,8 +359,17 @@ export class KeyShepherd {
 
         return missingSecrets;
     }
+
+    private async askUserForSecretName(defaultSecretName: string | undefined = undefined): Promise<string | undefined> {
+
+        return await vscode.window.showInputBox({
+            value: defaultSecretName ?? `${vscode.workspace.name}-secret${this._repo.secretCount + 1}`,
+            prompt: 'Give your secret a name'
+        });
+
+    }
     
-    private async addSecret(type: SecretTypeEnum, controlType: ControlTypeEnum, secretName: string | undefined = undefined, properties: any = undefined): Promise<boolean> {
+    private async addSecret(type: SecretTypeEnum, controlType: ControlTypeEnum, secretName: string, properties: any = undefined): Promise<boolean> {
 
         const editor = vscode.window.activeTextEditor;
         if (!editor || (!!editor.selection.isEmpty)) {
@@ -310,21 +383,7 @@ export class KeyShepherd {
 
         const secretValue = editor.document.getText(editor.selection);
 
-        if (secretValue.length < 3) {
-            throw new Error(`Secret should be at least 3 symbols long`);
-        }
-
         const secretHash = this._repo.getHash(secretValue);
-
-        // Asking user for a secret name
-        secretName = await vscode.window.showInputBox({
-            value: secretName ?? `${vscode.workspace.name}-secret${this._repo.secretCount + 1}`,
-            prompt: 'Give your secret a name'
-        });
-
-        if (!secretName) {
-            return false;
-        }
 
         await this._repo.addSecret({
             name: secretName,
@@ -341,8 +400,6 @@ export class KeyShepherd {
         const secrets = await this._repo.getSecretsInFile(currentFile);
         const secretValues = await this.getSecretValues(secrets);
         await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
-
-        vscode.window.showInformationMessage(`KeyShepherd: ${secretName} was added successfully.`);
 
         return true;
     }
