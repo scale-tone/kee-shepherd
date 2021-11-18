@@ -1,12 +1,10 @@
-import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Crypto from 'crypto';
-import { ControlledSecret, getFullPathThatFits, encodePathSegment } from './KeyMetadataHelpers';
+import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash } from './KeyMetadataHelpers';
+import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 
-export class KeyMetadataRepo {
-
-    get secretCount() { return this._secrets.length; }
+export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     private _salt: string = '';
 
@@ -35,34 +33,29 @@ export class KeyMetadataRepo {
 
     getHash(str: string): string {
 
-        return Crypto.createHash('sha256').update(str + this.salt).digest('base64');
+        return getSha256Hash(str + this.salt);
     }
 
     private constructor(private _storageFolder: string, private _secrets: ControlledSecret[]) { }
 
-    static async create(storageFolder: string): Promise<KeyMetadataRepo> {
+    static async create(storageFolder: string): Promise<KeyMetadataLocalRepo> {
 
         if (!fs.existsSync(storageFolder)) {
             await fs.promises.mkdir(storageFolder, {recursive: true});
         }
 
         // Getting list of folders
-        const folders = await KeyMetadataRepo.getSubFolders(storageFolder);
+        const folders = await KeyMetadataLocalRepo.getSubFolders(storageFolder);
 
         // Reading all secrets from those folders
-        const secrets = await Promise.all(folders.map(KeyMetadataRepo.readSecretFilesFromFolder));
+        const secrets = await Promise.all(folders.map(KeyMetadataLocalRepo.readSecretFilesFromFolder));
         
-        return new KeyMetadataRepo(storageFolder, secrets.flat());
+        return new KeyMetadataLocalRepo(storageFolder, secrets.flat());
     }
 
-    async getSecretsInFolder(folder: string): Promise<ControlledSecret[]> {
+    async getSecrets(path: string, machineName?: string): Promise<ControlledSecret[]> {
 
-        return this._secrets.filter(s => s.filePath.toLowerCase().startsWith(folder.toLowerCase()));
-    }
-
-    async getSecretsInFile(file: string): Promise<ControlledSecret[]> {
-
-        return this._secrets.filter(s => s.filePath.toLowerCase() === file.toLowerCase());
+        return this._secrets.filter(s => s.filePath.toLowerCase().startsWith(path.toLowerCase()));
     }
 
     async addSecret(secret: ControlledSecret): Promise<void> {
@@ -77,9 +70,6 @@ export class KeyMetadataRepo {
             
             throw new Error('A secret with same name but different hash already exists in this file');
 
-        } else if (secretsWithSameName.length > 0) {
-
-            return;
         }
 
         const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(secret.filePath), `${encodePathSegment(secret.name)}.json`);
@@ -88,12 +78,12 @@ export class KeyMetadataRepo {
             await fs.promises.mkdir(path.dirname(secretFilePath));
         }
 
-        await fs.promises.writeFile(secretFilePath, JSON.stringify(secret, null, 3), { flag: 'wx' });
+        await fs.promises.writeFile(secretFilePath, JSON.stringify(secret, null, 3));
 
         this._secrets.push(secret);
     }
 
-    async removeSecrets(filePath: string, names: string[]): Promise<void> {
+    async removeSecrets(filePath: string, names: string[], machineName?: string): Promise<void> {
 
         const promises = names.map(secretName => {
 
@@ -133,7 +123,7 @@ export class KeyMetadataRepo {
 
     private async cleanupEmptyFolders(): Promise<void> {
 
-        const folders = await KeyMetadataRepo.getSubFolders(this._storageFolder);
+        const folders = await KeyMetadataLocalRepo.getSubFolders(this._storageFolder);
 
         const promises = folders.map(async folderPath => {
             try {

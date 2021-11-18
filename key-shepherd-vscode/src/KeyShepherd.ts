@@ -6,8 +6,9 @@ import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
 
-import { SecretTypeEnum, ControlTypeEnum } from './KeyMetadataHelpers';
-import { KeyMetadataRepo } from './KeyMetadataRepo';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix } from './KeyMetadataHelpers';
+import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { KeyShepherdBase } from './KeyShepherdBase';
 
@@ -15,7 +16,7 @@ type SelectedSecretType = { type: SecretTypeEnum, name: string, value: string, p
 
 export class KeyShepherd extends KeyShepherdBase {
 
-    private constructor(repo: KeyMetadataRepo, mapRepo: KeyMapRepo) {
+    private constructor(repo: IKeyMetadataRepo, mapRepo: KeyMapRepo) {
         super(repo, mapRepo);
     }
 
@@ -24,7 +25,7 @@ export class KeyShepherd extends KeyShepherdBase {
         const storageFolder = context.globalStorageUri.fsPath;
 
         return new KeyShepherd(
-            await KeyMetadataRepo.create(path.join(storageFolder, 'key-metadata')),
+            await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata')),
             await KeyMapRepo.create(path.join(storageFolder, 'key-maps')));
     }
 
@@ -100,7 +101,7 @@ export class KeyShepherd extends KeyShepherdBase {
             // Making sure the file is not dirty
             await editor.document.save();
     
-            const secrets = await this._repo.getSecretsInFile(currentFile);
+            const secrets = await this._repo.getSecrets(currentFile);
             const secretValues = await this.getSecretValues(secrets);
 
             const secretsValuesMap = secrets.reduce((result, currentSecret) => {
@@ -131,7 +132,7 @@ export class KeyShepherd extends KeyShepherdBase {
             // Making sure there're no dirty files open
             await vscode.workspace.saveAll();
 
-            const secretPromises = vscode.workspace.workspaceFolders.map(f => this._repo.getSecretsInFolder(f.uri.toString()));
+            const secretPromises = vscode.workspace.workspaceFolders.map(f => this._repo.getSecrets(f.uri.toString()));
             const secrets = (await Promise.all(secretPromises)).flat();
 
             // This must be done sequentially by now
@@ -178,6 +179,11 @@ export class KeyShepherd extends KeyShepherdBase {
             }
 
             const secretValue = editor.document.getText(editor.selection);
+
+            if (secretValue.startsWith(AnchorPrefix)) {
+                throw new Error(`Secret value should not start with ${AnchorPrefix}`);
+            }
+
             const secretHash = this._repo.getHash(secretValue);
 
             const secretName = await this.askUserForSecretName();
@@ -257,7 +263,7 @@ export class KeyShepherd extends KeyShepherdBase {
 
 
             // Also updating secret map for this file
-            const secrets = await this._repo.getSecretsInFile(currentFile);
+            const secrets = await this._repo.getSecrets(currentFile);
             const secretValues = await this.getSecretValues(secrets);
             await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 

@@ -4,8 +4,8 @@ import * as vscode from 'vscode';
 import { SecretClient } from '@azure/keyvault-secrets';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
-import { SecretTypeEnum, ControlTypeEnum, ControlledSecret } from './KeyMetadataHelpers';
-import { KeyMetadataRepo } from './KeyMetadataRepo';
+import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, AnchorPrefix } from './KeyMetadataHelpers';
+import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
 import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
@@ -14,7 +14,7 @@ import axios from 'axios';
 
 export abstract class KeyShepherdBase {
 
-    protected constructor(protected readonly _repo: KeyMetadataRepo, protected readonly _mapRepo: KeyMapRepo) {}
+    protected constructor(protected readonly _repo: IKeyMetadataRepo, protected readonly _mapRepo: KeyMapRepo) {}
 
     dispose(): void {
         this._hiddenTextDecoration.dispose();
@@ -79,11 +79,16 @@ export abstract class KeyShepherdBase {
 
     protected async askUserForSecretName(defaultSecretName: string | undefined = undefined): Promise<string | undefined> {
 
-        return await vscode.window.showInputBox({
-            value: defaultSecretName ?? `${vscode.workspace.name}-secret${this._repo.secretCount + 1}`,
+        const secretName = await vscode.window.showInputBox({
+            value: defaultSecretName ?? `${vscode.workspace.name}-secret${new Date().getMilliseconds()}`,
             prompt: 'Give your secret a name'
         });
 
+        if (!!secretName && secretName.startsWith(AnchorPrefix)) {
+            throw new Error(`Secret name should not start with ${AnchorPrefix}`);
+        }
+
+        return secretName;
     }
     
     protected async addSecret(type: SecretTypeEnum, controlType: ControlTypeEnum, secretName: string, properties: any = undefined): Promise<boolean> {
@@ -100,6 +105,10 @@ export abstract class KeyShepherdBase {
 
         const secretValue = editor.document.getText(editor.selection);
 
+        if (secretValue.startsWith(AnchorPrefix)) {
+            throw new Error(`Secret value should not start with ${AnchorPrefix}`);
+        }
+
         const secretHash = this._repo.getHash(secretValue);
 
         await this._repo.addSecret({
@@ -114,7 +123,7 @@ export abstract class KeyShepherdBase {
         });
 
         // Also updating secret map for this file
-        const secrets = await this._repo.getSecretsInFile(currentFile);
+        const secrets = await this._repo.getSecrets(currentFile);
         const secretValues = await this.getSecretValues(secrets);
         await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 
@@ -208,7 +217,7 @@ export abstract class KeyShepherdBase {
     }
 
     protected getAnchorName(secretName: string): string {
-        return `@KeyShepherd(${secretName})`;
+        return `${AnchorPrefix}(${secretName})`;
     }
 
     protected maskAllText(editor: vscode.TextEditor): void {
@@ -332,7 +341,7 @@ export abstract class KeyShepherdBase {
 
     protected async updateSecretMapForFile(filePath: string, text: string, secretValues: { [name: string]: string }): Promise<string[]> {
 
-        const secrets = await this._repo.getSecretsInFile(filePath);
+        const secrets = await this._repo.getSecrets(filePath);
         
         const outputMap: SecretMapEntry[] = []
         const secretsFound: string[] = [];
@@ -475,7 +484,8 @@ export abstract class KeyShepherdBase {
                 subscriptions.map(s => {
                     return {
                         subscription: s,
-                        label: s.subscription.displayName
+                        label: s.subscription.displayName,
+                        description: s.subscription.subscriptionId
                     };
                 }),
                 { title: 'Select Azure Subscription' }

@@ -1,4 +1,7 @@
 import * as path from 'path';
+import * as Crypto from 'crypto';
+
+export const AnchorPrefix = '@KeyShepherd';
 
 export enum SecretTypeEnum {
     Unknown = 0,
@@ -24,7 +27,12 @@ export type ControlledSecret = {
     properties?: any;
 }
 
-export function getHashCode(str: string): number {
+export function getSha256Hash(str: string): string {
+
+    return Crypto.createHash('sha256').update(str).digest('base64');
+}
+
+export function getWeakHash(str: string): number {
 
     var hashCode = 0;
     for (var i = 0; i < str.length; i++) {
@@ -49,7 +57,7 @@ export function getFullPathThatFits(baseFolderName: string, proposedFolderName: 
     if (result.length > maxPathLength) {
 
         // If doesn't fit, using folder's hash instead
-        proposedFolderName = getHashCode(proposedFolderName).toString();
+        proposedFolderName = getWeakHash(proposedFolderName).toString();
         result = path.join(baseFolderName, proposedFolderName, fileName);
     }
  

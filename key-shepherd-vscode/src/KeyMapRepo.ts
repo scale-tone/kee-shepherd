@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { getHashCode, getFullPathThatFits, encodePathSegment } from './KeyMetadataHelpers';
+import { getWeakHash, getFullPathThatFits, encodePathSegment } from './KeyMetadataHelpers';
 
 export type SecretMapEntry = {
     name: string;
@@ -62,6 +62,6 @@ export class KeyMapRepo {
 
     private getFileNameForSecretMap(filePath: string): string {
 
-        return getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(filePath)), `${encodePathSegment(path.basename(filePath))}-${getHashCode(filePath)}.json`);
+        return getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(filePath)), `${encodePathSegment(path.basename(filePath))}-${getWeakHash(filePath)}.json`);
     }
 }

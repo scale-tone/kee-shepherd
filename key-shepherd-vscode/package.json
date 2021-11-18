@@ -22,7 +22,7 @@
         "secrets",
         "Azure"
     ],
-    "publisher": "scale-tone",
+    "publisher": "key-shepherd",
     "license": "MIT",
     "activationEvents": [
         "*"
