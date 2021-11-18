@@ -4,29 +4,150 @@ import axios from 'axios';
 
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
-import { StorageAccount } from "@azure/arm-storage/src/models";
 
 import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { KeyShepherdBase } from './KeyShepherdBase';
+import { AzureAccountWrapper } from './AzureAccountWrapper';
+import { KeyMetadataTableRepo } from './KeyMetadataTableRepo';
 
 type SelectedSecretType = { type: SecretTypeEnum, name: string, value: string, properties: any };
 
+enum StorageTypeEnum {
+    Local = 1,
+    AzureTable
+}
+
+const SettingNames = {
+    StorageType: 'KeyShepherdStorageType',
+    SubscriptionId: 'KeyShepherdTableStorageSubscriptionId',
+    ResourceGroupName: 'KeyShepherdTableStorageResourceGroupName',
+    StorageAccountName: 'KeyShepherdTableStorageAccountName',
+    TableName: 'KeyShepherdTable'
+}
+
 export class KeyShepherd extends KeyShepherdBase {
 
-    private constructor(repo: IKeyMetadataRepo, mapRepo: KeyMapRepo) {
-        super(repo, mapRepo);
+    private constructor(account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo) {
+        super(account, repo, mapRepo);
+    }
+
+    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, storageFolder: string, account: AzureAccountWrapper): Promise<IKeyMetadataRepo> {
+
+        var storageType = context.globalState.get(SettingNames.StorageType);
+        var accountName = context.globalState.get(SettingNames.StorageAccountName);
+        var tableName = context.globalState.get(SettingNames.TableName);
+        var subscriptionId = context.globalState.get(SettingNames.SubscriptionId);
+        var resourceGroupName = context.globalState.get(SettingNames.ResourceGroupName);
+
+        var result: IKeyMetadataRepo;
+
+        if (!storageType) {
+            
+            const storageTypeResponse = await vscode.window.showQuickPick([
+                { label: 'Locally', detail: `in ${storageFolder}`, type: StorageTypeEnum.Local },
+                { label: 'In a shared Azure Table', type: StorageTypeEnum.AzureTable }
+            ], {
+                title: 'Select where KeyShepherd should store secret metadata'
+            });
+
+            if (!storageTypeResponse) {
+                throw new Error('KeyShepherd cannot operate without a storage');
+            }
+
+            storageType = storageTypeResponse.type;
+        }
+        
+        if (storageType === StorageTypeEnum.Local) {
+
+            result = await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata'));
+
+            accountName = undefined;
+            tableName = undefined;
+            subscriptionId = undefined;
+            resourceGroupName = undefined;
+
+        } else {
+
+            if (!accountName || !tableName || !subscriptionId || !resourceGroupName) {
+            
+                const subscription = await account.pickUpSubscription();
+                if (!subscription) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }
+                
+                subscriptionId = subscription.subscription.subscriptionId;
+                const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId as string);
+    
+                const storageAccount = await account.picUpStorageAccount(storageManagementClient);
+    
+                if (!storageAccount) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }
+    
+                accountName = storageAccount.name;
+    
+                // Extracting resource group name
+                const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
+                if (!match || match.length <= 0) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }
+                resourceGroupName = match[1];
+    
+                tableName = await vscode.window.showInputBox({ title: 'Enter table name to store secret metadata in', value: 'KeyShepherdMetadata' });
+                if (!tableName) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }    
+            }
+    
+            result = await KeyMetadataTableRepo.create(subscriptionId as any, resourceGroupName as any, accountName as any, tableName as any, account);
+        }
+
+        // Updating all settings, but only after the instance was successfully created
+        context.globalState.update(SettingNames.StorageType, storageType);
+        context.globalState.update(SettingNames.StorageAccountName, accountName);
+        context.globalState.update(SettingNames.TableName, tableName);
+        context.globalState.update(SettingNames.SubscriptionId, subscriptionId);
+        context.globalState.update(SettingNames.ResourceGroupName, resourceGroupName);
+
+        return result;
     }
 
     static async create(context: vscode.ExtensionContext): Promise<KeyShepherd> {
 
         const storageFolder = context.globalStorageUri.fsPath;
+        const account = new AzureAccountWrapper();
+        var metadataRepo: IKeyMetadataRepo;
 
-        return new KeyShepherd(
-            await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata')),
-            await KeyMapRepo.create(path.join(storageFolder, 'key-maps')));
+        try {
+
+            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, storageFolder, account);
+            
+        } catch (err) {
+
+            const msg = `KeyShepherd failed to initialize its metadata storage. What would you like to do?`;
+            const option1 = 'Reset storage settings and try again';
+            const option2 = 'Unload KeyShepherd';
+
+            if ((await vscode.window.showWarningMessage(msg, option1, option2)) !== option1) {
+
+                throw err;
+            }
+
+            // Zeroing settings
+            context.globalState.update(SettingNames.StorageType, undefined);
+            context.globalState.update(SettingNames.StorageAccountName, undefined);
+            context.globalState.update(SettingNames.TableName, undefined);
+            context.globalState.update(SettingNames.SubscriptionId, undefined);
+            context.globalState.update(SettingNames.ResourceGroupName, undefined);
+
+            // trying again
+            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, storageFolder, account);
+        }
+
+        return new KeyShepherd(account, metadataRepo, await KeyMapRepo.create(path.join(storageFolder, 'key-maps')));
     }
 
     async unmaskSecretsInThisFile(): Promise<void> {
@@ -213,7 +334,7 @@ export class KeyShepherd extends KeyShepherdBase {
                 
             } else {
 
-                const subscription = await this.pickUpSubscription();
+                const subscription = await this._account.pickUpSubscription();
                 if (!subscription) {
                     return;
                 }
@@ -405,7 +526,7 @@ export class KeyShepherd extends KeyShepherdBase {
 
     protected async pickUpSecretFromKeyVault(): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this.pickUpSubscription();
+        const subscription = await this._account.pickUpSubscription();
         if (!subscription) {
             return;
         }
@@ -452,7 +573,7 @@ export class KeyShepherd extends KeyShepherdBase {
 
     protected async pickUpSecretFromStorage(): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this.pickUpSubscription();
+        const subscription = await this._account.pickUpSubscription();
         if (!subscription) {
             return;
         }
@@ -460,40 +581,20 @@ export class KeyShepherd extends KeyShepherdBase {
         const subscriptionId = subscription.subscription.subscriptionId;
         const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId);
 
-        const storageAccounts: StorageAccount[] = [];
-
-        var storageAccountsPartialResponse = await storageManagementClient.storageAccounts.list();
-        storageAccounts.push(...storageAccountsPartialResponse);
-
-        while (!!storageAccountsPartialResponse.nextLink) {
-
-            storageAccountsPartialResponse = await storageManagementClient.storageAccounts.listNext(storageAccountsPartialResponse.nextLink);
-            storageAccounts.push(...storageAccountsPartialResponse);
-        }
-
-        const storageAccount = await vscode.window.showQuickPick(storageAccounts.map(account => {
-                return {
-                    label: account.name!,
-                    description: account.kind,
-                    detail: account.location,
-                    account
-                }
-            }), 
-            { title: 'Select Storage Account' }
-        );
+        const storageAccount = await this._account.picUpStorageAccount(storageManagementClient);
 
         if (!storageAccount) {
             return;
         }
 
         // Extracting resource group name
-        const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.account.id!);
+        const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
         if (!match || match.length <= 0) {
             return;
         }
         const resourceGroupName = match[1];
 
-        const storageKeys = await storageManagementClient.storageAccounts.listKeys(resourceGroupName, storageAccount.account.name!);
+        const storageKeys = await storageManagementClient.storageAccounts.listKeys(resourceGroupName, storageAccount.name!);
 
         const storageKey = await vscode.window.showQuickPick(storageKeys.keys!.map(key => {
                 return {
@@ -511,12 +612,12 @@ export class KeyShepherd extends KeyShepherdBase {
 
         return {
             type: SecretTypeEnum.AzureStorage,
-            name: `${storageAccount.account.name}-${storageKey.key.keyName}`,
+            name: `${storageAccount.name}-${storageKey.key.keyName}`,
             value: storageKey.key.value!,
             properties: {
                 subscriptionId: subscriptionId,
                 resourceGroupName,
-                storageAccountName: storageAccount.account.name,
+                storageAccountName: storageAccount.name,
                 storageAccountKeyName: storageKey.key.keyName
             }
         }

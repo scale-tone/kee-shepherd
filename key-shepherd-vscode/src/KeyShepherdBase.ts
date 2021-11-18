@@ -14,13 +14,11 @@ import axios from 'axios';
 
 export abstract class KeyShepherdBase {
 
-    protected constructor(protected readonly _repo: IKeyMetadataRepo, protected readonly _mapRepo: KeyMapRepo) {}
+    protected constructor(protected _account: AzureAccountWrapper, protected readonly _repo: IKeyMetadataRepo, protected readonly _mapRepo: KeyMapRepo) {}
 
     dispose(): void {
         this._hiddenTextDecoration.dispose();
     }
-
-    protected readonly _account = new AzureAccountWrapper();
 
     protected readonly _hiddenTextDecoration = vscode.window.createTextEditorDecorationType({
         opacity: '0',
@@ -464,45 +462,6 @@ export abstract class KeyShepherdBase {
 
             pick.show();
         });
-    }
-
-    protected async pickUpSubscription(): Promise<AzureSubscription | undefined> {
-        
-        // Picking up a subscription
-
-        const subscriptions = await this._account.getSubscriptions();
-
-        if (subscriptions.length <= 0) {
-            throw new Error(`Select at least one subscription in the Azure Account extension`);
-        }
-        
-        var subscription: AzureSubscription;
-
-        if (subscriptions.length > 1) {
-
-            const pickResult = await vscode.window.showQuickPick(
-                subscriptions.map(s => {
-                    return {
-                        subscription: s,
-                        label: s.subscription.displayName,
-                        description: s.subscription.subscriptionId
-                    };
-                }),
-                { title: 'Select Azure Subscription' }
-            );
-
-            if (!pickResult) {
-                return;
-            }
-                
-            subscription = pickResult.subscription;
-
-        } else {
-
-            subscription = subscriptions[0];
-        }
-
-        return subscription;
     }
 
     protected async doAndShowError(todo: () => Promise<void>, errorMessage: string): Promise<void> {

@@ -204,6 +204,7 @@
     "dependencies": {
         "@azure/arm-resourcegraph": "^4.2.1",
         "@azure/arm-storage": "^16.1.2",
+        "@azure/data-tables": "^13.0.0",
         "@azure/keyvault-secrets": "^4.3.0",
         "@azure/ms-rest-azure-env": "^2.0.0",
         "@azure/ms-rest-nodeauth": "^3.1.0",
