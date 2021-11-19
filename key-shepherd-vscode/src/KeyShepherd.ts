@@ -189,7 +189,16 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             this.cleanupSettings(context);
 
             // trying again
-            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, account);
+            try {
+                
+                metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, account);
+
+            } catch (err2) {
+
+                vscode.window.showErrorMessage(`KeyShepherd still couldn't initialize its metadata storage`);
+
+                throw err2;
+            }
         }
 
         const resourcesFolderPath = context.asAbsolutePath('resources');
