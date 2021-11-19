@@ -40,6 +40,10 @@
 
         "commands": [
             {
+                "command": "key-shepherd-vscode.changeStorageType",
+                "title": "KeyShepherd: Switch to another Metadata Storage"
+            },
+            {
                 "command": "key-shepherd-vscode.stashAllWorkspaceSecrets",
                 "title": "KeyShepherd: Stash All Secrets in this Project"
             },

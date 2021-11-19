@@ -35,9 +35,6 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         super(account, repo, mapRepo);
     }
 
-    private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
-    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
-
     refreshTreeView(): void {
         this._onDidChangeTreeData.fire(undefined);
     }
@@ -45,6 +42,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
     // Does nothing, actually
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
 
+    // Renders tree view
     async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
 
         if (!element) {
@@ -120,13 +118,12 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
     static async create(context: vscode.ExtensionContext): Promise<KeyShepherd> {
 
-        const storageFolder = context.globalStorageUri.fsPath;
         const account = new AzureAccountWrapper();
         var metadataRepo: IKeyMetadataRepo;
 
         try {
 
-            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, storageFolder, account);
+            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, account);
             
         } catch (err) {
 
@@ -139,18 +136,26 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 throw err;
             }
 
-            // Zeroing settings
-            context.globalState.update(SettingNames.StorageType, undefined);
-            context.globalState.update(SettingNames.StorageAccountName, undefined);
-            context.globalState.update(SettingNames.TableName, undefined);
-            context.globalState.update(SettingNames.SubscriptionId, undefined);
-            context.globalState.update(SettingNames.ResourceGroupName, undefined);
+            this.cleanupSettings(context);
 
             // trying again
-            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, storageFolder, account);
+            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, account);
         }
 
-        return new KeyShepherd(account, metadataRepo, await KeyMapRepo.create(path.join(storageFolder, 'key-maps')));
+        return new KeyShepherd(account, metadataRepo, await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')));
+    }
+
+    async changeStorageType(context: vscode.ExtensionContext): Promise<void> {
+        
+        await this.doAndShowError(async () => {
+
+            KeyShepherd.cleanupSettings(context);
+
+            this._repo = await KeyShepherd.getKeyMetadataRepo(context, this._account);
+
+            this._onDidChangeTreeData.fire(undefined);
+
+        }, 'KeyShepherd failed to switch to another storage type');
     }
 
     async unmaskSecretsInThisFile(): Promise<void> {
@@ -392,10 +397,10 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 
             vscode.window.showInformationMessage(`KeyShepherd: ${secretName} was added successfully.`);
+            this._onDidChangeTreeData.fire(undefined);
             
         }, 'KeyShepherd failed to add a secret');
     }
-
 
     async insertSecret(controlType: ControlTypeEnum): Promise<void> {
 
@@ -462,6 +467,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 await editor.document.save();
 
                 vscode.window.showInformationMessage(`KeyShepherd: ${localSecretName} was added successfully.`);
+                this._onDidChangeTreeData.fire(undefined);
             }
 
         }, 'KeyShepherd failed to insert a secret');
@@ -626,7 +632,19 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         }
     }
 
-    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, storageFolder: string, account: AzureAccountWrapper): Promise<IKeyMetadataRepo> {
+    private static cleanupSettings(context: vscode.ExtensionContext) {
+        
+        // Zeroing settings
+        context.globalState.update(SettingNames.StorageType, undefined);
+        context.globalState.update(SettingNames.StorageAccountName, undefined);
+        context.globalState.update(SettingNames.TableName, undefined);
+        context.globalState.update(SettingNames.SubscriptionId, undefined);
+        context.globalState.update(SettingNames.ResourceGroupName, undefined);
+    }
+
+    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper): Promise<IKeyMetadataRepo> {
+
+        const storageFolder = context.globalStorageUri.fsPath;
 
         var storageType = context.globalState.get(SettingNames.StorageType);
         var accountName = context.globalState.get(SettingNames.StorageAccountName);
@@ -646,7 +664,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             });
 
             if (!storageTypeResponse) {
-                throw new Error('KeyShepherd cannot operate without a storage');
+                throw new Error('Failed to initialize metadata storage');
             }
 
             storageType = storageTypeResponse.type;
@@ -667,7 +685,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             
                 const subscription = await account.pickUpSubscription();
                 if (!subscription) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
+                    throw new Error('Failed to initialize metadata storage');
                 }
                 
                 subscriptionId = subscription.subscription.subscriptionId;
@@ -676,7 +694,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 const storageAccount = await account.picUpStorageAccount(storageManagementClient);
     
                 if (!storageAccount) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
+                    throw new Error('Failed to initialize metadata storage');
                 }
     
                 accountName = storageAccount.name;
@@ -684,13 +702,13 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 // Extracting resource group name
                 const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
                 if (!match || match.length <= 0) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
+                    throw new Error('Failed to initialize metadata storage');
                 }
                 resourceGroupName = match[1];
     
                 tableName = await vscode.window.showInputBox({ title: 'Enter table name to store secret metadata in', value: 'KeyShepherdMetadata' });
                 if (!tableName) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
+                    throw new Error('Failed to initialize metadata storage');
                 }    
             }
     
@@ -706,4 +724,25 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
         return result;
     }
+
+    private async doAndShowError(todo: () => Promise<void>, errorMessage: string): Promise<void> {
+
+        if (!!this._inProgress) {
+            console.log('Another operation already in progress...');
+            return;
+        }
+        this._inProgress = true;
+
+        try {
+
+            await todo();
+    
+        } catch (err) {
+            vscode.window.showErrorMessage(`${errorMessage}. ${(err as any).message ?? err}`);
+        }
+
+        this._inProgress = false;
+    }
+
+    private _inProgress: boolean = false;
 }

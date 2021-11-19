@@ -11,6 +11,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
 
+        vscode.commands.registerCommand('key-shepherd-vscode.changeStorageType', () => shepherd.changeStorageType(context)),
+
         vscode.window.registerTreeDataProvider('key-shepherd-tree-view', shepherd),
 
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.superviseSecret', () => shepherd.controlSecret(ControlTypeEnum.Supervised)),

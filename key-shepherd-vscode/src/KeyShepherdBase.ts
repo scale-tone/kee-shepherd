@@ -14,7 +14,7 @@ import axios from 'axios';
 
 export abstract class KeyShepherdBase {
 
-    protected constructor(protected _account: AzureAccountWrapper, protected readonly _repo: IKeyMetadataRepo, protected readonly _mapRepo: KeyMapRepo) {}
+    protected constructor(protected _account: AzureAccountWrapper, protected _repo: IKeyMetadataRepo, protected readonly _mapRepo: KeyMapRepo) {}
 
     dispose(): void {
         this._hiddenTextDecoration.dispose();
@@ -25,7 +25,8 @@ export abstract class KeyShepherdBase {
         backgroundColor: 'grey'
     });
 
-    private _inProgress: boolean = false;
+    protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
+    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
 
     protected async internalMaskSecrets(editor: vscode.TextEditor, secretsMap: SecretMapEntry[]): Promise<string[]> {
         
@@ -464,25 +465,6 @@ export abstract class KeyShepherdBase {
         });
     }
 
-    protected async doAndShowError(todo: () => Promise<void>, errorMessage: string): Promise<void> {
-
-        if (!!this._inProgress) {
-            console.log('Another operation already in progress...');
-            return;
-        }
-        this._inProgress = true;
-
-        try {
-
-            await todo();
-    
-        } catch (err) {
-            vscode.window.showErrorMessage(`${errorMessage}. ${(err as any).message ?? err}`);
-        }
-
-        this._inProgress = false;
-    }
-
     protected async askUserAboutMissingSecrets(filePath: string, missingSecrets: string[]): Promise<void> {
 
         const userResponse = await vscode.window.showWarningMessage(
@@ -494,6 +476,7 @@ export abstract class KeyShepherdBase {
             await this._repo.removeSecrets(filePath, missingSecrets);
 
             vscode.window.showInformationMessage(`KeyShepherd: ${missingSecrets.length} secrets have been forgotten`);
+            this._onDidChangeTreeData.fire(undefined);
         }
     }
 }
