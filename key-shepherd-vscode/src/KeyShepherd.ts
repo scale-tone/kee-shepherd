@@ -6,7 +6,7 @@ import axios from 'axios';
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -43,25 +43,27 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
 
     // Renders tree view
-    async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
+    async getChildren(parent?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
 
-        if (!element) {
+        if (!parent) {
 
             const machineNames = await this._repo.getMachineNames();
 
             return machineNames.map(name => {
 
-                const collapsibleState = name === os.hostname() ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
+                const isLocal = name === os.hostname();
 
-                return { label: name, isMachineNode: true, collapsibleState }
+                const collapsibleState = isLocal ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
+
+                return { label: name, isMachineNode: true, collapsibleState, isLocal }
             });
         }
 
-        if (!!(element as any).isMachineNode) {
+        if (!!(parent as any).isMachineNode) {
 
             const workspaceFolders = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders?.map(f => f.uri.toString()) : [];
 
-            const machineName = element.label as string;
+            const machineName = parent.label as string;
 
             const folderUris = await this._repo.getFolders(machineName);
             
@@ -74,15 +76,22 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
                 const collapsibleState = workspaceFolders.includes(uri) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
 
-                return { label, machineName, isFolderNode: true, uri, collapsibleState }
+                return {
+                    label,
+                    machineName,
+                    isFolderNode: true,
+                    uri,
+                    collapsibleState,
+                    isLocal: (parent as any).isLocal
+                }
             });
         }
 
-        if (!!(element as any).isFolderNode) {
+        if (!!(parent as any).isFolderNode) {
 
-            const folderUri = (element as any).uri;
+            const folderUri = (parent as any).uri;
 
-            const secrets = await this._repo.getSecrets(folderUri, (element as any).machineName);
+            const secrets = await this._repo.getSecrets(folderUri, (parent as any).machineName);
 
             const filePaths: any = {};
             for (var secret of secrets) {
@@ -97,19 +106,41 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             
             return Object.keys(filePaths).map(filePath => {
 
-                return { label: filePaths[filePath], filePath, isFileNode: true, collapsibleState: vscode.TreeItemCollapsibleState.Expanded  }
+                return {
+                    label: filePaths[filePath],
+                    filePath,
+                    isFileNode: true,
+                    collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
+                    isLocal: (parent as any).isLocal,
+                    contextValue: (parent as any).isLocal ? 'tree-file-local' : 'tree-file'
+                }
             });
         }
 
-        if (!!(element as any).isFileNode) {
+        if (!!(parent as any).isFileNode) {
 
-            const secrets = await this._repo.getSecrets((element as any).filePath);
+            const secrets = await this._repo.getSecrets((parent as any).filePath);
 
             return secrets.map(secret => {
 
-                const description = `${ControlTypeEnum[secret.controlType]}`;
+                const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
 
-                return { label: secret.name, description, isSecretNode: true, collapsibleState: vscode.TreeItemCollapsibleState.None  }
+                // This is what happens when this tree node is being clicked
+                const command = (parent as any).isLocal ? {
+                    title: 'Open',
+                    command: 'key-shepherd-vscode.view-context.gotoSecret',
+                    arguments: [secret]
+                } : undefined;
+
+                return {
+                    label: secret.name,
+                    description,
+                    isSecretNode: true,
+                    collapsibleState: vscode.TreeItemCollapsibleState.None,
+                    command,
+                    isLocal: (parent as any).isLocal,
+                    contextValue: (parent as any).isLocal ? 'tree-secret-local' : 'tree-secret'
+                }
             });
         }
 
@@ -156,6 +187,108 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             this._onDidChangeTreeData.fire(undefined);
 
         }, 'KeyShepherd failed to switch to another storage type');
+    }
+
+    async forgetSecrets(treeItem: any): Promise<void>{
+
+        await this.doAndShowError(async () => {
+
+            var secrets: ControlledSecret[] = [];
+            var filePath = '';
+
+            if (!!treeItem.isFileNode && treeItem.contextValue === 'tree-file-local') {
+                
+                filePath = treeItem.filePath;
+                secrets = await this._repo.getSecrets(filePath);
+
+            } else if (!!treeItem.isSecretNode && treeItem.contextValue === 'tree-secret-local') {
+                
+                secrets = treeItem.command.arguments;
+                filePath = secrets[0].filePath;
+
+            } else {
+                return;
+            }
+            
+            const userResponse = await vscode.window.showWarningMessage(
+                `Secrets ${secrets.map(s => s.name).join(', ')} will be dropped from secret metadata storage. This will NOT affect the secret itself or the file itself. Do you want to proceed?`,
+                'Yes', 'No');
+   
+            if (userResponse !== 'Yes') {
+                return;
+            }
+            
+            await this._repo.removeSecrets(filePath, secrets.map(s => s.name));
+
+            vscode.window.showInformationMessage(`KeyShepherd: ${secrets.length} secrets have been forgotten`);
+            this._onDidChangeTreeData.fire(undefined);
+
+        }, 'KeyShepherd failed to forget secrets');
+    }
+
+    async gotoSecret(secret: ControlledSecret): Promise<void>{
+
+        await this.doAndShowError(async () => {
+
+            const editor = await vscode.window.showTextDocument(vscode.Uri.parse(secret.filePath));
+
+            // Searching for this secret in a brute-force way. Deliberately not using secret map here (as it might be outdated).
+            const text = editor.document.getText();
+            var secretPos = -1, secretLength = 0;
+
+            for (var pos = 0; pos < text.length; pos++) {
+    
+                // checking if the secret appears at current position
+                const anchorName = this.getAnchorName(secret.name);
+
+                if (!!text.startsWith(anchorName, pos)) {
+
+                    // This secret appears in its stashed form. djust further positions
+                    secretPos = pos;
+                    secretLength = anchorName.length;
+                    break;
+
+                } else {
+
+                    // Calculating and trying to match the hash. Might take time, but no other options...
+                    const currentHash = this._repo.getHash(text.substr(pos, secret.length));
+                    
+                    if (currentHash === secret.hash) {
+
+                        secretPos = pos;
+                        secretLength = secret.length;
+                        break;
+                    }
+                }
+            }
+
+            // If the secret wasn't found, then updating the entire secret map
+            if (secretPos < 0) {
+                await this.updateSecretMapForFile(secret.filePath, text, {});
+            }
+
+            // Explicitly masking secrets here, because onDidChangeActiveTextEditor will interfere with this handler
+            var secretMap = await this._mapRepo.getSecretMapForFile(secret.filePath);
+            await this.internalMaskSecrets(editor, secretMap);
+
+            if (secretPos < 0) {
+                
+                // Also asking the user if they want to forget this missing secret
+                await this.askUserAboutMissingSecrets(secret.filePath, [secret.name]);
+
+            } else {
+
+                // Highlighting the secret
+                const secretSelection = new vscode.Selection(
+                    editor.document.positionAt(secretPos),
+                    editor.document.positionAt(secretPos + secretLength)
+                );
+
+                editor.selection = secretSelection;
+                editor.revealRange(secretSelection);
+            }
+
+        }, 'KeyShepherd failed to navigate to this secret');
     }
 
     async unmaskSecretsInThisFile(): Promise<void> {
@@ -468,6 +601,10 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
                 vscode.window.showInformationMessage(`KeyShepherd: ${localSecretName} was added successfully.`);
                 this._onDidChangeTreeData.fire(undefined);
+
+                // Immediately masking secrets in this file
+                var secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
+                await this.internalMaskSecrets(editor, secretMap);
             }
 
         }, 'KeyShepherd failed to insert a secret');

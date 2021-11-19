@@ -37,6 +37,12 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('key-shepherd-vscode.unstashAllWorkspaceSecrets', () => shepherd.stashUnstashAllSecretsInThisProject(false)),
 
         vscode.commands.registerCommand('key-shepherd-vscode.view-context.refresh', () => shepherd.refreshTreeView()),
+        vscode.commands.registerCommand('key-shepherd-vscode.view-context.gotoSecret', (item) => shepherd.gotoSecret(item)),
+        vscode.commands.registerCommand('key-shepherd-vscode.view-context.forgetSecrets', (item) => shepherd.forgetSecrets(item)),
+        vscode.commands.registerCommand('key-shepherd-vscode.view-context.forgetSecret', (item) => shepherd.forgetSecrets(item)),
+
+        // Too slow
+//        vscode.workspace.onDidOpenTextDocument((editor) => shepherd.maskSecretsInThisFile(true)),
 
         vscode.window.onDidChangeActiveTextEditor((editor) => shepherd.maskSecretsInThisFile(true)),
  

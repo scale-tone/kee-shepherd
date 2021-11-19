@@ -106,9 +106,33 @@
                     "light": "resources/light/refresh.svg",
                     "dark": "resources/dark/refresh.svg"
                 }
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.gotoSecret",
+                "title": "Open"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.forgetSecret",
+                "title": "Forget this Secret"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.forgetSecrets",
+                "title": "Forget Secrets in this File"
             }
         ],
         "commandPalette": [
+            {
+                "command": "key-shepherd-vscode.view-context.forgetSecret",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.forgetSecrets",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.gotoSecret",
+                "when": "never"
+            },
             {
                 "command": "key-shepherd-vscode.editor-context.superviseSecret",
                 "when": "never"
@@ -200,6 +224,17 @@
                     "command": "key-shepherd-vscode.view-context.refresh",
                     "when": "view == key-shepherd-tree-view",
                     "group": "navigation"
+                }
+            ],
+
+            "view/item/context": [
+                {
+                    "command": "key-shepherd-vscode.view-context.forgetSecret",
+                    "when": "view == key-shepherd-tree-view && viewItem == tree-secret-local"
+                },
+                {
+                    "command": "key-shepherd-vscode.view-context.forgetSecrets",
+                    "when": "view == key-shepherd-tree-view && viewItem == tree-file-local"
                 }
             ]
         }
