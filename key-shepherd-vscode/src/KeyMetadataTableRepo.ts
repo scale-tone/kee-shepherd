@@ -8,35 +8,47 @@ import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
+import path = require('path');
+
+const SaltKey = '|KeyShepherdSalt|'
 
 export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
-    private toTableEntity(secret: ControlledSecret, partitionKey: string, rowKey: string): TableEntity {
+    private constructor(private _tableClient: TableClient, private _salt: string) { }
 
-        return {
-            partitionKey, rowKey,
-            name: secret.name,
-            type: secret.type,
-            controlType: secret.controlType,
-            filePath: secret.filePath,
-            hash: secret.hash,
-            length: secret.length,
-            properties: !!secret.properties ? JSON.stringify(secret.properties) : undefined
-        };
+    async getMachineNames(): Promise<string[]> {
+
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `PartitionKey ne '${SaltKey}'`
+            }
+        });
+
+        const machines: any = {};
+        for await (const entity of response) {
+
+            machines[entity.partitionKey!] = '';
+        }
+
+        return Object.keys(machines);
     }
 
-    private fromTableEntity(entity: TableEntity): ControlledSecret {
+    async getFolders(machineName: string): Promise<string[]> {
 
-        return {
-            timestamp: new Date(entity.timestamp as string),
-            name: entity.name as string,
-            type: entity.type as SecretTypeEnum,
-            controlType: entity.controlType as ControlTypeEnum,
-            filePath: entity.filePath as string,
-            hash: entity.hash as string,
-            length: entity.length as number,
-            properties: !!entity.properties ? JSON.parse(entity.properties as string) : undefined
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `PartitionKey eq '${encodePathSegment(machineName)}'`
+            }
+        });
+
+        const folders: any = {};
+        for await (const entity of response) {
+
+            const secret = this.fromTableEntity(entity as any);
+            folders[path.dirname(secret.filePath)] = '';
         }
+
+        return Object.keys(folders);
     }
 
     getHash(str: string): string {
@@ -44,8 +56,6 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         return getSha256Hash(str + this._salt);
     }
 
-    private constructor(private _tableClient: TableClient, private _salt: string) { }
-    
     static async create(subscriptionId: string,
         resourceGroupName: string,
         storageAccountName: string,
@@ -87,11 +97,11 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         var salt = Crypto.randomBytes(128).toString('hex');
         try {
 
-            await tableClient.createEntity({ partitionKey: 'salt', rowKey: 'salt', value: salt });            
+            await tableClient.createEntity({ partitionKey: SaltKey, rowKey: SaltKey, value: salt });            
             
         } catch (err) {
 
-            const result = await tableClient.getEntity('salt', 'salt');
+            const result = await tableClient.getEntity(SaltKey, SaltKey);
 
             salt = result.value as string;
         }
@@ -171,5 +181,33 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         });
 
         await Promise.all(promises);
+    }
+
+    private toTableEntity(secret: ControlledSecret, partitionKey: string, rowKey: string): TableEntity {
+
+        return {
+            partitionKey, rowKey,
+            name: secret.name,
+            type: secret.type,
+            controlType: secret.controlType,
+            filePath: secret.filePath,
+            hash: secret.hash,
+            length: secret.length,
+            properties: !!secret.properties ? JSON.stringify(secret.properties) : undefined
+        };
+    }
+
+    private fromTableEntity(entity: TableEntity): ControlledSecret {
+
+        return {
+            timestamp: new Date(entity.timestamp as string),
+            name: entity.name as string,
+            type: entity.type as SecretTypeEnum,
+            controlType: entity.controlType as ControlTypeEnum,
+            filePath: entity.filePath as string,
+            hash: entity.hash as string,
+            length: entity.length as number,
+            properties: !!entity.properties ? JSON.parse(entity.properties as string) : undefined
+        }
     }
 }

@@ -1,3 +1,4 @@
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import axios from 'axios';
@@ -28,91 +29,93 @@ const SettingNames = {
     TableName: 'KeyShepherdTable'
 }
 
-export class KeyShepherd extends KeyShepherdBase {
+export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProvider<vscode.TreeItem> {
 
     private constructor(account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo) {
         super(account, repo, mapRepo);
     }
 
-    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, storageFolder: string, account: AzureAccountWrapper): Promise<IKeyMetadataRepo> {
+    private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
+    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
 
-        var storageType = context.globalState.get(SettingNames.StorageType);
-        var accountName = context.globalState.get(SettingNames.StorageAccountName);
-        var tableName = context.globalState.get(SettingNames.TableName);
-        var subscriptionId = context.globalState.get(SettingNames.SubscriptionId);
-        var resourceGroupName = context.globalState.get(SettingNames.ResourceGroupName);
+    refreshTreeView(): void {
+        this._onDidChangeTreeData.fire(undefined);
+    }
 
-        var result: IKeyMetadataRepo;
+    // Does nothing, actually
+    getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
 
-        if (!storageType) {
-            
-            const storageTypeResponse = await vscode.window.showQuickPick([
-                { label: 'Locally', detail: `in ${storageFolder}`, type: StorageTypeEnum.Local },
-                { label: 'In a shared Azure Table', type: StorageTypeEnum.AzureTable }
-            ], {
-                title: 'Select where KeyShepherd should store secret metadata'
+    async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
+
+        if (!element) {
+
+            const machineNames = await this._repo.getMachineNames();
+
+            return machineNames.map(name => {
+
+                const collapsibleState = name === os.hostname() ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
+
+                return { label: name, isMachineNode: true, collapsibleState }
             });
-
-            if (!storageTypeResponse) {
-                throw new Error('KeyShepherd cannot operate without a storage');
-            }
-
-            storageType = storageTypeResponse.type;
         }
-        
-        if (storageType === StorageTypeEnum.Local) {
 
-            result = await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata'));
+        if (!!(element as any).isMachineNode) {
 
-            accountName = undefined;
-            tableName = undefined;
-            subscriptionId = undefined;
-            resourceGroupName = undefined;
+            const workspaceFolders = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders?.map(f => f.uri.toString()) : [];
 
-        } else {
+            const machineName = element.label as string;
 
-            if (!accountName || !tableName || !subscriptionId || !resourceGroupName) {
+            const folderUris = await this._repo.getFolders(machineName);
             
-                const subscription = await account.pickUpSubscription();
-                if (!subscription) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
+            return folderUris.map(uri => {
+
+                var label = decodeURIComponent(uri);
+                if (label.startsWith('file:///')) {
+                    label = label.substr(8);
                 }
-                
-                subscriptionId = subscription.subscription.subscriptionId;
-                const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId as string);
-    
-                const storageAccount = await account.picUpStorageAccount(storageManagementClient);
-    
-                if (!storageAccount) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
-                }
-    
-                accountName = storageAccount.name;
-    
-                // Extracting resource group name
-                const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
-                if (!match || match.length <= 0) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
-                }
-                resourceGroupName = match[1];
-    
-                tableName = await vscode.window.showInputBox({ title: 'Enter table name to store secret metadata in', value: 'KeyShepherdMetadata' });
-                if (!tableName) {
-                    throw new Error('KeyShepherd cannot operate without a storage');
-                }    
-            }
-    
-            result = await KeyMetadataTableRepo.create(subscriptionId as any, resourceGroupName as any, accountName as any, tableName as any, account);
+
+                const collapsibleState = workspaceFolders.includes(uri) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+
+                return { label, machineName, isFolderNode: true, uri, collapsibleState }
+            });
         }
 
-        // Updating all settings, but only after the instance was successfully created
-        context.globalState.update(SettingNames.StorageType, storageType);
-        context.globalState.update(SettingNames.StorageAccountName, accountName);
-        context.globalState.update(SettingNames.TableName, tableName);
-        context.globalState.update(SettingNames.SubscriptionId, subscriptionId);
-        context.globalState.update(SettingNames.ResourceGroupName, resourceGroupName);
+        if (!!(element as any).isFolderNode) {
 
-        return result;
+            const folderUri = (element as any).uri;
+
+            const secrets = await this._repo.getSecrets(folderUri, (element as any).machineName);
+
+            const filePaths: any = {};
+            for (var secret of secrets) {
+
+                const fileName = path.basename(secret.filePath);
+                const fileFolderUri = secret.filePath.substr(0, secret.filePath.length - fileName.length - 1);
+                if (fileFolderUri.toLowerCase() === folderUri.toLowerCase()) {
+
+                    filePaths[secret.filePath] = fileName;                    
+                }
+            }
+            
+            return Object.keys(filePaths).map(filePath => {
+
+                return { label: filePaths[filePath], filePath, isFileNode: true, collapsibleState: vscode.TreeItemCollapsibleState.Expanded  }
+            });
+        }
+
+        if (!!(element as any).isFileNode) {
+
+            const secrets = await this._repo.getSecrets((element as any).filePath);
+
+            return secrets.map(secret => {
+
+                const description = `${ControlTypeEnum[secret.controlType]}`;
+
+                return { label: secret.name, description, isSecretNode: true, collapsibleState: vscode.TreeItemCollapsibleState.None  }
+            });
+        }
+
+        return [];
     }
 
     static async create(context: vscode.ExtensionContext): Promise<KeyShepherd> {
@@ -621,5 +624,86 @@ export class KeyShepherd extends KeyShepherdBase {
                 storageAccountKeyName: storageKey.key.keyName
             }
         }
+    }
+
+    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, storageFolder: string, account: AzureAccountWrapper): Promise<IKeyMetadataRepo> {
+
+        var storageType = context.globalState.get(SettingNames.StorageType);
+        var accountName = context.globalState.get(SettingNames.StorageAccountName);
+        var tableName = context.globalState.get(SettingNames.TableName);
+        var subscriptionId = context.globalState.get(SettingNames.SubscriptionId);
+        var resourceGroupName = context.globalState.get(SettingNames.ResourceGroupName);
+
+        var result: IKeyMetadataRepo;
+
+        if (!storageType) {
+            
+            const storageTypeResponse = await vscode.window.showQuickPick([
+                { label: 'Locally', detail: `in ${storageFolder}`, type: StorageTypeEnum.Local },
+                { label: 'In a shared Azure Table', type: StorageTypeEnum.AzureTable }
+            ], {
+                title: 'Select where KeyShepherd should store secret metadata'
+            });
+
+            if (!storageTypeResponse) {
+                throw new Error('KeyShepherd cannot operate without a storage');
+            }
+
+            storageType = storageTypeResponse.type;
+        }
+        
+        if (storageType === StorageTypeEnum.Local) {
+
+            result = await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata'));
+
+            accountName = undefined;
+            tableName = undefined;
+            subscriptionId = undefined;
+            resourceGroupName = undefined;
+
+        } else {
+
+            if (!accountName || !tableName || !subscriptionId || !resourceGroupName) {
+            
+                const subscription = await account.pickUpSubscription();
+                if (!subscription) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }
+                
+                subscriptionId = subscription.subscription.subscriptionId;
+                const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId as string);
+    
+                const storageAccount = await account.picUpStorageAccount(storageManagementClient);
+    
+                if (!storageAccount) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }
+    
+                accountName = storageAccount.name;
+    
+                // Extracting resource group name
+                const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
+                if (!match || match.length <= 0) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }
+                resourceGroupName = match[1];
+    
+                tableName = await vscode.window.showInputBox({ title: 'Enter table name to store secret metadata in', value: 'KeyShepherdMetadata' });
+                if (!tableName) {
+                    throw new Error('KeyShepherd cannot operate without a storage');
+                }    
+            }
+    
+            result = await KeyMetadataTableRepo.create(subscriptionId as any, resourceGroupName as any, accountName as any, tableName as any, account);
+        }
+
+        // Updating all settings, but only after the instance was successfully created
+        context.globalState.update(SettingNames.StorageType, storageType);
+        context.globalState.update(SettingNames.StorageAccountName, accountName);
+        context.globalState.update(SettingNames.TableName, tableName);
+        context.globalState.update(SettingNames.SubscriptionId, subscriptionId);
+        context.globalState.update(SettingNames.ResourceGroupName, resourceGroupName);
+
+        return result;
     }
 }

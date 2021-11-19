@@ -29,6 +29,15 @@
     ],
     "main": "./dist/extension.js",
     "contributes": {
+        "views": {
+            "explorer": [
+                {
+                    "id": "key-shepherd-tree-view",
+                    "name": "Secrets"
+                }
+            ]
+        },
+
         "commands": [
             {
                 "command": "key-shepherd-vscode.stashAllWorkspaceSecrets",
@@ -85,6 +94,14 @@
             {
                 "command": "key-shepherd-vscode.editor-context.unstashSecrets",
                 "title": "Unstash Secrets"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.refresh",
+                "title": "Refresh",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
             }
         ],
         "commandPalette": [
@@ -118,6 +135,10 @@
             },
             {
                 "command": "key-shepherd-vscode.editor-context.unstashSecrets",
+                "when": "never"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.refresh",
                 "when": "never"
             }
         ],
@@ -167,6 +188,14 @@
                 {
                     "command": "key-shepherd-vscode.editor-context.unmaskSecrets",
                     "group": "key-shepherd-vscode.editor-context-group3@2"
+                }
+            ],
+
+            "view/title": [
+                {
+                    "command": "key-shepherd-vscode.view-context.refresh",
+                    "when": "view == key-shepherd-tree-view",
+                    "group": "navigation"
                 }
             ]
         }

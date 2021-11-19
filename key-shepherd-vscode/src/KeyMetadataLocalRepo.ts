@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as Crypto from 'crypto';
 import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash } from './KeyMetadataHelpers';
@@ -29,6 +30,17 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         this._salt = fs.readFileSync(saltFileName, 'utf8');
 
         return this._salt;
+    }
+
+    async getMachineNames(): Promise<string[]>{
+        return [os.hostname()];
+    }
+
+    async getFolders(machineName: string): Promise<string[]> {
+
+        return this._secrets
+            .map(s => path.dirname(s.filePath))
+            .filter((folder, index, folders) => folders.indexOf(folder) === index);
     }
 
     getHash(str: string): string {

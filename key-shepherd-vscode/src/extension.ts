@@ -11,6 +11,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
 
+        vscode.window.registerTreeDataProvider('key-shepherd-tree-view', shepherd),
+
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.superviseSecret', () => shepherd.controlSecret(ControlTypeEnum.Supervised)),
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.controlSecret', () => shepherd.controlSecret(ControlTypeEnum.Managed)),
 
@@ -32,6 +34,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('key-shepherd-vscode.stashAllWorkspaceSecrets', () => shepherd.stashUnstashAllSecretsInThisProject(true)),
         vscode.commands.registerCommand('key-shepherd-vscode.unstashAllWorkspaceSecrets', () => shepherd.stashUnstashAllSecretsInThisProject(false)),
 
+        vscode.commands.registerCommand('key-shepherd-vscode.view-context.refresh', () => shepherd.refreshTreeView()),
 
         vscode.window.onDidChangeActiveTextEditor((editor) => shepherd.maskSecretsInThisFile(true)),
  
