@@ -118,6 +118,14 @@
             {
                 "command": "key-shepherd-vscode.view-context.forgetSecrets",
                 "title": "Forget Secrets in this File"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.stashSecrets",
+                "title": "Stash Secrets in this Folder"
+            },
+            {
+                "command": "key-shepherd-vscode.view-context.unstashSecrets",
+                "title": "Unstash Secrets in this Folder"
             }
         ],
         "commandPalette": [
@@ -235,6 +243,14 @@
                 {
                     "command": "key-shepherd-vscode.view-context.forgetSecrets",
                     "when": "view == key-shepherd-tree-view && viewItem == tree-file-local"
+                },
+                {
+                    "command": "key-shepherd-vscode.view-context.stashSecrets",
+                    "when": "view == key-shepherd-tree-view && viewItem == tree-folder-local"
+                },
+                {
+                    "command": "key-shepherd-vscode.view-context.unstashSecrets",
+                    "when": "view == key-shepherd-tree-view && viewItem == tree-folder-local"
                 }
             ]
         }

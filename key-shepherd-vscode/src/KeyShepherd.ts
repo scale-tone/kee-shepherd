@@ -31,7 +31,7 @@ const SettingNames = {
 
 export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    private constructor(account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo) {
+    private constructor(account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, private _resourcesFolder: string) {
         super(account, repo, mapRepo);
     }
 
@@ -55,7 +55,16 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
                 const collapsibleState = isLocal ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
 
-                return { label: name, isMachineNode: true, collapsibleState, isLocal }
+                return {
+                    label: name,
+                    isMachineNode: true,
+                    collapsibleState,
+                    isLocal,
+                    iconPath: {
+                        light: path.join(this._resourcesFolder, 'light', 'machine.svg'),
+                        dark: path.join(this._resourcesFolder, 'dark', 'machine.svg')
+                    }
+                }
             });
         }
 
@@ -67,29 +76,34 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
             const folderUris = await this._repo.getFolders(machineName);
             
-            return folderUris.map(uri => {
+            return folderUris.map(folderUri => {
 
-                var label = decodeURIComponent(uri);
+                var label = decodeURIComponent(folderUri);
                 if (label.startsWith('file:///')) {
                     label = label.substr(8);
                 }
 
-                const collapsibleState = workspaceFolders.includes(uri) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+                const collapsibleState = workspaceFolders.includes(folderUri) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
 
                 return {
                     label,
                     machineName,
                     isFolderNode: true,
-                    uri,
+                    folderUri,
                     collapsibleState,
-                    isLocal: (parent as any).isLocal
+                    isLocal: (parent as any).isLocal,
+                    contextValue: (parent as any).isLocal ? 'tree-folder-local' : 'tree-folder',
+                    iconPath: {
+                        light: path.join(this._resourcesFolder, 'light', 'folder.svg'),
+                        dark: path.join(this._resourcesFolder, 'dark', 'folder.svg')
+                    }
                 }
             });
         }
 
         if (!!(parent as any).isFolderNode) {
 
-            const folderUri = (parent as any).uri;
+            const folderUri = (parent as any).folderUri;
 
             const secrets = await this._repo.getSecrets(folderUri, (parent as any).machineName);
 
@@ -112,7 +126,11 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                     isFileNode: true,
                     collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
                     isLocal: (parent as any).isLocal,
-                    contextValue: (parent as any).isLocal ? 'tree-file-local' : 'tree-file'
+                    contextValue: (parent as any).isLocal ? 'tree-file-local' : 'tree-file',
+                    iconPath: {
+                        light: path.join(this._resourcesFolder, 'light', 'file.svg'),
+                        dark: path.join(this._resourcesFolder, 'dark', 'file.svg')
+                    }
                 }
             });
         }
@@ -139,7 +157,8 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                     collapsibleState: vscode.TreeItemCollapsibleState.None,
                     command,
                     isLocal: (parent as any).isLocal,
-                    contextValue: (parent as any).isLocal ? 'tree-secret-local' : 'tree-secret'
+                    contextValue: (parent as any).isLocal ? 'tree-secret-local' : 'tree-secret',
+                    iconPath: path.join(this._resourcesFolder, 'secret.svg')
                 }
             });
         }
@@ -173,7 +192,9 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, account);
         }
 
-        return new KeyShepherd(account, metadataRepo, await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')));
+        const resourcesFolderPath = context.asAbsolutePath('resources');
+
+        return new KeyShepherd(account, metadataRepo, await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')), resourcesFolderPath);
     }
 
     async changeStorageType(context: vscode.ExtensionContext): Promise<void> {
@@ -196,12 +217,12 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             var secrets: ControlledSecret[] = [];
             var filePath = '';
 
-            if (!!treeItem.isFileNode && treeItem.contextValue === 'tree-file-local') {
+            if (!!treeItem.isFileNode && !!treeItem.isLocal) {
                 
                 filePath = treeItem.filePath;
                 secrets = await this._repo.getSecrets(filePath);
 
-            } else if (!!treeItem.isSecretNode && treeItem.contextValue === 'tree-secret-local') {
+            } else if (!!treeItem.isSecretNode && !!treeItem.isLocal) {
                 
                 secrets = treeItem.command.arguments;
                 filePath = secrets[0].filePath;
@@ -383,6 +404,20 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         }, 'KeyShepherd failed');
     }
 
+    async stashUnstashSecretsInFolder(treeItem: any, stash: boolean): Promise<void>{
+
+        await this.doAndShowError(async () => {
+
+            if (!treeItem.isFolderNode || !treeItem.isLocal || !treeItem.folderUri) {
+                return;
+            }
+
+            const folders = [treeItem.folderUri];
+            await this.stashUnstashAllSecretsInFolders(folders, stash);
+
+        }, 'KeyShepherd failed');
+    }
+
     async stashUnstashAllSecretsInThisProject(stash: boolean): Promise<void> {
 
         await this.doAndShowError(async () => {
@@ -394,34 +429,9 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             // Making sure there're no dirty files open
             await vscode.workspace.saveAll();
 
-            const secretPromises = vscode.workspace.workspaceFolders.map(f => this._repo.getSecrets(f.uri.toString()));
-            const secrets = (await Promise.all(secretPromises)).flat();
+            const folders = vscode.workspace.workspaceFolders.map(f => f.uri.toString());
 
-            // This must be done sequentially by now
-            const secretValues = await this.getSecretValues(secrets);
-
-            // Grouping secrets by filename
-            const secretsPerFile = secrets.reduce((result, currentSecret) => {
-            
-                if (!result[currentSecret.filePath]) {
-                    result[currentSecret.filePath] = {};
-                }
-
-                // Getting managed secrets only
-                if (currentSecret.controlType === ControlTypeEnum.Managed) {
-                    
-                    result[currentSecret.filePath][currentSecret.name] = secretValues[currentSecret.name];
-                }
-
-                return result;
-            
-            }, {} as { [f: string] : {[name: string]: string} });
-
-            // flipping secrets in each file
-            const promises = Object.keys(secretsPerFile)
-                .map(filePath => this.stashUnstashSecretsInFile(filePath, stash, secretsPerFile[filePath]));
-            
-            await Promise.all(promises);
+            await this.stashUnstashAllSecretsInFolders(folders, stash);
 
         }, 'KeyShepherd failed');
     }

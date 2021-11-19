@@ -289,6 +289,38 @@ export abstract class KeyShepherdBase {
 
         return outputText;
     }
+
+    protected async stashUnstashAllSecretsInFolders(folders: string[], stash: boolean): Promise<void> {
+        
+        const secretPromises = folders.map(f => this._repo.getSecrets(f));
+        const secrets = (await Promise.all(secretPromises)).flat();
+
+        // This must be done sequentially by now
+        const secretValues = await this.getSecretValues(secrets);
+
+        // Grouping secrets by filename
+        const secretsPerFile = secrets.reduce((result, currentSecret) => {
+        
+            if (!result[currentSecret.filePath]) {
+                result[currentSecret.filePath] = {};
+            }
+
+            // Getting managed secrets only
+            if (currentSecret.controlType === ControlTypeEnum.Managed) {
+                
+                result[currentSecret.filePath][currentSecret.name] = secretValues[currentSecret.name];
+            }
+
+            return result;
+        
+        }, {} as { [f: string] : {[name: string]: string} });
+
+        // flipping secrets in each file
+        const promises = Object.keys(secretsPerFile)
+            .map(filePath => this.stashUnstashSecretsInFile(filePath, stash, secretsPerFile[filePath]));
+        
+        await Promise.all(promises);
+    }
     
     protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: {[name:string]:string}): Promise<void> {
 
