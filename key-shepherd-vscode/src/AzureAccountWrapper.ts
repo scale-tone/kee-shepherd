@@ -37,8 +37,7 @@ export class AzureAccountWrapper {
         const storageAccount = await vscode.window.showQuickPick(storageAccounts.map(account => {
                 return {
                     label: account.name!,
-                    description: account.kind,
-                    detail: account.location,
+                    detail: `(${account.kind}, ${account.location})`,
                     account
                 }
             }), 

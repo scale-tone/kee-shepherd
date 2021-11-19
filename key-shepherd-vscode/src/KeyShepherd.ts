@@ -42,7 +42,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
     // Does nothing, actually
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
 
-    // Renders tree view
+    // Renders tree view. TODO: refactor entirely
     async getChildren(parent?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
 
         if (!parent) {
@@ -123,6 +123,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 return {
                     label: filePaths[filePath],
                     filePath,
+                    machineName: (parent as any).machineName,
                     isFileNode: true,
                     collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
                     isLocal: (parent as any).isLocal,
@@ -137,7 +138,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
         if (!!(parent as any).isFileNode) {
 
-            const secrets = await this._repo.getSecrets((parent as any).filePath);
+            const secrets = await this._repo.getSecrets((parent as any).filePath, (parent as any).machineName);
 
             return secrets.map(secret => {
 
