@@ -1,14 +1,14 @@
 import * as os from 'os';
+import * as path from 'path';
 import * as Crypto from 'crypto';
 
 import { TableServiceClient, TableClient, TableEntity } from '@azure/data-tables';
 
-import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum } from './KeyMetadataHelpers';
+import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
-import path = require('path');
 
 const SaltKey = '|KeyShepherdSalt|'
 
@@ -111,8 +111,8 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     async addSecret(secret: ControlledSecret): Promise<void> {
 
-        if (secret.length < 3) {
-            throw new Error(`Secret should be at least 3 symbols long`);
+        if (secret.length < MinSecretLength) {
+            throw new Error(`Secret should be at least ${MinSecretLength} symbols long`);
         }
 
         const partitionKey = encodePathSegment(os.hostname());

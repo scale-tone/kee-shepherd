@@ -27,6 +27,8 @@ export type ControlledSecret = {
     properties?: any;
 }
 
+export const MinSecretLength = 5;
+
 export function getSha256Hash(str: string): string {
 
     return Crypto.createHash('sha256').update(str).digest('base64');

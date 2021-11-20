@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as Crypto from 'crypto';
-import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash } from './KeyMetadataHelpers';
+import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 
 export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
@@ -75,8 +75,8 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     async addSecret(secret: ControlledSecret): Promise<void> {
 
-        if (secret.length < 3) {
-            throw new Error(`Secret should be at least 3 symbols long`);
+        if (secret.length < MinSecretLength) {
+            throw new Error(`Secret should be at least ${MinSecretLength} symbols long`);
         }
 
         // Allowing secrets with same name and hash, but disallowing secrets with same name and different hash
