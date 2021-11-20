@@ -45,124 +45,130 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
     // Renders tree view. TODO: refactor entirely
     async getChildren(parent?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
 
-        if (!parent) {
+        try {
 
-            const machineNames = await this._repo.getMachineNames();
+            if (!parent) {
 
-            return machineNames.map(name => {
-
-                const isLocal = name === os.hostname();
-
-                const collapsibleState = isLocal ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
-
-                return {
-                    label: name,
-                    isMachineNode: true,
-                    collapsibleState,
-                    isLocal,
-                    description: isLocal ? '(this machine)' : '',
-                    iconPath: {
-                        light: path.join(this._resourcesFolder, 'light', 'machine.svg'),
-                        dark: path.join(this._resourcesFolder, 'dark', 'machine.svg')
+                const machineNames = await this._repo.getMachineNames();
+    
+                return machineNames.map(name => {
+    
+                    const isLocal = name === os.hostname();
+    
+                    const collapsibleState = isLocal ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
+    
+                    return {
+                        label: name,
+                        isMachineNode: true,
+                        collapsibleState,
+                        isLocal,
+                        description: isLocal ? '(this machine)' : '',
+                        iconPath: {
+                            light: path.join(this._resourcesFolder, 'light', 'machine.svg'),
+                            dark: path.join(this._resourcesFolder, 'dark', 'machine.svg')
+                        }
                     }
-                }
-            });
-        }
-
-        if (!!(parent as any).isMachineNode) {
-
-            const workspaceFolders = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders?.map(f => f.uri.toString()) : [];
-
-            const machineName = parent.label as string;
-
-            const folderUris = await this._repo.getFolders(machineName);
-            
-            return folderUris.map(folderUri => {
-
-                var label = decodeURIComponent(folderUri);
-                if (label.startsWith('file:///')) {
-                    label = label.substr(8);
-                }
-
-                const collapsibleState = workspaceFolders.includes(folderUri) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
-
-                return {
-                    label,
-                    machineName,
-                    isFolderNode: true,
-                    folderUri,
-                    collapsibleState,
-                    isLocal: (parent as any).isLocal,
-                    contextValue: (parent as any).isLocal ? 'tree-folder-local' : 'tree-folder',
-                    iconPath: {
-                        light: path.join(this._resourcesFolder, 'light', 'folder.svg'),
-                        dark: path.join(this._resourcesFolder, 'dark', 'folder.svg')
-                    }
-                }
-            });
-        }
-
-        if (!!(parent as any).isFolderNode) {
-
-            const folderUri = (parent as any).folderUri;
-
-            const secrets = await this._repo.getSecrets(folderUri, false, (parent as any).machineName);
-
-            const filePaths: any = {};
-            for (var secret of secrets) {
-
-                const fileName = path.basename(secret.filePath);
-                const fileFolderUri = secret.filePath.substr(0, secret.filePath.length - fileName.length - 1);
-                if (fileFolderUri.toLowerCase() === folderUri.toLowerCase()) {
-
-                    filePaths[secret.filePath] = fileName;                    
-                }
+                });
             }
-            
-            return Object.keys(filePaths).map(filePath => {
-
-                return {
-                    label: filePaths[filePath],
-                    filePath,
-                    machineName: (parent as any).machineName,
-                    isFileNode: true,
-                    collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
-                    isLocal: (parent as any).isLocal,
-                    contextValue: (parent as any).isLocal ? 'tree-file-local' : 'tree-file',
-                    iconPath: {
-                        light: path.join(this._resourcesFolder, 'light', 'file.svg'),
-                        dark: path.join(this._resourcesFolder, 'dark', 'file.svg')
+    
+            if (!!(parent as any).isMachineNode) {
+    
+                const workspaceFolders = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders?.map(f => f.uri.toString()) : [];
+    
+                const machineName = parent.label as string;
+    
+                const folderUris = await this._repo.getFolders(machineName);
+                
+                return folderUris.map(folderUri => {
+    
+                    var label = decodeURIComponent(folderUri);
+                    if (label.startsWith('file:///')) {
+                        label = label.substr(8);
+                    }
+    
+                    const collapsibleState = workspaceFolders.includes(folderUri) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+    
+                    return {
+                        label,
+                        machineName,
+                        isFolderNode: true,
+                        folderUri,
+                        collapsibleState,
+                        isLocal: (parent as any).isLocal,
+                        contextValue: (parent as any).isLocal ? 'tree-folder-local' : 'tree-folder',
+                        iconPath: {
+                            light: path.join(this._resourcesFolder, 'light', 'folder.svg'),
+                            dark: path.join(this._resourcesFolder, 'dark', 'folder.svg')
+                        }
+                    }
+                });
+            }
+    
+            if (!!(parent as any).isFolderNode) {
+    
+                const folderUri = (parent as any).folderUri;
+    
+                const secrets = await this._repo.getSecrets(folderUri, false, (parent as any).machineName);
+    
+                const filePaths: any = {};
+                for (var secret of secrets) {
+    
+                    const fileName = path.basename(secret.filePath);
+                    const fileFolderUri = secret.filePath.substr(0, secret.filePath.length - fileName.length - 1);
+                    if (fileFolderUri.toLowerCase() === folderUri.toLowerCase()) {
+    
+                        filePaths[secret.filePath] = fileName;                    
                     }
                 }
-            });
-        }
-
-        if (!!(parent as any).isFileNode) {
-
-            const secrets = await this._repo.getSecrets((parent as any).filePath, true, (parent as any).machineName);
-
-            return secrets.map(secret => {
-
-                const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
-
-                // This is what happens when this tree node is being clicked
-                const command = (parent as any).isLocal ? {
-                    title: 'Open',
-                    command: 'key-shepherd-vscode.view-context.gotoSecret',
-                    arguments: [secret]
-                } : undefined;
-
-                return {
-                    label: secret.name,
-                    description,
-                    isSecretNode: true,
-                    collapsibleState: vscode.TreeItemCollapsibleState.None,
-                    command,
-                    isLocal: (parent as any).isLocal,
-                    contextValue: (parent as any).isLocal ? 'tree-secret-local' : 'tree-secret',
-                    iconPath: path.join(this._resourcesFolder, 'secret.svg')
-                }
-            });
+                
+                return Object.keys(filePaths).map(filePath => {
+    
+                    return {
+                        label: filePaths[filePath],
+                        filePath,
+                        machineName: (parent as any).machineName,
+                        isFileNode: true,
+                        collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
+                        isLocal: (parent as any).isLocal,
+                        contextValue: (parent as any).isLocal ? 'tree-file-local' : 'tree-file',
+                        iconPath: {
+                            light: path.join(this._resourcesFolder, 'light', 'file.svg'),
+                            dark: path.join(this._resourcesFolder, 'dark', 'file.svg')
+                        }
+                    }
+                });
+            }
+    
+            if (!!(parent as any).isFileNode) {
+    
+                const secrets = await this._repo.getSecrets((parent as any).filePath, true, (parent as any).machineName);
+    
+                return secrets.map(secret => {
+    
+                    const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
+    
+                    // This is what happens when this tree node is being clicked
+                    const command = (parent as any).isLocal ? {
+                        title: 'Open',
+                        command: 'key-shepherd-vscode.view-context.gotoSecret',
+                        arguments: [secret]
+                    } : undefined;
+    
+                    return {
+                        label: secret.name,
+                        description,
+                        isSecretNode: true,
+                        collapsibleState: vscode.TreeItemCollapsibleState.None,
+                        command,
+                        isLocal: (parent as any).isLocal,
+                        contextValue: (parent as any).isLocal ? 'tree-secret-local' : 'tree-secret',
+                        iconPath: path.join(this._resourcesFolder, 'secret.svg')
+                    }
+                });
+            }
+                
+        } catch (err) {
+            vscode.window.showErrorMessage(`KeyShepherd failed to load the secrets view. ${(err as any).message ?? err}`);
         }
 
         return [];
