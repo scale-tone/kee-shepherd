@@ -34,6 +34,10 @@ export class AzureAccountWrapper {
             storageAccounts.push(...storageAccountsPartialResponse);
         }
 
+        if (storageAccounts.length <= 0) {
+            throw new Error('No storage accounts found in this subscription');
+        }
+
         const storageAccount = await vscode.window.showQuickPick(storageAccounts.map(account => {
                 return {
                     label: account.name!,

@@ -723,6 +723,10 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             secretNames.push(secretProps.name);
         }
 
+        if (secretNames.length <= 0) {
+            throw new Error(`No secrets found in this Key Vault`);
+        }
+
         const secretName = await vscode.window.showQuickPick(secretNames, { title: 'Select Secret' });
 
         if (!secretName) {
