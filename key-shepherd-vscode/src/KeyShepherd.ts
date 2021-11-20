@@ -60,6 +60,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                     isMachineNode: true,
                     collapsibleState,
                     isLocal,
+                    description: isLocal ? '(this machine)' : '',
                     iconPath: {
                         light: path.join(this._resourcesFolder, 'light', 'machine.svg'),
                         dark: path.join(this._resourcesFolder, 'dark', 'machine.svg')
