@@ -1,6 +1,8 @@
-# key-shepherd-vscode README
+# KeyShepherd
 
-Herds secrets, passwords, keys etc., that are spread across various config files on your devbox.
+Keeps an eye on various credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es).
+
+![image](https://user-images.githubusercontent.com/5447190/142744174-e8fbc6f6-bf76-4a43-b53b-be49c22d3655.png)
 
 ## Features
 
