@@ -9,6 +9,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     shepherd = await KeyShepherd.create(context);
 
+    await shepherd.stashPendingFolders();
     await shepherd.maskSecretsInThisFile(false);
 
     context.subscriptions.push(

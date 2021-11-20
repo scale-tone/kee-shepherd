@@ -14,6 +14,32 @@ export class KeyMapRepo {
 
     private constructor(private _storageFolder: string) {}
 
+    async getPendingFolders(): Promise<string[]> {
+
+        const filePath = this.getFileNameForPendingFolders();
+
+        if (!fs.existsSync(filePath)) {
+            return [];
+        }
+
+        const json = await fs.promises.readFile(filePath, 'utf8')
+
+        return JSON.parse(json);
+    }
+
+    async savePendingFolders(folders: string[]): Promise<void> {
+
+        const filePath = this.getFileNameForPendingFolders();
+
+        if (folders.length <= 0) {
+
+            await fs.promises.rm(filePath, {force: true});
+        } else {
+
+            await fs.promises.writeFile(filePath, JSON.stringify(folders, null, 3));
+        }
+    }
+
     static async create(storageFolder: string): Promise<KeyMapRepo> {
         
         if (!fs.existsSync(storageFolder)) {
@@ -56,12 +82,16 @@ export class KeyMapRepo {
             return;
         }
 
-        return fs.promises
-            .writeFile(mapFilePath, JSON.stringify(map, null, 3));
+        await fs.promises.writeFile(mapFilePath, JSON.stringify(map, null, 3));
     }
 
     private getFileNameForSecretMap(filePath: string): string {
 
         return getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(filePath)), `${encodePathSegment(path.basename(filePath))}-${getWeakHash(filePath)}.json`);
+    }
+
+    private getFileNameForPendingFolders(): string {
+
+        return path.join(this._storageFolder, `folders-to-be-stashed.json`);
     }
 }

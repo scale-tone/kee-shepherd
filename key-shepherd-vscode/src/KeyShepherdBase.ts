@@ -325,7 +325,10 @@ export abstract class KeyShepherdBase {
         
         await Promise.all(promises);
 
-        vscode.window.showInformationMessage(`KeyShepherd ${stash ? 'stashed' : 'unstashed'} ${secretCount} secrets in ${fileCount} files`);
+        if (secretCount > 0) {
+            
+            vscode.window.showInformationMessage(`KeyShepherd ${stash ? 'stashed' : 'unstashed'} ${secretCount} secrets in ${fileCount} files`);
+        }
     }
     
     protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: {[name:string]:string}): Promise<void> {

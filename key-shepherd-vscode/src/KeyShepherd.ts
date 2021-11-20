@@ -26,7 +26,7 @@ const SettingNames = {
     SubscriptionId: 'KeyShepherdTableStorageSubscriptionId',
     ResourceGroupName: 'KeyShepherdTableStorageResourceGroupName',
     StorageAccountName: 'KeyShepherdTableStorageAccountName',
-    TableName: 'KeyShepherdTable'
+    TableName: 'KeyShepherdTableName'
 }
 
 export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProvider<vscode.TreeItem> {
@@ -188,7 +188,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 throw err;
             }
 
-            this.cleanupSettings(context);
+            await this.cleanupSettings(context);
 
             // trying again
             try {
@@ -205,14 +205,18 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
         const resourcesFolderPath = context.asAbsolutePath('resources');
 
-        return new KeyShepherd(account, metadataRepo, await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')), resourcesFolderPath);
+        return new KeyShepherd(
+            account, metadataRepo,
+            await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
+            resourcesFolderPath
+        );
     }
 
     async changeStorageType(context: vscode.ExtensionContext): Promise<void> {
         
         await this.doAndShowError(async () => {
 
-            KeyShepherd.cleanupSettings(context);
+            await KeyShepherd.cleanupSettings(context);
 
             this._repo = await KeyShepherd.getKeyMetadataRepo(context, this._account);
 
@@ -443,7 +447,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
             try {
                 
-                // Making sure there're no dirty files open
+                // Making sure there're no dirty files open. This can be unreliable during shutdown, so wrapping with try-catch
                 await vscode.workspace.saveAll();
 
             } catch (err) {
@@ -451,7 +455,33 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
             const folders = vscode.workspace.workspaceFolders.map(f => f.uri.toString());
 
+            // Persisting this list, in case the process gets killed in the middle
+            if (!!stash) {
+                await this._mapRepo.savePendingFolders(folders);
+            }
+
             await this.stashUnstashAllSecretsInFolders(folders, stash);
+
+            // Cleanup upon success
+            await this._mapRepo.savePendingFolders([]);
+
+        }, 'KeyShepherd failed');
+    }
+
+    async stashPendingFolders(): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const folders = await this._mapRepo.getPendingFolders();
+            
+            if (!folders || folders.length <= 0) {
+                return;
+            }
+
+            await this.stashUnstashAllSecretsInFolders(folders, true);
+
+            // Cleanup upon success
+            await this._mapRepo.savePendingFolders([]);
 
         }, 'KeyShepherd failed');
     }
@@ -810,14 +840,14 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         }
     }
 
-    private static cleanupSettings(context: vscode.ExtensionContext) {
+    private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
         
         // Zeroing settings
-        context.globalState.update(SettingNames.StorageType, undefined);
-        context.globalState.update(SettingNames.StorageAccountName, undefined);
-        context.globalState.update(SettingNames.TableName, undefined);
-        context.globalState.update(SettingNames.SubscriptionId, undefined);
-        context.globalState.update(SettingNames.ResourceGroupName, undefined);
+        await context.globalState.update(SettingNames.StorageType, undefined);
+        await context.globalState.update(SettingNames.StorageAccountName, undefined);
+        await context.globalState.update(SettingNames.TableName, undefined);
+        await context.globalState.update(SettingNames.SubscriptionId, undefined);
+        await context.globalState.update(SettingNames.ResourceGroupName, undefined);
     }
 
     private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper): Promise<IKeyMetadataRepo> {
@@ -894,11 +924,11 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         }
 
         // Updating all settings, but only after the instance was successfully created
-        context.globalState.update(SettingNames.StorageType, storageType);
-        context.globalState.update(SettingNames.StorageAccountName, accountName);
-        context.globalState.update(SettingNames.TableName, tableName);
-        context.globalState.update(SettingNames.SubscriptionId, subscriptionId);
-        context.globalState.update(SettingNames.ResourceGroupName, resourceGroupName);
+        await context.globalState.update(SettingNames.StorageType, storageType);
+        await context.globalState.update(SettingNames.StorageAccountName, accountName);
+        await context.globalState.update(SettingNames.TableName, tableName);
+        await context.globalState.update(SettingNames.SubscriptionId, subscriptionId);
+        await context.globalState.update(SettingNames.ResourceGroupName, resourceGroupName);
 
         return result;
     }
