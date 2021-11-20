@@ -6,7 +6,7 @@ export interface IKeyMetadataRepo {
 
     getFolders(machineName: string): Promise<string[]>;
 
-    getSecrets(path: string, machineName?: string): Promise<ControlledSecret[]>;
+    getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]>;
 
     addSecret(secret: ControlledSecret): Promise<void>;
 

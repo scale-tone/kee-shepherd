@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 import { SecretClient } from '@azure/keyvault-secrets';
@@ -122,7 +123,7 @@ export abstract class KeyShepherdBase {
         });
 
         // Also updating secret map for this file
-        const secrets = await this._repo.getSecrets(currentFile);
+        const secrets = await this._repo.getSecrets(currentFile, true);
         const secretValues = await this.getSecretValues(secrets);
         await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 
@@ -292,7 +293,7 @@ export abstract class KeyShepherdBase {
 
     protected async stashUnstashAllSecretsInFolders(folders: string[], stash: boolean): Promise<void> {
         
-        const secretPromises = folders.map(f => this._repo.getSecrets(f));
+        const secretPromises = folders.map(f => this._repo.getSecrets(f, false));
         const secrets = (await Promise.all(secretPromises)).flat();
 
         // This must be done sequentially by now
@@ -326,15 +327,27 @@ export abstract class KeyShepherdBase {
 
         try {
 
-            var currentEditor = vscode.window.activeTextEditor;
-            if (!!currentEditor && (currentEditor.document.uri.toString() !== filePath)) {
-                currentEditor = undefined;
-            }
+            var currentEditor: vscode.TextEditor | undefined;
+
+            // This can fail during unload
+            try {
+                currentEditor = vscode.window.activeTextEditor;
+                if (!!currentEditor && (currentEditor.document.uri.toString() !== filePath)) {
+                    currentEditor = undefined;
+                }
+                    
+            } catch (err) {}
 
             const fileUri = vscode.Uri.parse(filePath);
 
-            // Reading current file contents
-            const fileBytes = await vscode.workspace.fs.readFile(fileUri);
+            // Reading current file contents. Trying with vscode and falling back to fs (because vscode will fail during unload)
+            var fileBytes: Uint8Array;
+            try {
+                fileBytes = await vscode.workspace.fs.readFile(fileUri);
+            } catch (err) {
+                fileBytes = await fs.promises.readFile(fileUri.fsPath);
+            }
+
             var fileText = Buffer.from(fileBytes).toString();
 
             // Replacing @KeyShepherd() links with secret values
@@ -362,8 +375,13 @@ export abstract class KeyShepherdBase {
                 });
             }
 
-            // Saving file contents back
-            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(outputFileText));
+            // Saving file contents back. Trying with vscode and falling back to fs (because vscode will fail during unload)
+            const outputFileBytes = Buffer.from(outputFileText);
+            try {
+                await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
+            } catch (err) {
+                await fs.promises.writeFile(fileUri.fsPath, outputFileBytes);
+            }
 
         } catch (err) {
             vscode.window.showErrorMessage(`KeyShepherd failed to unstash secrets in ${filePath}. ${(err as any).message ?? err}`);
@@ -372,7 +390,7 @@ export abstract class KeyShepherdBase {
 
     protected async updateSecretMapForFile(filePath: string, text: string, secretValues: { [name: string]: string }): Promise<string[]> {
 
-        const secrets = await this._repo.getSecrets(filePath);
+        const secrets = await this._repo.getSecrets(filePath, true);
         
         const outputMap: SecretMapEntry[] = []
         const secretsFound: string[] = [];

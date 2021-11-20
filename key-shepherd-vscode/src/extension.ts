@@ -3,9 +3,11 @@ import * as vscode from 'vscode';
 import { ControlTypeEnum } from './KeyMetadataHelpers';
 import { KeyShepherd } from './KeyShepherd';
 
+var shepherd: KeyShepherd;
+
 export async function activate(context: vscode.ExtensionContext) {
 
-    const shepherd = await KeyShepherd.create(context);
+    shepherd = await KeyShepherd.create(context);
 
     await shepherd.maskSecretsInThisFile(false);
 
@@ -43,20 +45,37 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('key-shepherd-vscode.view-context.stashSecrets', (item) => shepherd.stashUnstashSecretsInFolder(item, true)),
         vscode.commands.registerCommand('key-shepherd-vscode.view-context.unstashSecrets', (item) => shepherd.stashUnstashSecretsInFolder(item, false)),
 
-        // Too slow
-//        vscode.workspace.onDidOpenTextDocument((editor) => shepherd.maskSecretsInThisFile(true)),
-
         vscode.window.onDidChangeActiveTextEditor((editor) => shepherd.maskSecretsInThisFile(true)),
  
         vscode.workspace.onDidSaveTextDocument((doc) => shepherd.maskSecretsInThisFile(true)),
-        
+
         // Too powerful
 //        vscode.workspace.onDidChangeTextDocument(async (evt) => {
 //        }),
         
-        shepherd,
     );
+
+    const config = vscode.workspace.getConfiguration('key-shepherd');
+    const autoUnstashMode = config.get("autoUnstashMode");
+
+    if (autoUnstashMode === "When a workspace is opened") {
+        
+        await shepherd.stashUnstashAllSecretsInThisProject(false);
+    }
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() { }
+export async function deactivate() {
+
+    const config = vscode.workspace.getConfiguration('key-shepherd');
+    const autoStashMode = config.get("autoStashMode");
+
+    if (autoStashMode === "When a workspace is closed") {
+        
+        await shepherd.stashUnstashAllSecretsInThisProject(false);
+    }
+
+    await shepherd.stashUnstashAllSecretsInThisProject(true);
+
+    shepherd.dispose();
+}

@@ -253,6 +253,33 @@
                     "when": "view == key-shepherd-tree-view && viewItem == tree-folder-local"
                 }
             ]
+        },
+        "configuration" : {
+
+            "title": "KeyShepherd",
+
+            "properties": {
+
+                "key-shepherd.autoStashMode": {
+                    "type": "string",
+                    "default": "When a workspace is closed",
+                    "enum": [
+                        "Never",
+                        "When a workspace is closed"
+                    ],
+                    "description": "Automatically stash secrets"
+                },
+
+                "key-shepherd.autoUnstashMode": {
+                    "type": "string",
+                    "default": "Never",
+                    "enum": [
+                        "Never",
+                        "When a workspace is opened"
+                    ],
+                    "description": "Automatically unstash secrets"
+                }
+            }
         }
     },
     "scripts": {

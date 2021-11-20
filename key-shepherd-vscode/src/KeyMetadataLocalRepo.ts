@@ -65,9 +65,12 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         return new KeyMetadataLocalRepo(storageFolder, secrets.flat());
     }
 
-    async getSecrets(path: string, machineName?: string): Promise<ControlledSecret[]> {
+    async getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]> {
 
-        return this._secrets.filter(s => s.filePath.toLowerCase().startsWith(path.toLowerCase()));
+        return this._secrets.filter(s => !!exactMatch ?
+            s.filePath.toLowerCase() === path.toLowerCase() :
+            s.filePath.toLowerCase().startsWith(path.toLowerCase())
+        );
     }
 
     async addSecret(secret: ControlledSecret): Promise<void> {

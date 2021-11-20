@@ -105,7 +105,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
             const folderUri = (parent as any).folderUri;
 
-            const secrets = await this._repo.getSecrets(folderUri, (parent as any).machineName);
+            const secrets = await this._repo.getSecrets(folderUri, false, (parent as any).machineName);
 
             const filePaths: any = {};
             for (var secret of secrets) {
@@ -138,7 +138,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
         if (!!(parent as any).isFileNode) {
 
-            const secrets = await this._repo.getSecrets((parent as any).filePath, (parent as any).machineName);
+            const secrets = await this._repo.getSecrets((parent as any).filePath, true, (parent as any).machineName);
 
             return secrets.map(secret => {
 
@@ -230,7 +230,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
             if (!!treeItem.isFileNode && !!treeItem.isLocal) {
                 
                 filePath = treeItem.filePath;
-                secrets = await this._repo.getSecrets(filePath);
+                secrets = await this._repo.getSecrets(filePath, true);
 
             } else if (!!treeItem.isSecretNode && !!treeItem.isLocal) {
                 
@@ -381,20 +381,24 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
         await this.doAndShowError(async () => {
 
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+            const document = vscode.window.activeTextEditor?.document;
+            if (!document) {
                 return;
             }
 
-            const currentFile = editor.document.uri.toString();
+            const currentFile = document?.uri.toString();
             if (!currentFile) {
                 return;
             }
 
             // Making sure the file is not dirty
-            await editor.document.save();
+            try {
+
+                await document.save();
+
+            } catch (err) { }
     
-            const secrets = await this._repo.getSecrets(currentFile);
+            const secrets = await this._repo.getSecrets(currentFile, true);
             const secretValues = await this.getSecretValues(secrets);
 
             const secretsValuesMap = secrets.reduce((result, currentSecret) => {
@@ -436,8 +440,13 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 return;
             }
 
-            // Making sure there're no dirty files open
-            await vscode.workspace.saveAll();
+            try {
+                
+                // Making sure there're no dirty files open
+                await vscode.workspace.saveAll();
+
+            } catch (err) {
+            }
 
             const folders = vscode.workspace.workspaceFolders.map(f => f.uri.toString());
 
@@ -545,7 +554,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
 
 
             // Also updating secret map for this file
-            const secrets = await this._repo.getSecrets(currentFile);
+            const secrets = await this._repo.getSecrets(currentFile, true);
             const secretValues = await this.getSecretValues(secrets);
             await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 

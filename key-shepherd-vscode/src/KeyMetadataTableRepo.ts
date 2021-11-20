@@ -137,7 +137,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         await this._tableClient.upsertEntity(this.toTableEntity(secret, partitionKey, rowKey));
     }
 
-    async getSecrets(path: string, machineName?: string): Promise<ControlledSecret[]> {
+    async getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]> {
 
         if (!machineName) {
             machineName = os.hostname();
@@ -154,7 +154,13 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
         const secrets: ControlledSecret[] = [];
         for await (const entity of response) {
-            secrets.push(this.fromTableEntity(entity as any));
+
+            const secret = this.fromTableEntity(entity as any);
+
+            if (!exactMatch || secret.filePath.toLowerCase() === path.toLowerCase()) {
+               
+                secrets.push(secret);
+            }
         }
 
         return secrets;
