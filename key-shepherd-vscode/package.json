@@ -1,18 +1,18 @@
 {
     "name": "key-shepherd-vscode",
-    "displayName": "key-shepherd-vscode",
-    "description": "Herds secrets, passwords, keys etc. on your devbox",
+    "displayName": "KeyShepherd",
+    "description": "Keeps an eye on credentials, that are spread across numerous config files on your devboxes",
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.62.0"
     },
     "categories": [
-        "Other"
+        "Azure", "Formatters", "Other"
     ],
-    "homepage": "https://github.com/scale-tone/key-shepherd",
+    "homepage": "https://github.com/scale-tone/key-shepherd/tree/main/key-shepherd-vscode#readme",
     "repository": {
         "type": "git",
-        "url": "https://github.com/scale-tone/key-shepherd"
+        "url": "https://github.com/scale-tone/key-shepherd/tree/main/key-shepherd-vscode#readme"
     },
     "bugs": {
         "url": "https://github.com/scale-tone/key-shepherd/issues"
@@ -20,7 +20,9 @@
     "icon": "logo.png",
     "keywords": [
         "secrets",
-        "Azure"
+        "credentials",
+        "security",
+        "azure"
     ],
     "publisher": "key-shepherd",
     "license": "MIT",

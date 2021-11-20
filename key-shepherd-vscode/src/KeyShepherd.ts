@@ -461,8 +461,12 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         await this.doAndShowError(async () => {
 
             const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+            if (!editor || !editor.document) {
                 return;
+            }
+
+            if (editor.document.isUntitled) {
+                throw new Error('Cannot put secrets to untitled documents');
             }
 
             const currentFile = editor.document.uri.toString();
@@ -570,8 +574,12 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         await this.doAndShowError(async () => {
 
             const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+            if (!editor || !editor.document) {
                 return;
+            }
+
+            if (editor.document.isUntitled) {
+                throw new Error('Cannot put secrets to untitled documents');
             }
 
             const currentFile = editor.document.uri.toString();
