@@ -300,16 +300,19 @@ export abstract class KeyShepherdBase {
         const secretValues = await this.getSecretValues(secrets);
 
         // Grouping secrets by filename
+        var fileCount = 0, secretCount = 0;
         const secretsPerFile = secrets.reduce((result, currentSecret) => {
         
             if (!result[currentSecret.filePath]) {
                 result[currentSecret.filePath] = {};
+                fileCount++;
             }
 
             // Getting managed secrets only
             if (currentSecret.controlType === ControlTypeEnum.Managed) {
                 
                 result[currentSecret.filePath][currentSecret.name] = secretValues[currentSecret.name];
+                secretCount++;
             }
 
             return result;
@@ -321,6 +324,8 @@ export abstract class KeyShepherdBase {
             .map(filePath => this.stashUnstashSecretsInFile(filePath, stash, secretsPerFile[filePath]));
         
         await Promise.all(promises);
+
+        vscode.window.showInformationMessage(`KeyShepherd ${stash ? 'stashed' : 'unstashed'} ${secretCount} secrets in ${fileCount} files`);
     }
     
     protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: {[name:string]:string}): Promise<void> {

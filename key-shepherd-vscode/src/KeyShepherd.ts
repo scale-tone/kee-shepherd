@@ -557,7 +557,6 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
                 }    
             }
 
-
             // Also updating secret map for this file
             const secrets = await this._repo.getSecrets(currentFile, true);
             const secretValues = await this.getSecretValues(secrets);
@@ -787,7 +786,7 @@ export class KeyShepherd extends KeyShepherdBase  implements vscode.TreeDataProv
         const storageKey = await vscode.window.showQuickPick(storageKeys.keys!.map(key => {
                 return {
                     label: key.keyName!,
-                    description: `created ${key.creationTime}`,
+                    description: !!key.creationTime ? `created ${key.creationTime}` : '',
                     key
                 }
             }), 

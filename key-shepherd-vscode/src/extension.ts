@@ -72,10 +72,9 @@ export async function deactivate() {
 
     if (autoStashMode === "When a workspace is closed") {
         
-        await shepherd.stashUnstashAllSecretsInThisProject(false);
-    }
+        await shepherd.stashUnstashAllSecretsInThisProject(true);
 
-    await shepherd.stashUnstashAllSecretsInThisProject(true);
+    }
 
     shepherd.dispose();
 }

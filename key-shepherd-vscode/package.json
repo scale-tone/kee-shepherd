@@ -22,7 +22,8 @@
         "secrets",
         "credentials",
         "security",
-        "azure"
+        "azure",
+        "key vault"
     ],
     "publisher": "key-shepherd",
     "license": "MIT",
@@ -47,11 +48,11 @@
             },
             {
                 "command": "key-shepherd-vscode.stashAllWorkspaceSecrets",
-                "title": "KeyShepherd: Stash All Secrets in this Project"
+                "title": "KeyShepherd: Stash All Secrets in this Workspace"
             },
             {
                 "command": "key-shepherd-vscode.unstashAllWorkspaceSecrets",
-                "title": "KeyShepherd: Unstash All Secrets in this Project"
+                "title": "KeyShepherd: Unstash All Secrets in this Workspace"
             },
             {
                 "command": "key-shepherd-vscode.maskSecrets",
