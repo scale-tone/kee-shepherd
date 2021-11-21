@@ -16,7 +16,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('key-shepherd-vscode.changeStorageType', () => shepherd.changeStorageType(context)),
 
-        vscode.window.registerTreeDataProvider('key-shepherd-tree-view', shepherd),
+        vscode.window.registerTreeDataProvider('key-shepherd-tree-view', shepherd.treeView),
 
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.superviseSecret', () => shepherd.controlSecret(ControlTypeEnum.Supervised)),
         vscode.commands.registerCommand('key-shepherd-vscode.editor-context.controlSecret', () => shepherd.controlSecret(ControlTypeEnum.Managed)),
@@ -39,7 +39,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('key-shepherd-vscode.stashAllWorkspaceSecrets', () => shepherd.stashUnstashAllSecretsInThisProject(true)),
         vscode.commands.registerCommand('key-shepherd-vscode.unstashAllWorkspaceSecrets', () => shepherd.stashUnstashAllSecretsInThisProject(false)),
 
-        vscode.commands.registerCommand('key-shepherd-vscode.view-context.refresh', () => shepherd.refreshTreeView()),
+        vscode.commands.registerCommand('key-shepherd-vscode.view-context.refresh', () => shepherd.treeView.refresh()),
         vscode.commands.registerCommand('key-shepherd-vscode.view-context.gotoSecret', (item) => shepherd.gotoSecret(item)),
         vscode.commands.registerCommand('key-shepherd-vscode.view-context.forgetSecrets', (item) => shepherd.forgetSecrets(item)),
         vscode.commands.registerCommand('key-shepherd-vscode.view-context.forgetSecret', (item) => shepherd.forgetSecrets(item)),

@@ -12,10 +12,15 @@ import { SecretMapEntry } from './KeyMapRepo';
 import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import axios from 'axios';
+import { SecretTreeView } from './SecretTreeView';
 
 export abstract class KeyShepherdBase {
 
-    protected constructor(protected _account: AzureAccountWrapper, protected _repo: IKeyMetadataRepo, protected readonly _mapRepo: KeyMapRepo) {}
+    protected constructor(protected _account: AzureAccountWrapper,
+        protected _repo: IKeyMetadataRepo,
+        protected readonly _mapRepo: KeyMapRepo,
+        public readonly treeView: SecretTreeView
+    ) { }
 
     dispose(): void {
         this._hiddenTextDecoration.dispose();
@@ -25,9 +30,6 @@ export abstract class KeyShepherdBase {
         opacity: '0',
         backgroundColor: 'grey'
     });
-
-    protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
-    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
 
     protected async internalMaskSecrets(editor: vscode.TextEditor, secretsMap: SecretMapEntry[]): Promise<string[]> {
         
@@ -534,7 +536,7 @@ export abstract class KeyShepherdBase {
             await this._repo.removeSecrets(filePath, missingSecrets);
 
             vscode.window.showInformationMessage(`KeyShepherd: ${missingSecrets.length} secrets have been forgotten`);
-            this._onDidChangeTreeData.fire(undefined);
+            this.treeView.refresh();
         }
     }
 }
