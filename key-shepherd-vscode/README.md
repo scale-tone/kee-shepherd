@@ -26,7 +26,7 @@ Two types of secrets are supported:
 
   <img src="https://user-images.githubusercontent.com/5447190/142770184-800a0e90-e26a-4b4d-98b6-4dad886bb247.png" width="600">
 
-  When a secret is **stashed**, KeyShepherd replaces its value with an anhcor like `@KeyShepherd(<secret-name>)`. **Unstashing** does the opposite (the secret value is taken from wherever it is actually stored, e.g. from Azure Key Vault).
+  When a secret is **stashed**, KeyShepherd replaces its value with an anchor like `@KeyShepherd(<secret-name>)`. **Unstashing** does the opposite (the secret value is taken from wherever it is actually stored, e.g. from Azure Key Vault).
   
   **Stashing/unstashing does modifies your files**, since this is the whole point of it.
   KeyShepherd can **automatically stash** all secrets in a workspace when it is closed and **automatically unstash** them when a workspace is opened. Default mode is to automatically stash, but do not automatically unstash. You can configure this via Settings (see below).
