@@ -6,11 +6,11 @@ Keeps an eye on credentials (secrets, access keys, connection strings etc.), tha
 
 ## Features
 
-To put a secret under KeyShepherd's control, you can either *insert* it via KeyShepherd:
+To put a secret under KeyShepherd's control, you can either **insert** it via KeyShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142769450-6cee8be0-9d19-4102-98cf-07264c215d16.png" width="600">
 
-or select an existing secret in the text editor and *add* it to KeyShepherd:
+or select an existing secret in the text editor and **add** it to KeyShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142769515-e42c15ad-eceb-4dea-b74b-3e4647850110.png" width="600">
 
@@ -25,7 +25,7 @@ Two types of secrets are supported:
   When a secret is **stashed**, KeyShepherd replaces its value with an anhcor like `@KeyShepherd(<secret-name>)`. **Unstashing** does the opposite.
   
   **Stashing/unstashing does modifies your files**, since this is the whole point of it.
-  KeyShepherd can automatically stash all secrets in a workspace when it is closed and automatically unstash them when a workspace is opened. Default mode is to automatically stash, but do not automatically unstash. You can configure this via Settings (see below).
+  KeyShepherd can **automatically stash** all secrets in a workspace when it is closed and **automatically unstash** them when a workspace is opened. Default mode is to automatically stash, but do not automatically unstash. You can configure this via Settings (see below).
 
 It's perfectly fine to mix both **supervised** and **managed** secrets in the same config file. A good strategy could be to mark real secrets (access keys, connection strings etc.) as **managed** (to keep them safe) and leave less important values like user names, application ids etc. as **supervised** (to make it easy to find them later).
 
@@ -35,6 +35,8 @@ You can always **mask/unmask** them yourself:
   <img src="https://user-images.githubusercontent.com/5447190/142770778-b457c2d5-686c-4ae4-a7f4-4cab9727c3f6.png" width="500">
 
 A good idea would be to set some keyboard shortcuts of your choice to these **mask/unmask** commands.
+
+
 
 
 At first run KeyShepherd will ask you where to store secret's metadata:
@@ -49,7 +51,7 @@ You can always change the storage type later on with `Switch to Another Storage 
 
   <img src="https://user-images.githubusercontent.com/5447190/142771583-53e80244-4a6d-4204-8328-49730ac927fb.png" width="400">
 
-**IMPORTANT: KeyShepherd does not store your actual secret values, only cryptographically strong salted SHA256 hashes of them (plus their lengths and positions in files).** Yet still, even this information might be somewhat useful for a potential attacker, so please make sure that secret metadata never gets leaked.
+**IMPORTANT: KeyShepherd does not store your actual secret values, only links to them and cryptographically strong salted SHA256 hashes of them (plus secret lengths and positions in files).** Yet still, even this information might be somewhat useful for a potential attacker, so please make sure that secret metadata never gets leaked.
 
 ## Requirements
 
