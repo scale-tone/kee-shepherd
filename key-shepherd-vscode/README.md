@@ -1,6 +1,6 @@
 # KeyShepherd
 
-Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es).
+Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es). Gives you centralized access to them. Also hides (masks) them whenever possible.
 
 ![image](https://user-images.githubusercontent.com/5447190/142744174-e8fbc6f6-bf76-4a43-b53b-be49c22d3655.png)
 
