@@ -2,7 +2,7 @@
     "name": "key-shepherd-vscode",
     "displayName": "KeyShepherd",
     "description": "Keeps an eye on credentials, that are spread across numerous config files on your devboxes",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.62.0"
     },
