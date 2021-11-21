@@ -4,5 +4,11 @@ This Visual Studio Code extension helps you to take care of credentials (secrets
 
 ![video](https://github.com/scale-tone/key-shepherd/blob/main/video.gif?raw=true)
 
-See more details in the [extension's readme](https://github.com/scale-tone/key-shepherd/blob/main/key-shepherd-vscode/README.md).
+## How to install
+
+Install it from [VsCode marketplace](https://marketplace.visualstudio.com/items?itemName=key-shepherd.key-shepherd-vscode). 
+
+## How to use
+
+See details in the [extension's readme](https://github.com/scale-tone/key-shepherd/blob/main/key-shepherd-vscode/README.md).
 
