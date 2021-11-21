@@ -76,5 +76,6 @@ You can configure whether KeyShepherd should **automatically stash/unstash** sec
 
 ## Known Issues
 
-* Only UTF8-encoded files are supported. If your config file was saved with a different encoding and you have some **managed** secrets in it, chances are that the file will be broken during **stashing/unstashing**.
+* Only UTF8-encoded files are supported. If your config file was saved with a different encoding and you have some **managed** secrets in it, the file is likely to be broken during **stashing/unstashing**.
 * **Masking** does not (yet) work instantly, when you open a file. Secret values might be visible for a fraction of a second. Important to remember this when making a recorded video session. A safer option would be to keep them **stashed** and **unstash** on demand.
+* In some cases KeyShepherd need to tediously calculate SHA256 hashes at each position in a file. This can take time, if a file is long enough (> 30K symbols). So a good idea is to keep your config files small.
