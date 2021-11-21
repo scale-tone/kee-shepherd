@@ -6,6 +6,8 @@ Keeps an eye on credentials (secrets, access keys, connection strings etc.), tha
 
 ## Features
 
+### Insert/add, stash/unstash, mask/unmask
+
 To put a secret under KeyShepherd's control, you can either **insert** it via KeyShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142769450-6cee8be0-9d19-4102-98cf-07264c215d16.png" width="600">
@@ -14,7 +16,9 @@ or select an existing secret in the text editor and **add** it to KeyShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142769515-e42c15ad-eceb-4dea-b74b-3e4647850110.png" width="600">
 
-Since now KeyShepherd will remember its exact position and proceed with keeping track of it.
+**Insert** operation lets you pick up a secret from Azure Key Vault or directly from an Azure resource (by now Azure Storage and custom Azure Resource Manager URIs are supported, more secret sources like Service Bus, Event Hubs, Azure SQL etc. are on its way). **Add** operation will suggest to put the selected value into Azure Key Vault.
+
+Once a secret is added or inserted, KeyShepherd will remember its exact position and proceed with keeping track of it.
 
 Two types of secrets are supported:
 * **Supervised**. This is a lightweight form of it, just to remember where you left this secret value and to let you navigate back to it at any moment. Your actual config files are left intact.
@@ -22,7 +26,7 @@ Two types of secrets are supported:
 
   <img src="https://user-images.githubusercontent.com/5447190/142770184-800a0e90-e26a-4b4d-98b6-4dad886bb247.png" width="600">
 
-  When a secret is **stashed**, KeyShepherd replaces its value with an anhcor like `@KeyShepherd(<secret-name>)`. **Unstashing** does the opposite.
+  When a secret is **stashed**, KeyShepherd replaces its value with an anhcor like `@KeyShepherd(<secret-name>)`. **Unstashing** does the opposite (the secret value is taken from wherever it is actually stored, e.g. from Azure Key Vault).
   
   **Stashing/unstashing does modifies your files**, since this is the whole point of it.
   KeyShepherd can **automatically stash** all secrets in a workspace when it is closed and **automatically unstash** them when a workspace is opened. Default mode is to automatically stash, but do not automatically unstash. You can configure this via Settings (see below).
@@ -36,8 +40,7 @@ You can always **mask/unmask** them yourself:
 
 A good idea would be to set some keyboard shortcuts of your choice to these **mask/unmask** commands.
 
-
-
+### Configure and use secret metadata storage
 
 At first run KeyShepherd will ask you where to store secret's metadata:
 
@@ -53,6 +56,10 @@ You can always change the storage type later on with `Switch to Another Storage 
 
 **IMPORTANT: KeyShepherd does not store your actual secret values, only links to them and cryptographically strong salted SHA256 hashes of them (plus secret lengths and positions in files).** Yet still, even this information might be somewhat useful for a potential attacker, so please make sure that secret metadata never gets leaked.
 
+You can see, navigate to and manage all your secrets via `SECRETS` view that appears on the `EXPLORER` tab:
+
+<img src="https://user-images.githubusercontent.com/5447190/142772847-a38158cc-01d0-4d44-9961-5199c2736d7d.png" width="400">
+
 ## Requirements
 
 For most features to work you need to have [Azure Account](https://marketplace.visualstudio.com/items?itemName=ms-vscode.azure-account) extension installed and be signed in into Azure.
@@ -64,6 +71,8 @@ You can configure whether KeyShepherd should **automatically stash/unstash** sec
   <img src="https://user-images.githubusercontent.com/5447190/142771961-2d0dc15c-3713-40d8-8d55-417c2cc9b3aa.png" width="500">
 
 **Automatic stashing/unstashing** is the most secure option: your actual secret values will only be present in your config files while you're actually working with a project (aka while a VsCode instance is running).
+
+
 
 ## Known Issues
 
