@@ -1,4 +1,4 @@
-# KeyShepherd
+# KeeShepherd
 
 This Visual Studio Code extension helps you to take care of credentials (secrets, access keys, connection strings etc.), that are typically spread across numerous config files on your devbox(es).
 
