@@ -14,7 +14,7 @@ import { StorageManagementClient } from '@azure/arm-storage';
 import axios from 'axios';
 import { SecretTreeView } from './SecretTreeView';
 
-export abstract class KeyShepherdBase {
+export abstract class KeeShepherdBase {
 
     protected constructor(protected _account: AzureAccountWrapper,
         protected _repo: IKeyMetadataRepo,
@@ -329,7 +329,7 @@ export abstract class KeyShepherdBase {
 
         if (secretCount > 0) {
             
-            vscode.window.showInformationMessage(`KeyShepherd ${stash ? 'stashed' : 'unstashed'} ${secretCount} secrets in ${fileCount} files`);
+            vscode.window.showInformationMessage(`KeeShepherd ${stash ? 'stashed' : 'unstashed'} ${secretCount} secrets in ${fileCount} files`);
         }
     }
     
@@ -360,7 +360,7 @@ export abstract class KeyShepherdBase {
 
             var fileText = Buffer.from(fileBytes).toString();
 
-            // Replacing @KeyShepherd() links with secret values
+            // Replacing @KeeShepherd() links with secret values
             const outputFileText = await this.internalStashUnstashSecrets(filePath, fileText, managedSecretValues, stash);
 
             // Temporarily hiding everything. This seems to be the only way to prevent secret values from flashing.
@@ -394,7 +394,7 @@ export abstract class KeyShepherdBase {
             }
 
         } catch (err) {
-            vscode.window.showErrorMessage(`KeyShepherd failed to unstash secrets in ${filePath}. ${(err as any).message ?? err}`);
+            vscode.window.showErrorMessage(`KeeShepherd failed to unstash secrets in ${filePath}. ${(err as any).message ?? err}`);
         }
     }
 
@@ -535,7 +535,7 @@ export abstract class KeyShepherdBase {
             
             await this._repo.removeSecrets(filePath, missingSecrets);
 
-            vscode.window.showInformationMessage(`KeyShepherd: ${missingSecrets.length} secrets have been forgotten`);
+            vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten`);
             this.treeView.refresh();
         }
     }

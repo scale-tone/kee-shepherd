@@ -10,7 +10,7 @@ import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
 
-const SaltKey = '|KeyShepherdSalt|'
+const SaltKey = '|KeeShepherdSalt|'
 
 export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 

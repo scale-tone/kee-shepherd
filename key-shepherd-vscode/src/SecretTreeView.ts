@@ -12,7 +12,7 @@ export enum NodeTypeEnum {
     Secret
 }
 
-export type KeyShepherdTreeItem = vscode.TreeItem & {
+export type KeeShepherdTreeItem = vscode.TreeItem & {
     
     nodeType: NodeTypeEnum,
     isLocal: boolean,
@@ -40,9 +40,9 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
 
     // Renders the TreeView
-    async getChildren(parent: KeyShepherdTreeItem): Promise<KeyShepherdTreeItem[]> {
+    async getChildren(parent: KeeShepherdTreeItem): Promise<KeeShepherdTreeItem[]> {
 
-        const result: KeyShepherdTreeItem[] = [];
+        const result: KeeShepherdTreeItem[] = [];
 
         try {
 
@@ -164,7 +164,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         // This is what happens when this tree node is being clicked
                         const command = parent.isLocal ? {
                             title: 'Open',
-                            command: 'key-shepherd-vscode.view-context.gotoSecret',
+                            command: 'kee-shepherd-vscode.view-context.gotoSecret',
                             arguments: [secret]
                         } : undefined;
         
@@ -188,7 +188,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
             }
                 
         } catch (err) {
-            vscode.window.showErrorMessage(`KeyShepherd failed to load the secrets view. ${(err as any).message ?? err}`);
+            vscode.window.showErrorMessage(`KeeShepherd failed to load the secrets view. ${(err as any).message ?? err}`);
         }
 
         return result;

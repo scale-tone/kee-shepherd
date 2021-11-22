@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as Crypto from 'crypto';
 
-export const AnchorPrefix = '@KeyShepherd';
+export const AnchorPrefix = '@KeeShepherd';
 
 export enum SecretTypeEnum {
     Unknown = 0,

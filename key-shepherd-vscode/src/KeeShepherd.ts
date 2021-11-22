@@ -9,10 +9,10 @@ import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret } from 
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
-import { KeyShepherdBase } from './KeyShepherdBase';
+import { KeeShepherdBase } from './KeeShepherdBase';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { KeyMetadataTableRepo } from './KeyMetadataTableRepo';
-import { SecretTreeView, KeyShepherdTreeItem, NodeTypeEnum } from './SecretTreeView';
+import { SecretTreeView, KeeShepherdTreeItem, NodeTypeEnum } from './SecretTreeView';
 
 type SelectedSecretType = { type: SecretTypeEnum, name: string, value: string, properties: any };
 
@@ -22,33 +22,33 @@ enum StorageTypeEnum {
 }
 
 const SettingNames = {
-    StorageType: 'KeyShepherdStorageType',
-    SubscriptionId: 'KeyShepherdTableStorageSubscriptionId',
-    ResourceGroupName: 'KeyShepherdTableStorageResourceGroupName',
-    StorageAccountName: 'KeyShepherdTableStorageAccountName',
-    TableName: 'KeyShepherdTableName'
+    StorageType: 'KeeShepherdStorageType',
+    SubscriptionId: 'KeeShepherdTableStorageSubscriptionId',
+    ResourceGroupName: 'KeeShepherdTableStorageResourceGroupName',
+    StorageAccountName: 'KeeShepherdTableStorageAccountName',
+    TableName: 'KeeShepherdTableName'
 }
 
-export class KeyShepherd extends KeyShepherdBase {
+export class KeeShepherd extends KeeShepherdBase {
 
     private constructor(account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string) {
         super(account, repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder));
     }
 
-    static async create(context: vscode.ExtensionContext): Promise<KeyShepherd> {
+    static async create(context: vscode.ExtensionContext): Promise<KeeShepherd> {
 
         const account = new AzureAccountWrapper();
         var metadataRepo: IKeyMetadataRepo;
 
         try {
 
-            metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, account);
+            metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account);
             
         } catch (err) {
 
-            const msg = `KeyShepherd failed to initialize its metadata storage. What would you like to do?`;
+            const msg = `KeeShepherd failed to initialize its metadata storage. What would you like to do?`;
             const option1 = 'Reset storage settings and try again';
-            const option2 = 'Unload KeyShepherd';
+            const option2 = 'Unload KeeShepherd';
 
             if ((await vscode.window.showWarningMessage(msg, option1, option2)) !== option1) {
 
@@ -60,11 +60,11 @@ export class KeyShepherd extends KeyShepherdBase {
             // trying again
             try {
                 
-                metadataRepo = await KeyShepherd.getKeyMetadataRepo(context, account);
+                metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account);
 
             } catch (err2) {
 
-                vscode.window.showErrorMessage(`KeyShepherd still couldn't initialize its metadata storage`);
+                vscode.window.showErrorMessage(`KeeShepherd still couldn't initialize its metadata storage`);
 
                 throw err2;
             }
@@ -72,7 +72,7 @@ export class KeyShepherd extends KeyShepherdBase {
 
         const resourcesFolderPath = context.asAbsolutePath('resources');
 
-        return new KeyShepherd(
+        return new KeeShepherd(
             account, metadataRepo,
             await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
             resourcesFolderPath
@@ -83,16 +83,16 @@ export class KeyShepherd extends KeyShepherdBase {
         
         await this.doAndShowError(async () => {
 
-            await KeyShepherd.cleanupSettings(context);
+            await KeeShepherd.cleanupSettings(context);
 
-            this._repo = await KeyShepherd.getKeyMetadataRepo(context, this._account);
+            this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account);
 
             this.treeView.refresh();
 
-        }, 'KeyShepherd failed to switch to another storage type');
+        }, 'KeeShepherd failed to switch to another storage type');
     }
 
-    async forgetSecrets(treeItem: KeyShepherdTreeItem): Promise<void>{
+    async forgetSecrets(treeItem: KeeShepherdTreeItem): Promise<void>{
 
         await this.doAndShowError(async () => {
 
@@ -123,10 +123,10 @@ export class KeyShepherd extends KeyShepherdBase {
             
             await this._repo.removeSecrets(filePath, secrets.map(s => s.name));
 
-            vscode.window.showInformationMessage(`KeyShepherd: ${secrets.length} secrets have been forgotten`);
+            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);
             this.treeView.refresh();
 
-        }, 'KeyShepherd failed to forget secrets');
+        }, 'KeeShepherd failed to forget secrets');
     }
 
     async gotoSecret(secret: ControlledSecret): Promise<void>{
@@ -191,7 +191,7 @@ export class KeyShepherd extends KeyShepherdBase {
                 editor.revealRange(secretSelection);
             }
 
-        }, 'KeyShepherd failed to navigate to this secret');
+        }, 'KeeShepherd failed to navigate to this secret');
     }
 
     async unmaskSecretsInThisFile(): Promise<void> {
@@ -205,7 +205,7 @@ export class KeyShepherd extends KeyShepherdBase {
     
             editor.setDecorations(this._hiddenTextDecoration, []);
 
-        }, 'KeyShepherd failed to unmask secrets');
+        }, 'KeeShepherd failed to unmask secrets');
     }
 
     async maskSecretsInThisFile(updateMapIfSomethingNotFound: boolean): Promise<void> {
@@ -246,7 +246,7 @@ export class KeyShepherd extends KeyShepherdBase {
                 }
             }
 
-        }, 'KeyShepherd failed to mask secrets');
+        }, 'KeeShepherd failed to mask secrets');
     }
 
     async stashUnstashSecretsInThisFile(stash: boolean): Promise<void> {
@@ -287,10 +287,10 @@ export class KeyShepherd extends KeyShepherdBase {
 
             await this.stashUnstashSecretsInFile(currentFile, stash, secretsValuesMap);
 
-        }, 'KeyShepherd failed');
+        }, 'KeeShepherd failed');
     }
 
-    async stashUnstashSecretsInFolder(treeItem: KeyShepherdTreeItem, stash: boolean): Promise<void>{
+    async stashUnstashSecretsInFolder(treeItem: KeeShepherdTreeItem, stash: boolean): Promise<void>{
 
         await this.doAndShowError(async () => {
 
@@ -301,7 +301,7 @@ export class KeyShepherd extends KeyShepherdBase {
             const folders = [treeItem.folderUri];
             await this.stashUnstashAllSecretsInFolders(folders, stash);
 
-        }, 'KeyShepherd failed');
+        }, 'KeeShepherd failed');
     }
 
     async stashUnstashAllSecretsInThisProject(stash: boolean): Promise<void> {
@@ -332,7 +332,7 @@ export class KeyShepherd extends KeyShepherdBase {
             // Cleanup upon success
             await this._mapRepo.savePendingFolders([]);
 
-        }, 'KeyShepherd failed');
+        }, 'KeeShepherd failed');
     }
 
     async stashPendingFolders(): Promise<void> {
@@ -350,7 +350,7 @@ export class KeyShepherd extends KeyShepherdBase {
             // Cleanup upon success
             await this._mapRepo.savePendingFolders([]);
 
-        }, 'KeyShepherd failed');
+        }, 'KeeShepherd failed');
     }
 
     async controlSecret(controlType: ControlTypeEnum): Promise<void> {
@@ -459,10 +459,10 @@ export class KeyShepherd extends KeyShepherdBase {
             const secretValues = await this.getSecretValues(secrets);
             await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 
-            vscode.window.showInformationMessage(`KeyShepherd: ${secretName} was added successfully.`);
+            vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was added successfully.`);
             this.treeView.refresh();
             
-        }, 'KeyShepherd failed to add a secret');
+        }, 'KeeShepherd failed to add a secret');
     }
 
     async insertSecret(controlType: ControlTypeEnum): Promise<void> {
@@ -533,7 +533,7 @@ export class KeyShepherd extends KeyShepherdBase {
 
                 await editor.document.save();
 
-                vscode.window.showInformationMessage(`KeyShepherd: ${localSecretName} was added successfully.`);
+                vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
                 this.treeView.refresh();
 
                 // Immediately masking secrets in this file
@@ -541,7 +541,7 @@ export class KeyShepherd extends KeyShepherdBase {
                 await this.internalMaskSecrets(editor, secretMap);
             }
 
-        }, 'KeyShepherd failed to insert a secret');
+        }, 'KeeShepherd failed to insert a secret');
     }
 
     protected async pickUpCustomSecret(): Promise<SelectedSecretType | undefined> {
@@ -735,7 +735,7 @@ export class KeyShepherd extends KeyShepherdBase {
                 { label: 'Locally', detail: `in ${storageFolder}`, type: StorageTypeEnum.Local },
                 { label: 'In a shared Azure Table', type: StorageTypeEnum.AzureTable }
             ], {
-                title: 'Select where KeyShepherd should store secret metadata'
+                title: 'Select where KeeShepherd should store secret metadata'
             });
 
             if (!storageTypeResponse) {
@@ -781,7 +781,7 @@ export class KeyShepherd extends KeyShepherdBase {
                 }
                 resourceGroupName = match[1];
     
-                tableName = await vscode.window.showInputBox({ title: 'Enter table name to store secret metadata in', value: 'KeyShepherdMetadata' });
+                tableName = await vscode.window.showInputBox({ title: 'Enter table name to store secret metadata in', value: 'KeeShepherdMetadata' });
                 if (!tableName) {
                     throw new Error('Failed to initialize metadata storage');
                 }    
