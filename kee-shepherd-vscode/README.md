@@ -50,7 +50,7 @@ Two options are currently supported:
 * **Locally**, as JSON files in VsCode's global storage folder (`C:\Users\user-name\AppData\Roaming\Code\User\globalStorage\kee-shepherd.kee-shepherd-vscode` on Windows). 
 * **In a shared Azure Table**. Works slower and requires internet connectivity, but lets you oversee your (and your teammate's) secrets on other machines. Especially useful with [GitHub Codespaces](https://github.com/features/codespaces) (yes, KeeShepherd works in GitHub Codespaces as well). 
 
-You can always change the storage type later on with `Switch to Another Storage Type` command:
+You can always change the storage type later on with `Switch to Another Metadata Storage` command:
 
   <img src="https://user-images.githubusercontent.com/5447190/142856265-a4e4457d-e78d-4417-ae32-3a45742c06dd.png" width="400">
 
