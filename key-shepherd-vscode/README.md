@@ -2,7 +2,7 @@
 
 Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es). Gives you centralized access to them. Also hides (masks) them whenever possible.
 
-<img src="https://user-images.githubusercontent.com/5447190/142744174-e8fbc6f6-bf76-4a43-b53b-be49c22d3655.png" width="800">
+<img src="https://user-images.githubusercontent.com/5447190/142853710-85ef42f6-2e30-46f2-a1ed-7f56fde13ccb.png" width="900">
 
 ## Features
 
@@ -10,11 +10,11 @@ Keeps an eye on credentials (secrets, access keys, connection strings etc.), tha
 
 To put a secret under KeeShepherd's control, you can either **insert** it via KeeShepherd:
 
-<img src="https://user-images.githubusercontent.com/5447190/142769450-6cee8be0-9d19-4102-98cf-07264c215d16.png" width="600">
+<img src="https://user-images.githubusercontent.com/5447190/142854298-f1cf92bd-561d-45ab-a11a-97be5047caf2.png" width="600">
 
 or select an existing secret in the text editor and **add** it to KeeShepherd:
 
-<img src="https://user-images.githubusercontent.com/5447190/142769515-e42c15ad-eceb-4dea-b74b-3e4647850110.png" width="600">
+<img src="https://user-images.githubusercontent.com/5447190/142854551-a3be452e-95e8-407d-90c2-dbdebad33773.png" width="600">
 
 **Insert** operation lets you pick up a secret from Azure Key Vault or directly from an Azure resource (by now Azure Storage and custom Azure Resource Manager URIs are supported, more secret sources like Service Bus, Event Hubs, Azure SQL etc. are on its way). **Add** operation will suggest to put the selected value into Azure Key Vault.
 
@@ -24,7 +24,7 @@ Two types of secrets are supported:
 * **Supervised**. This is a lightweight form of it, just to remember where you left this secret value and to let you navigate back to it at any moment. Your actual config files are left intact.
 * **Managed** aka stashable. These secrets you can **stash/unstash**:
 
-  <img src="https://user-images.githubusercontent.com/5447190/142770184-800a0e90-e26a-4b4d-98b6-4dad886bb247.png" width="600">
+  <img src="https://user-images.githubusercontent.com/5447190/142855506-7aafa304-38ba-47cf-abc3-fc633bb8597c.png" width="400">
 
   When a secret is **stashed**, KeeShepherd replaces its value with an anchor like `@KeeShepherd(<secret-name>)`. **Unstashing** does the opposite (the secret value is taken from wherever it is actually stored, e.g. from Azure Key Vault).
   
@@ -36,7 +36,7 @@ It's perfectly fine to mix both **supervised** and **managed** secrets in the sa
 KeeShepherd always tries its best to **mask** (hide) your secret values whenever possible, so that they never get accidentally exposed during a demo or a video call.
 You can always **mask/unmask** them yourself:
 
-  <img src="https://user-images.githubusercontent.com/5447190/142770778-b457c2d5-686c-4ae4-a7f4-4cab9727c3f6.png" width="500">
+  <img src="https://user-images.githubusercontent.com/5447190/142855972-a96f6a68-8ba9-4624-aa52-4a6038b4f034.png" width="500">
 
 A good idea would be to set some keyboard shortcuts of your choice to these **mask/unmask** commands.
 
@@ -52,7 +52,7 @@ Two options are currently supported:
 
 You can always change the storage type later on with `Switch to Another Storage Type` command:
 
-  <img src="https://user-images.githubusercontent.com/5447190/142771583-53e80244-4a6d-4204-8328-49730ac927fb.png" width="400">
+  <img src="https://user-images.githubusercontent.com/5447190/142856265-a4e4457d-e78d-4417-ae32-3a45742c06dd.png" width="400">
 
 **IMPORTANT: KeeShepherd does not store your actual secret values, only links to them and cryptographically strong salted SHA256 hashes of them (plus secret lengths and positions in files).** Yet still, even this information might be somewhat useful for a potential attacker, so please make sure that secret metadata never gets leaked.
 
@@ -68,7 +68,7 @@ For most features to work you need to have [Azure Account](https://marketplace.v
 
 You can configure whether KeeShepherd should **automatically stash/unstash** secrets in a workspace, when you open/close it:
 
-  <img src="https://user-images.githubusercontent.com/5447190/142771961-2d0dc15c-3713-40d8-8d55-417c2cc9b3aa.png" width="500">
+  <img src="https://user-images.githubusercontent.com/5447190/142856449-e97b240c-e487-4725-b7ba-d3a68a25d930.png" width="500">
 
 **Automatic stashing/unstashing** is the most secure option: your actual secret values will only be present in your config files while you're actually working with a project (aka while a VsCode instance is running).
 
