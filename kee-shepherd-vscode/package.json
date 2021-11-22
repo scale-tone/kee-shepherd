@@ -7,7 +7,9 @@
         "vscode": "^1.62.0"
     },
     "categories": [
-        "Azure", "Formatters", "Other"
+        "Azure",
+        "Formatters",
+        "Other"
     ],
     "homepage": "https://github.com/scale-tone/kee-shepherd/tree/main/kee-shepherd-vscode#readme",
     "repository": {
@@ -40,7 +42,6 @@
                 }
             ]
         },
-
         "commands": [
             {
                 "command": "kee-shepherd-vscode.changeStorageType",
@@ -237,7 +238,6 @@
                     "group": "kee-shepherd-vscode.editor-context-group3@2"
                 }
             ],
-
             "view/title": [
                 {
                     "command": "kee-shepherd-vscode.view-context.refresh",
@@ -245,7 +245,6 @@
                     "group": "navigation"
                 }
             ],
-
             "view/item/context": [
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetSecret",
@@ -265,12 +264,9 @@
                 }
             ]
         },
-        "configuration" : {
-
+        "configuration": {
             "title": "KeeShepherd",
-
             "properties": {
-
                 "kee-shepherd.autoStashMode": {
                     "type": "string",
                     "default": "When a workspace is closed",
@@ -280,7 +276,6 @@
                     ],
                     "description": "Automatically stash secrets"
                 },
-
                 "kee-shepherd.autoUnstashMode": {
                     "type": "string",
                     "default": "Never",
