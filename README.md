@@ -12,3 +12,4 @@ Install it from [VsCode marketplace](https://marketplace.visualstudio.com/items?
 
 See details in the [extension's readme](https://github.com/scale-tone/key-shepherd/blob/main/kee-shepherd-vscode/README.md).
 
+Also check out [this blog post about it](https://scale-tone.github.io/2021/11/26/introducing-keeshepherd).
