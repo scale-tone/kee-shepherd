@@ -8,6 +8,7 @@ import { StorageAccount } from "@azure/arm-storage/src/models";
 // Full typings for this can be found here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
 export type AzureSubscription = { session: { credentials2: any }, subscription: { subscriptionId: string, displayName: string } };
 
+// Wraps Azure Acccount extension
 export class AzureAccountWrapper {
 
     private readonly _account: any;

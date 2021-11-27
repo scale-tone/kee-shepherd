@@ -5,7 +5,7 @@ import axios from 'axios';
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -16,11 +16,6 @@ import { SecretTreeView, KeeShepherdTreeItem, NodeTypeEnum } from './SecretTreeV
 
 type SelectedSecretType = { type: SecretTypeEnum, name: string, value: string, properties: any };
 
-enum StorageTypeEnum {
-    Local = 1,
-    AzureTable
-}
-
 const SettingNames = {
     StorageType: 'KeeShepherdStorageType',
     SubscriptionId: 'KeeShepherdTableStorageSubscriptionId',
@@ -29,6 +24,7 @@ const SettingNames = {
     TableName: 'KeeShepherdTableName'
 }
 
+// Main functionality lies here
 export class KeeShepherd extends KeeShepherdBase {
 
     private constructor(account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string) {
@@ -512,6 +508,10 @@ export class KeeShepherd extends KeeShepherdBase {
             if (!secret) {
                 return;
             }
+
+            if (secret.value.startsWith(AnchorPrefix)) {
+                throw new Error(`Secret value should not start with ${AnchorPrefix}`);
+            }            
             
             // Pasting secret value at current cursor position
             var success = await editor.edit(edit => {
@@ -527,19 +527,32 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            success = !!await this.addSecret(secret.type, controlType, localSecretName, secret.properties);
+            // Adding metadata to the repo
+            const secretHash = this._repo.getHash(secret.value);
 
-            if (!!success) {
+            await this._repo.addSecret({
+                name: secret.name,
+                type: secret.type,
+                controlType,
+                filePath: currentFile,
+                hash: secretHash,
+                length: secret.value.length,
+                timestamp: new Date(),
+                properties: secret.properties
+            });
+    
+            // Also updating secret map for this file
+            const secrets = await this._repo.getSecrets(currentFile, true);
+            const secretValues = await this.getSecretValues(secrets);
+            await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 
-                await editor.document.save();
+            // Immediately masking secrets in this file
+            await this.internalMaskSecrets(editor, await this._mapRepo.getSecretMapForFile(currentFile));
 
-                vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
-                this.treeView.refresh();
+            await editor.document.save();
+            this.treeView.refresh();
 
-                // Immediately masking secrets in this file
-                var secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
-                await this.internalMaskSecrets(editor, secretMap);
-            }
+            vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
 
         }, 'KeeShepherd failed to insert a secret');
     }

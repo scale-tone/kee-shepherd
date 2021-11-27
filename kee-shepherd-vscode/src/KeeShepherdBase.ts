@@ -14,6 +14,7 @@ import { StorageManagementClient } from '@azure/arm-storage';
 import axios from 'axios';
 import { SecretTreeView } from './SecretTreeView';
 
+// Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
 
     protected constructor(protected _account: AzureAccountWrapper,
@@ -91,45 +92,6 @@ export abstract class KeeShepherdBase {
         }
 
         return secretName;
-    }
-    
-    protected async addSecret(type: SecretTypeEnum, controlType: ControlTypeEnum, secretName: string, properties: any = undefined): Promise<boolean> {
-
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || (!!editor.selection.isEmpty)) {
-            return false;
-        }
-
-        const currentFile = editor.document.uri.toString();
-        if (!currentFile) {
-            return false;
-        }
-
-        const secretValue = editor.document.getText(editor.selection);
-
-        if (secretValue.startsWith(AnchorPrefix)) {
-            throw new Error(`Secret value should not start with ${AnchorPrefix}`);
-        }
-
-        const secretHash = this._repo.getHash(secretValue);
-
-        await this._repo.addSecret({
-            name: secretName,
-            type,
-            controlType,
-            filePath: currentFile,
-            hash: secretHash,
-            length: secretValue.length,
-            timestamp: new Date(),
-            properties
-        });
-
-        // Also updating secret map for this file
-        const secrets = await this._repo.getSecrets(currentFile, true);
-        const secretValues = await this.getSecretValues(secrets);
-        await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
-
-        return true;
     }
 
     protected resourceManagerResponseToKeys(data: any): { label: string, value: string }[] | undefined {
@@ -350,16 +312,9 @@ export abstract class KeeShepherdBase {
 
             const fileUri = vscode.Uri.parse(filePath);
 
-            // Reading current file contents. Trying with vscode and falling back to fs (because vscode will fail during unload)
-            var fileBytes: Uint8Array;
-            try {
-                fileBytes = await vscode.workspace.fs.readFile(fileUri);
-            } catch (err) {
-                fileBytes = await fs.promises.readFile(fileUri.fsPath);
-            }
-
-            var fileText = Buffer.from(fileBytes).toString();
-
+            // Reading current file contents.
+            var fileText = await this.readFile(fileUri);
+            
             // Replacing @KeeShepherd() links with secret values
             const outputFileText = await this.internalStashUnstashSecrets(filePath, fileText, managedSecretValues, stash);
 
@@ -385,14 +340,9 @@ export abstract class KeeShepherdBase {
                 });
             }
 
-            // Saving file contents back. Trying with vscode and falling back to fs (because vscode will fail during unload)
-            const outputFileBytes = Buffer.from(outputFileText);
-            try {
-                await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
-            } catch (err) {
-                await fs.promises.writeFile(fileUri.fsPath, outputFileBytes);
-            }
-
+            // Saving file contents back
+            await this.writeFile(fileUri, outputFileText);
+            
         } catch (err) {
             vscode.window.showErrorMessage(`KeeShepherd failed to unstash secrets in ${filePath}. ${(err as any).message ?? err}`);
         }
@@ -538,5 +488,30 @@ export abstract class KeeShepherdBase {
             vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten`);
             this.treeView.refresh();
         }
+    }
+
+
+    private async writeFile(fileUri: vscode.Uri, text: string): Promise<void> {
+
+        // Trying with vscode and falling back to fs (because vscode will fail during unload)
+        const outputFileBytes = Buffer.from(text);
+        try {
+            await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
+        } catch (err) {
+            await fs.promises.writeFile(fileUri.fsPath, outputFileBytes);
+        }
+    }
+
+    private async readFile(fileUri: vscode.Uri): Promise<string> {
+
+        // Trying with vscode and falling back to fs (because vscode will fail during unload)
+        var fileBytes: Uint8Array;
+        try {
+            fileBytes = await vscode.workspace.fs.readFile(fileUri);
+        } catch (err) {
+            fileBytes = await fs.promises.readFile(fileUri.fsPath);
+        }
+
+        return Buffer.from(fileBytes).toString();
     }
 }

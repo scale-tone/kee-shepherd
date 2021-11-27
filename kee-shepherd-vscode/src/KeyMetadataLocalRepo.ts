@@ -5,6 +5,7 @@ import * as Crypto from 'crypto';
 import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 
+// Stores secret metadata locally in JSON files
 export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     private _salt: string = '';

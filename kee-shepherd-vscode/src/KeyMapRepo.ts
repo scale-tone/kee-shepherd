@@ -10,6 +10,7 @@ export type SecretMapEntry = {
     length: number;
 }
 
+// Implements storing key maps (secret coordinates within a file) in local JSON files
 export class KeyMapRepo {
 
     private constructor(private _storageFolder: string) {}

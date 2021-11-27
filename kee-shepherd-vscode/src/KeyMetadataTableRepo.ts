@@ -12,6 +12,7 @@ import { AzureNamedKeyCredential } from '@azure/core-auth';
 
 const SaltKey = '|KeeShepherdSalt|'
 
+// Stores secret metadata in an Azure Table
 export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     private constructor(private _tableClient: TableClient, private _salt: string) { }

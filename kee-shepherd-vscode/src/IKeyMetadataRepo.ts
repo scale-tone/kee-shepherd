@@ -1,5 +1,6 @@
 import { ControlledSecret } from "./KeyMetadataHelpers";
 
+// Generic interface for key metadata repo implementations
 export interface IKeyMetadataRepo {
 
     getMachineNames(): Promise<string[]>;

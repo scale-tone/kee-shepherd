@@ -3,6 +3,12 @@ import * as Crypto from 'crypto';
 
 export const AnchorPrefix = '@KeeShepherd';
 
+// Supported metadata storages
+export enum StorageTypeEnum {
+    Local = 1,
+    AzureTable
+}
+
 export enum SecretTypeEnum {
     Unknown = 0,
     AzureKeyVault,
