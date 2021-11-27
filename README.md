@@ -1,6 +1,7 @@
 # KeeShepherd
 
 This Visual Studio Code extension helps you to take care of credentials (secrets, access keys, connection strings etc.), that are typically spread across numerous config files on your devbox(es).
+
 Instead of trying to catch them with various fuzzy secret detection tools, why not simply put them on a leash?
 
 ![video](https://github.com/scale-tone/kee-shepherd/blob/main/demo.gif?raw=true)
