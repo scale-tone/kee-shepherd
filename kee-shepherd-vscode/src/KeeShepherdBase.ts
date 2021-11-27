@@ -2,22 +2,17 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 
-import { SecretClient } from '@azure/keyvault-secrets';
-import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-
-import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, AnchorPrefix } from './KeyMetadataHelpers';
+import { ControlTypeEnum, ControlledSecret, AnchorPrefix } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
-import { AzureAccountWrapper, AzureSubscription } from './AzureAccountWrapper';
-import { StorageManagementClient } from '@azure/arm-storage';
-import axios from 'axios';
 import { SecretTreeView } from './SecretTreeView';
+import { SecretValuesProvider } from './SecretValuesProvider';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
 
-    protected constructor(protected _account: AzureAccountWrapper,
+    protected constructor(protected _valuesProvider: SecretValuesProvider,
         protected _repo: IKeyMetadataRepo,
         protected readonly _mapRepo: KeyMapRepo,
         public readonly treeView: SecretTreeView
@@ -113,51 +108,7 @@ export abstract class KeeShepherdBase {
 
         return keys;
     }
-
-    protected async getSecretValue(secret: ControlledSecret): Promise<string> {
-
-        switch (secret.type) {
-            case SecretTypeEnum.AzureKeyVault: {
-
-                // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-                const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId, 'https://vault.azure.net');
-                
-                const keyVaultClient = new SecretClient(`https://${secret.properties.keyVaultName}.vault.azure.net`, tokenCredentials as any);
-                const keyVaultSecret = await keyVaultClient.getSecret(secret.properties.keyVaultSecretName);
-                return keyVaultSecret.value ?? '';
-            }   
-            case SecretTypeEnum.AzureStorage: {
-
-                const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-                const storageManagementClient = new StorageManagementClient(tokenCredentials, secret.properties.subscriptionId);
-
-                const storageKeys = await storageManagementClient.storageAccounts.listKeys(secret.properties.resourceGroupName, secret.properties.storageAccountName);
-                if (!storageKeys.keys) {
-                    return '';
-                }
-
-                const storageKey = storageKeys.keys!.find(k => k.keyName === secret.properties.storageAccountKeyName);
-                return storageKey?.value ?? '';
-            }
-            case SecretTypeEnum.Custom: {
-
-                const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-                const token = await tokenCredentials.getToken();
-
-                const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
-        
-                const keys = this.resourceManagerResponseToKeys(response.data);
-                if (!keys) {
-                    return '';
-                }
-
-                return keys.find(k => k.label === secret.properties.keyName)?.value ?? '';
-            }
-            default:
-                return '';
-        }
-    }
-
+    
     protected async getSecretValues(secrets: ControlledSecret[]): Promise<{[name: string]: string}> {
 
         var result: {[name: string]: string} = {};
@@ -174,7 +125,7 @@ export abstract class KeeShepherdBase {
 */
         
         for (var secret of secrets) {
-            result[secret.name] = await this.getSecretValue(secret);
+            result[secret.name] = await this._valuesProvider.getSecretValue(secret);
         }        
         
         return result;
@@ -420,7 +371,7 @@ export abstract class KeeShepherdBase {
         // returning secrets that were not found
         return secrets.filter(s => !secretsFound.includes(s.name)).map(s => s.name);
     }
-
+/*
     protected pickUpKeyVault(subscription: AzureSubscription): Promise<string> {
         return new Promise<string>((resolve, reject) => {
 
@@ -474,7 +425,8 @@ export abstract class KeeShepherdBase {
             pick.show();
         });
     }
-
+*/
+    
     protected async askUserAboutMissingSecrets(filePath: string, missingSecrets: string[]): Promise<void> {
 
         const userResponse = await vscode.window.showWarningMessage(
