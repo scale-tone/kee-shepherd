@@ -141,7 +141,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
                 if (!!text.startsWith(anchorName, pos)) {
 
-                    // This secret appears in its stashed form. djust further positions
+                    // This secret appears in its stashed form. Need to adjust further positions
                     secretPos = pos;
                     secretLength = anchorName.length;
                     break;
