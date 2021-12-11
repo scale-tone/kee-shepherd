@@ -6,6 +6,7 @@ import { SecretClient } from "@azure/keyvault-secrets";
 import { AzureAccountWrapper, AzureSubscription } from "./AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "./KeyMetadataHelpers";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
+import { StorageAccount } from "@azure/arm-storage/src/models";
 
 export type SelectedSecretType = { type: SecretTypeEnum, name: string, value: string, properties: any };
 
@@ -36,8 +37,13 @@ export class SecretValuesProvider {
                     return '';
                 }
 
-                const storageKey = storageKeys.keys!.find(k => k.keyName === secret.properties.storageAccountKeyName);
-                return storageKey?.value ?? '';
+                const storageKey = (storageKeys.keys!.find(k => k.keyName === secret.properties.storageAccountKeyName))?.value ?? '';
+              
+                if (!!secret.properties.storageConnectionString) {
+                    return `${secret.properties.storageConnectionString}AccountKey=${storageKey};`;
+                }
+
+                return storageKey;
             }
             case SecretTypeEnum.Custom: {
 
@@ -264,6 +270,15 @@ export class SecretValuesProvider {
             return;
         }
 
+        var storageEndpoints = ''; 
+        if (!!storageAccount.primaryEndpoints) {
+            storageEndpoints = `BlobEndpoint=${storageAccount.primaryEndpoints!.blob};QueueEndpoint=${storageAccount.primaryEndpoints!.queue};TableEndpoint=${storageAccount.primaryEndpoints!.table};FileEndpoint=${storageAccount.primaryEndpoints!.file};`;
+        } else {
+            storageEndpoints = `BlobEndpoint=https://${storageAccount.name}.blob.core.windows.net/;QueueEndpoint=https://${storageAccount.name}.queue.core.windows.net/;TableEndpoint=https://${storageAccount.name}.table.core.windows.net/;FileEndpoint=https://${storageAccount.name}.file.core.windows.net/;`;
+        }
+
+        const storageConnString = `DefaultEndpointsProtocol=https;${storageEndpoints}AccountName=${storageAccount.name};`;
+
         // Extracting resource group name
         const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
         if (!match || match.length <= 0) {
@@ -273,29 +288,39 @@ export class SecretValuesProvider {
 
         const storageKeys = await storageManagementClient.storageAccounts.listKeys(resourceGroupName, storageAccount.name!);
 
-        const storageKey = await vscode.window.showQuickPick(storageKeys.keys!.map(key => {
-                return {
+        const options = storageKeys.keys!.map(key => {
+            return [
+                {
                     label: key.keyName!,
-                    description: !!key.creationTime ? `created ${key.creationTime}` : '',
-                    key
+                    detail: !!key.creationTime ? `created ${key.creationTime?.toISOString().slice(0, 10)}` : '',
+                    keyName: key.keyName!,
+                    value: key.value!
+                },
+                {
+                    label: `Connection String with ${key.keyName}`,
+                    detail: !!key.creationTime ? `created ${key.creationTime?.toISOString().slice(0, 10)}` : '',
+                    keyName: key.keyName!,
+                    value: `${storageConnString}AccountKey=${key.value};`,
+                    connString: storageConnString
                 }
-            }), 
-            { title: 'Select Storage Account Key' }
-        );
+            ];
+        });
 
-        if (!storageKey) {
+        const selectedOption = await vscode.window.showQuickPick(options.flat(), { title: 'Select Storage Account Secret' });
+        if (!selectedOption) {
             return;
         }
 
         return {
             type: SecretTypeEnum.AzureStorage,
-            name: `${storageAccount.name}-${storageKey.key.keyName}`,
-            value: storageKey.key.value!,
+            name: `${storageAccount.name}-${selectedOption.label}`,
+            value: selectedOption.value,
             properties: {
                 subscriptionId: subscriptionId,
                 resourceGroupName,
                 storageAccountName: storageAccount.name,
-                storageAccountKeyName: storageKey.key.keyName
+                storageAccountKeyName: selectedOption.keyName,
+                storageConnectionString: selectedOption.connString
             }
         }
     }
@@ -319,5 +344,4 @@ export class SecretValuesProvider {
 
         return keys;
     }
-
 }
