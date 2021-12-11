@@ -17,6 +17,10 @@ export async function updateGitHooksForFile(fileUri: vscode.Uri, isUnstashed: bo
 
     const filePath = fileUri.fsPath;
 
+    if (!filePath) {
+        return;
+    }
+
     var relativePath = [];
 
     // Searching for all .git folders up to the path root
@@ -79,7 +83,7 @@ async function updateGitHooksForFileInGitFolder(gitFolder: string, fileRelativeP
 exec .git/hooks/keeshepherd-check-unstashed-secrets.sh
 # KeeShepherd hook end`;
     
-    const hookFileHeader = '#!/bin/sh\n';
+    const hookFileHeader = '#!/bin/sh';
 
     if (filesWithSecrets.length > 0) {
 
@@ -122,7 +126,7 @@ done`;
     }
 
     // writing the hook file
-    if (!hookFileText || hookFileText === hookFileHeader) {
+    if (!hookFileText || hookFileText.trim() === hookFileHeader) {
         
         await fs.promises.rm(hookFileName, { force: true });
 
