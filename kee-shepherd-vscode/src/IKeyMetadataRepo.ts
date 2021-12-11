@@ -13,5 +13,7 @@ export interface IKeyMetadataRepo {
 
     removeSecrets(filePath: string, names: string[], machineName?: string): Promise<void>;
 
+    findBySecretName(name: string): Promise<ControlledSecret[]>;
+
     getHash(str: string): string;
 }

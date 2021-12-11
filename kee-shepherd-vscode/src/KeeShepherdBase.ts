@@ -380,61 +380,6 @@ export abstract class KeeShepherdBase {
         // returning secrets that were not found
         return secrets.filter(s => !secretsFound.includes(s.name)).map(s => s.name);
     }
-/*
-    protected pickUpKeyVault(subscription: AzureSubscription): Promise<string> {
-        return new Promise<string>((resolve, reject) => {
-
-            // Picking up a KeyVault
-            var keyVaultName: string;
-
-            const pick = vscode.window.createQuickPick();
-            pick.onDidHide(() => {
-                pick.dispose();
-                resolve('');
-            });
-
-            pick.onDidChangeSelection(items => {
-                if (!!items && !!items.length) {
-                    keyVaultName = items[0].label;
-                }
-            });
-
-            // Still allowing to type free text
-            pick.onDidChangeValue(value => {
-                keyVaultName = value;
-            });
-
-            pick.onDidAccept(() => {
-                resolve(keyVaultName);
-                pick.hide();
-            });
-
-            pick.title = 'Select or Enter KeyVault Name';
-
-            // Getting the list of existing KeyVaults
-            const resourceGraphClient = new ResourceGraphClient(subscription.session.credentials2);
-
-            resourceGraphClient.resources({
-
-                subscriptions: [subscription.subscription.subscriptionId],
-                query: 'resources | where type == "microsoft.keyvault/vaults"'
-                    
-            }).then(response => {
-
-                if (!!response.data && response.data.length >= 0) {
-
-                    pick.items = response.data.map((keyVault: any) => {
-                        return { label: keyVault.name };
-                    });
-
-                    pick.placeholder = response.data[0].name;
-                }
-            });
-
-            pick.show();
-        });
-    }
-*/
     
     protected async askUserAboutMissingSecrets(filePath: string, missingSecrets: string[]): Promise<void> {
 
@@ -451,19 +396,7 @@ export abstract class KeeShepherdBase {
         }
     }
 
-
-    private async writeFile(fileUri: vscode.Uri, text: string): Promise<void> {
-
-        // Trying with vscode and falling back to fs (because vscode will fail during unload)
-        const outputFileBytes = Buffer.from(text);
-        try {
-            await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
-        } catch (err) {
-            await fs.promises.writeFile(fileUri.fsPath, outputFileBytes);
-        }
-    }
-
-    private async readFile(fileUri: vscode.Uri): Promise<string> {
+    protected async readFile(fileUri: vscode.Uri): Promise<string> {
 
         // Trying with vscode and falling back to fs (because vscode will fail during unload)
         var fileBytes: Uint8Array;
@@ -474,5 +407,16 @@ export abstract class KeeShepherdBase {
         }
 
         return Buffer.from(fileBytes).toString();
+    }
+
+    private async writeFile(fileUri: vscode.Uri, text: string): Promise<void> {
+
+        // Trying with vscode and falling back to fs (because vscode will fail during unload)
+        const outputFileBytes = Buffer.from(text);
+        try {
+            await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
+        } catch (err) {
+            await fs.promises.writeFile(fileUri.fsPath, outputFileBytes);
+        }
     }
 }

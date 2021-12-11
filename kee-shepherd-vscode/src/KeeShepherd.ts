@@ -288,6 +288,97 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed');
     }
 
+    async resolveSecretsInThisFile(): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const document = vscode.window.activeTextEditor?.document;
+            if (!document) {
+                return;
+            }
+
+            const currentFileUri = document?.uri;
+            if (!currentFileUri) {
+                return;
+            }
+
+            const existingSecrets = await this._repo.getSecrets(currentFileUri.toString(), true);
+
+            // Reading current file contents
+            var fileText = await this.readFile(currentFileUri);
+
+            const resolvedSecretNames: string[] = [];
+
+            const regex = new RegExp(`${AnchorPrefix}\\((.+)\\)`, 'g');
+            var match: RegExpExecArray | null;
+            while (match = regex.exec(fileText)) {
+
+                const secretName = match[1];
+
+                // Skipping secrets that are already known
+                if (existingSecrets.find(s => s.name === secretName)) {
+                    continue;
+                }
+
+                const resolvedSecrets = await this._repo.findBySecretName(secretName);
+
+                if (resolvedSecrets.length <= 0) {
+                    
+                    vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. Insert it manually.`);
+                    continue;
+                }
+
+                // Using hash as a dictionary key, to detect potential namesakes with different hashes
+                const secretsByHash = resolvedSecrets.reduce((result, currentSecret) => {
+
+                    result[currentSecret.hash] = currentSecret;
+                    return result;
+                
+                }, {} as { [hash: string] : ControlledSecret });
+    
+                if (Object.keys(secretsByHash).length > 1) {
+                    
+                    vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. There're multiple secrets with this name and different hashes in the storage.`);
+                    continue;
+                }
+
+                // Prefer managed over supervised
+                var resolvedSecret = resolvedSecrets.find(s => s.controlType === ControlTypeEnum.Managed);
+                if (!resolvedSecret) {
+                    resolvedSecret = resolvedSecrets[0];
+                }
+
+                if (!resolvedSecret.properties) {
+                    
+                    vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. Insert it manually.`);
+                    continue;
+                }
+                
+                // Adding the new secret to storage
+                await this._repo.addSecret({
+                    name: secretName,
+                    type: resolvedSecret.type,
+                    controlType: ControlTypeEnum.Managed,
+                    filePath: currentFileUri.toString(),
+                    hash: resolvedSecret.hash,
+                    length: resolvedSecret.length,
+                    timestamp: new Date(),
+                    properties: resolvedSecret.properties
+                });
+
+                resolvedSecretNames.push(secretName);
+            }
+
+            if (resolvedSecretNames.length > 0) {
+                
+                this.treeView.refresh();
+
+                vscode.window.showInformationMessage(`KeeShepherd resolved the following secrets: ${resolvedSecretNames.join(', ')}`);
+            }
+
+        }, 'KeeShepherd failed to resolve secrets');
+    }
+
     async stashUnstashSecretsInFolder(treeItem: KeeShepherdTreeItem, stash: boolean): Promise<void>{
 
         await this.doAndShowError(async () => {

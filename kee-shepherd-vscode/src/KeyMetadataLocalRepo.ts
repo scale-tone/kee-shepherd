@@ -33,6 +33,11 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         return this._salt;
     }
 
+    async findBySecretName(name: string): Promise<ControlledSecret[]> {
+
+        return this._secrets.filter(s => s.name === name);
+    }
+
     async getMachineNames(): Promise<string[]>{
         return [os.hostname()];
     }

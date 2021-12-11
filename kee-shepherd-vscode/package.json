@@ -72,6 +72,10 @@
                 "title": "KeeShepherd: Unstash Secrets in Current File"
             },
             {
+                "command": "kee-shepherd-vscode.resolveSecrets",
+                "title": "KeeShepherd: Resolve Managed Secrets in Current File"
+            },
+            {
                 "command": "kee-shepherd-vscode.editor-context.superviseSecret",
                 "title": "Supervise this Secret..."
             },
@@ -104,6 +108,10 @@
                 "title": "Unstash Secrets"
             },
             {
+                "command": "kee-shepherd-vscode.editor-context.resolveSecrets",
+                "title": "Resolve Managed Secrets"
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.refresh",
                 "title": "Refresh",
                 "icon": {
@@ -132,64 +140,6 @@
                 "title": "Unstash Secrets in this Folder"
             }
         ],
-        "commandPalette": [
-            {
-                "command": "kee-shepherd-vscode.view-context.stashSecrets",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.unstashSecrets",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.forgetSecret",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.forgetSecrets",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.gotoSecret",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.superviseSecret",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.controlSecret",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.insertSupervisedSecret",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.insertManagedSecret",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.maskSecrets",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.unmaskSecrets",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.stashSecrets",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.editor-context.unstashSecrets",
-                "when": "never"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.refresh",
-                "when": "never"
-            }
-        ],
         "submenus": [
             {
                 "id": "kee-shepherd-vscode.editor-context-submenu",
@@ -197,6 +147,70 @@
             }
         ],
         "menus": {
+
+            "commandPalette": [
+                {
+                    "command": "kee-shepherd-vscode.view-context.stashSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.unstashSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.forgetSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.forgetSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.gotoSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.superviseSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.controlSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.insertSupervisedSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.insertManagedSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.maskSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.unmaskSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.stashSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.unstashSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.resolveSecrets",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.refresh",
+                    "when": "never"
+                }
+            ],
+
             "editor/context": [
                 {
                     "submenu": "kee-shepherd-vscode.editor-context-submenu"
@@ -228,6 +242,10 @@
                 {
                     "command": "kee-shepherd-vscode.editor-context.unstashSecrets",
                     "group": "kee-shepherd-vscode.editor-context-group2@2"
+                },
+                {
+                    "command": "kee-shepherd-vscode.editor-context.resolveSecrets",
+                    "group": "kee-shepherd-vscode.editor-context-group2@3"
                 },
                 {
                     "command": "kee-shepherd-vscode.editor-context.maskSecrets",

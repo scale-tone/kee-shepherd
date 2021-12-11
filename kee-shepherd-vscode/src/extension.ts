@@ -32,9 +32,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.stashSecrets', () => shepherd.stashUnstashSecretsInThisFile(true)),
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.unstashSecrets', () => shepherd.stashUnstashSecretsInThisFile(false)),
+        vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.resolveSecrets', () => shepherd.resolveSecretsInThisFile()),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.stashSecrets', () => shepherd.stashUnstashSecretsInThisFile(true)),
         vscode.commands.registerCommand('kee-shepherd-vscode.unstashSecrets', () => shepherd.stashUnstashSecretsInThisFile(false)),
+        vscode.commands.registerCommand('kee-shepherd-vscode.resolveSecrets', () => shepherd.resolveSecretsInThisFile()),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.stashAllWorkspaceSecrets', () => shepherd.stashUnstashAllSecretsInThisProject(true)),
         vscode.commands.registerCommand('kee-shepherd-vscode.unstashAllWorkspaceSecrets', () => shepherd.stashUnstashAllSecretsInThisProject(false)),

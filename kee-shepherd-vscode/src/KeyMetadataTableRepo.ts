@@ -17,6 +17,28 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     private constructor(private _tableClient: TableClient, private _salt: string) { }
 
+    async findBySecretName(name: string): Promise<ControlledSecret[]> {
+
+        // No other option here but doing a full scan 
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `PartitionKey ne '${SaltKey}'`
+            }
+        });
+
+        const secrets: ControlledSecret[] = [];
+        for await (const entity of response) {
+
+            const secret = this.fromTableEntity(entity as any);
+
+            if (secret.name === name) {
+                secrets.push(secret)
+            }
+        }
+
+        return secrets;
+    }
+
     async getMachineNames(): Promise<string[]> {
 
         const response = await this._tableClient.listEntities({
