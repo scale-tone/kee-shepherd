@@ -501,7 +501,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 }
                 
                 const subscriptionId = subscription.subscription.subscriptionId;
-                const keyVaultName = await this._valuesProvider.pickUpKeyVault(subscription);
+                const keyVaultName = await SecretValuesProvider.pickUpKeyVault(subscription);
     
                 if (!keyVaultName) {
                     return;
