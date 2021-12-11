@@ -45,8 +45,20 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
         const token = await tokenCredentials.getToken();
 
-        const uri = `https://management.azure.com${namespaceId}/AuthorizationRules/RootManageSharedAccessKey/listKeys?api-version=2017-04-01`;
+        const authRulesUri = `https://management.azure.com${namespaceId}/AuthorizationRules?api-version=2017-04-01`;
+        const authRulesResponse = await axios.get(authRulesUri, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const authRules = authRulesResponse.data?.value;
 
+        if (!authRules || authRules.length < 0) {
+            return;
+        }
+
+        const authRule = await vscode.window.showQuickPick(authRules.map((r: any) => r.name), { title: 'Select Authorization Rule to use' });
+        if (!authRule) {
+            return;
+        }
+
+        const uri = `https://management.azure.com${namespaceId}/AuthorizationRules/${authRule}/listKeys?api-version=2017-04-01`;
         const response = await axios.post(uri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
         
         const keys = this.resourceManagerResponseToKeys(response.data);
