@@ -160,8 +160,13 @@ export abstract class KeeShepherdBase {
 
                 const anchorName = this.getAnchorName(secretName);
 
-                const toFind = stash ? secrets[secretName]: anchorName;
-                const toReplace = stash ? anchorName : secrets[secretName];
+                const secretValue = secrets[secretName];
+                if (!secretValue) {
+                    throw new Error(`Failed to get the value of ${secretName}`);
+                }
+
+                const toFind = stash ? secretValue: anchorName;
+                const toReplace = stash ? anchorName : secretValue;
 
                 if (!!text.startsWith(toFind, pos)) {
 

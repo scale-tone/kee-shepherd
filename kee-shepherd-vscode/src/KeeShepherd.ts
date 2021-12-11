@@ -14,6 +14,7 @@ import { KeyMetadataTableRepo } from './KeyMetadataTableRepo';
 import { SecretTreeView, KeeShepherdTreeItem, NodeTypeEnum } from './SecretTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
+import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 
 const SettingNames = {
     StorageType: 'KeeShepherdStorageType',
@@ -501,7 +502,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 }
                 
                 const subscriptionId = subscription.subscription.subscriptionId;
-                const keyVaultName = await SecretValuesProvider.pickUpKeyVault(subscription);
+                const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
     
                 if (!keyVaultName) {
                     return;
@@ -606,7 +607,7 @@ export class KeeShepherd extends KeeShepherdBase {
             const secretHash = this._repo.getHash(secret.value);
 
             await this._repo.addSecret({
-                name: secret.name,
+                name: localSecretName,
                 type: secret.type,
                 controlType,
                 filePath: currentFile,

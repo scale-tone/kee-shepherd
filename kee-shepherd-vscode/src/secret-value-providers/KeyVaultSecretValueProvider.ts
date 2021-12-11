@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { SecretClient } from "@azure/keyvault-secrets";
 
-import { AzureAccountWrapper } from "../AzureAccountWrapper";
+import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
-import { SecretValuesProvider } from "../SecretValuesProvider";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
+import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
 // Implements picking and retrieving secret values from Azure Key Vault
 export class KeyVaultSecretValueProvider implements ISecretValueProvider {
@@ -29,7 +29,7 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         }
         
         const subscriptionId = subscription.subscription.subscriptionId;
-        const keyVaultName = await SecretValuesProvider.pickUpKeyVault(subscription);
+        const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
 
         if (!keyVaultName) {
             return;
@@ -71,4 +71,58 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
             }
         }
     }
+
+    static pickUpKeyVault(subscription: AzureSubscription): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+    
+            // Picking up a KeyVault
+            var keyVaultName: string;
+    
+            const pick = vscode.window.createQuickPick();
+            pick.onDidHide(() => {
+                pick.dispose();
+                resolve('');
+            });
+    
+            pick.onDidChangeSelection(items => {
+                if (!!items && !!items.length) {
+                    keyVaultName = items[0].label;
+                }
+            });
+    
+            // Still allowing to type free text
+            pick.onDidChangeValue(value => {
+                keyVaultName = value;
+            });
+    
+            pick.onDidAccept(() => {
+                resolve(keyVaultName);
+                pick.hide();
+            });
+    
+            pick.title = 'Select or Enter Key Vault Name';
+    
+            // Getting the list of existing KeyVaults
+            const resourceGraphClient = new ResourceGraphClient(subscription.session.credentials2);
+    
+            resourceGraphClient.resources({
+    
+                subscriptions: [subscription.subscription.subscriptionId],
+                query: 'resources | where type == "microsoft.keyvault/vaults"'
+                    
+            }).then(response => {
+    
+                if (!!response.data && response.data.length >= 0) {
+    
+                    pick.items = response.data.map((keyVault: any) => {
+                        return { label: keyVault.name };
+                    });
+    
+                    pick.placeholder = response.data[0].name;
+                }
+            });
+    
+            pick.show();
+        });
+    }    
 } 

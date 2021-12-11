@@ -13,7 +13,9 @@ export enum SecretTypeEnum {
     Unknown = 0,
     AzureKeyVault,
     AzureStorage,
-    Custom,
+    ResourceManagerRestApi,
+    AzureServiceBus,
+    AzureEventHubs
 }
 
 export enum ControlTypeEnum {

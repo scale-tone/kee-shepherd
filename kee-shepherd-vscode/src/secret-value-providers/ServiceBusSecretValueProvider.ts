@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import axios from "axios";
 
-import { AzureAccountWrapper } from "../AzureAccountWrapper";
+import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
+import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
-// Implements picking and retrieving secret values from Resource Manager REST API
-export class CustomSecretValueProvider implements ISecretValueProvider {
+// Implements picking and retrieving secret values from Azure Service Bus
+export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
@@ -27,38 +28,24 @@ export class CustomSecretValueProvider implements ISecretValueProvider {
 
     async pickUpSecret(): Promise<SelectedSecretType | undefined> {
 
-        var uri = await vscode.window.showInputBox({
-            prompt: 'Enter Azure Resource Manager REST API URL',
-            placeHolder: `e.g. '/subscriptions/my-subscription-id/resourceGroups/my-group-name/providers/Microsoft.Storage/storageAccounts/my-account/listKeys?api-version=2021-04-01'`
-        });
-        
-        if (!uri) {
+        const subscription = await this._account.pickUpSubscription();
+        if (!subscription) {
             return;
         }
 
-        if (!uri.toLowerCase().startsWith('https://management.azure.com')) {
+        const subscriptionId = subscription.subscription.subscriptionId;
 
-            if (!uri.startsWith('/')) {
-                uri = '/' + uri;
-            }
-            
-            uri = 'https://management.azure.com' + uri;
-        }
+        const namespaceId = await ServiceBusSecretValueProvider.pickUpServiceBusNamespaceId(subscription);
 
-        if (!uri.includes('api-version=')) {
-            uri += '?api-version=2021-04-01';
-        }
-
-        // Extracting subscriptionId
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups/gi.exec(uri);
-        if (!match || match.length <= 0) {
+        if (!namespaceId) {
             return;
         }
-        const subscriptionId = match[1];
 
         // Obtaining default token
         const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
         const token = await tokenCredentials.getToken();
+
+        const uri = `https://management.azure.com${namespaceId}/AuthorizationRules/RootManageSharedAccessKey/listKeys?api-version=2017-04-01`;
 
         const response = await axios.post(uri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
         
@@ -74,7 +61,7 @@ export class CustomSecretValueProvider implements ISecretValueProvider {
         }
 
         return {
-            type: SecretTypeEnum.Custom,
+            type: SecretTypeEnum.AzureServiceBus,
             name: key.label,
             value: key.value,
             properties: {
@@ -87,21 +74,43 @@ export class CustomSecretValueProvider implements ISecretValueProvider {
 
     private resourceManagerResponseToKeys(data: any): { label: string, value: string }[] | undefined {
         
-        var keys;
-
         if (!data) {
         
             return;
         
-        } else if (!!data.keys && Array.isArray(data.keys)) {
-        
-            keys = data.keys.map((k: any) => { return { label: k.keyName, value: k.value }; });
-
-        } else {
-
-            keys = Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
         }
 
-        return keys;
+        return Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
     }
+
+    static async pickUpServiceBusNamespaceId(subscription: AzureSubscription): Promise<string> {
+
+        const resourceGraphClient = new ResourceGraphClient(subscription.session.credentials2);
+    
+        const response = await resourceGraphClient.resources({
+
+            subscriptions: [subscription.subscription.subscriptionId],
+            query: 'resources | where type == "microsoft.servicebus/namespaces"'
+                
+        });
+
+        if (!response.data || response.data.length <= 0) {
+            throw new Error('No Service Bus namespaces found in this subscription');
+        }
+
+        const namespaces: { id: string, name: string, sku: any, location: string }[] = response.data;
+
+        const pickResult = await vscode.window.showQuickPick(
+            namespaces.map(n => {
+                return {
+                    label: n.name,
+                    description: `location: ${n.location}, SKU: ${n.sku?.name}`,
+                    id: n.id
+                };
+            }),
+            { title: 'Select Azure Service Bus namespace' }
+        );
+
+        return !!pickResult ? pickResult.id : '';
+    }    
 } 
