@@ -1,6 +1,5 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import axios from 'axios';
 
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
@@ -14,6 +13,7 @@ import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { KeyMetadataTableRepo } from './KeyMetadataTableRepo';
 import { SecretTreeView, KeeShepherdTreeItem, NodeTypeEnum } from './SecretTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
+import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 
 const SettingNames = {
     StorageType: 'KeeShepherdStorageType',
@@ -278,9 +278,12 @@ export class KeeShepherd extends KeeShepherdBase {
 
                 return result;
             
-            }, {} as { [f: string] : string });
+            }, {} as { [name: string] : string });
 
             await this.stashUnstashSecretsInFile(currentFile, stash, secretsValuesMap);
+
+            // Updating git hooks for this file
+            await updateGitHooksForFile(document.uri, !stash, Object.keys(secretsValuesMap).length);
 
         }, 'KeeShepherd failed');
     }
@@ -454,6 +457,12 @@ export class KeeShepherd extends KeeShepherdBase {
             const secretValues = await this.getSecretValues(secrets);
             await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
 
+            // Also updating git hooks for this file, if it is a Managed secret
+            if (controlType === ControlTypeEnum.Managed) {
+                
+                await updateGitHooksForFile(editor.document.uri, true, Object.keys(secretValues).length);
+            }
+
             vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was added successfully.`);
             this.treeView.refresh();
             
@@ -526,6 +535,12 @@ export class KeeShepherd extends KeeShepherdBase {
 
             await editor.document.save();
             this.treeView.refresh();
+
+            // Also updating git hooks for this file, if it is a Managed secret
+            if (controlType === ControlTypeEnum.Managed) {
+                
+                await updateGitHooksForFile(editor.document.uri, true, Object.keys(secretValues).length);
+            }
 
             vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
 

@@ -8,6 +8,7 @@ import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
 import { SecretTreeView } from './SecretTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
+import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
@@ -234,11 +235,19 @@ export abstract class KeeShepherdBase {
         
         }, {} as { [f: string] : {[name: string]: string} });
 
+        const filePaths = Object.keys(secretsPerFile);
+
         // flipping secrets in each file
-        const promises = Object.keys(secretsPerFile)
+        const promises = filePaths
             .map(filePath => this.stashUnstashSecretsInFile(filePath, stash, secretsPerFile[filePath]));
-        
         await Promise.all(promises);
+
+        // Also updating git hooks for these files
+        for (const filePath of filePaths) {
+
+            const fileUri = vscode.Uri.parse(filePath);
+            await updateGitHooksForFile(fileUri, !stash, Object.keys(secretsPerFile[filePath]).length);
+        }
 
         if (secretCount > 0) {
             
