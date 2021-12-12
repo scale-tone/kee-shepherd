@@ -310,7 +310,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             const resolvedSecretNames: string[] = [];
 
-            const regex = new RegExp(`${AnchorPrefix}\\((.+)\\)`, 'g');
+            const regex = new RegExp(`${AnchorPrefix}\\((.+?)\\)`, 'g');
             var match: RegExpExecArray | null;
             while (match = regex.exec(fileText)) {
 
