@@ -23,11 +23,11 @@ class SequentialDeviceTokenCredentials extends DeviceTokenCredentials {
 
     private static executeSequentially<T>(action: () => Promise<T>): Promise<T> {
     
+        // What goes to _workQueue should never throw (otherwise that exception will always get re-thrown later).
+        // That's why we wrap it all with a new Promise(). This promise will resolve only _after_ action completes (or fails).
         return new Promise((resolve, reject) => {
     
-            this._workQueue = this._workQueue.then(() => {
-                return action().then(resolve, reject);
-            });
+            this._workQueue = this._workQueue.then(() => action().then(resolve, reject));
         });
     }
 }
