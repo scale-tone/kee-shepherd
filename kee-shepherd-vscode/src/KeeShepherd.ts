@@ -76,7 +76,7 @@ export class KeeShepherd extends KeeShepherdBase {
     }
 
     async changeStorageType(context: vscode.ExtensionContext): Promise<void> {
-        
+
         await this.doAndShowError(async () => {
 
             await KeeShepherd.cleanupSettings(context);

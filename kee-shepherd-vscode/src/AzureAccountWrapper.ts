@@ -4,14 +4,36 @@ import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { Environment } from "@azure/ms-rest-azure-env";
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
+import { TokenResponse } from "adal-node";
 
 // Full typings for this can be found here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
 export type AzureSubscription = { session: { credentials2: any }, subscription: { subscriptionId: string, displayName: string } };
 
+class SequentialDeviceTokenCredentials extends DeviceTokenCredentials {
+
+    public getToken(): Promise<TokenResponse> {
+
+        // Parallel execution of super.getToken() leads to https://github.com/microsoft/vscode-azure-account/issues/53
+        // Therefore we need to make sure this method is always invoked sequentially, and we're doing that with this simple Active Object pattern implementation
+        
+        return SequentialDeviceTokenCredentials.executeSequentially(() => super.getToken());
+    }
+
+    private static _workQueue: Promise<any> = Promise.resolve();
+
+    private static executeSequentially<T>(action: () => Promise<T>): Promise<T> {
+    
+        return new Promise((resolve, reject) => {
+    
+            this._workQueue = this._workQueue.then(() => {
+                return action().then(resolve, reject);
+            });
+        });
+    }
+}
+
 // Wraps Azure Acccount extension
 export class AzureAccountWrapper {
-
-    private readonly _account: any;
 
     constructor() {
 
@@ -100,7 +122,7 @@ export class AzureAccountWrapper {
         return this._account.filters;
     }
 
-    async getTokenCredentials(subscriptionId: string, resourceId: string = ''): Promise<DeviceTokenCredentials> {
+    async getTokenCredentials(subscriptionId: string, resourceId: string | undefined = undefined): Promise<DeviceTokenCredentials> {
 
         const subscription = (await this.getSubscriptions()).find(s => s.subscription.subscriptionId === subscriptionId);
 
@@ -108,20 +130,11 @@ export class AzureAccountWrapper {
             throw new Error(`Invalid subscriptionId '${subscriptionId}'`);
         }
 
-        if (!resourceId) {
-            
-            // Assuming the default resourceId and returning default credentials object
-            return subscription.session.credentials2 as DeviceTokenCredentials;
-        }
-
         const tokenCredential = subscription.session.credentials2 as DeviceTokenCredentials;
         const environment = tokenCredential.environment;
 
-        // Need to provide the correct resourceId for the token.
-        // So copying all fields from Azure Account ext
-        // except newEnvironment.activeDirectoryResourceId
+        return new SequentialDeviceTokenCredentials(
 
-        return new DeviceTokenCredentials (
             tokenCredential.clientId,
             tokenCredential.domain,
             tokenCredential.username,
@@ -132,11 +145,13 @@ export class AzureAccountWrapper {
                 managementEndpointUrl: environment.managementEndpointUrl,
                 resourceManagerEndpointUrl: environment.resourceManagerEndpointUrl,
                 activeDirectoryEndpointUrl: environment.activeDirectoryEndpointUrl,
-                activeDirectoryResourceId: resourceId
+                activeDirectoryResourceId: resourceId ?? environment.activeDirectoryResourceId
             }),
             tokenCredential.tokenCache
         );
     }
+
+    private readonly _account: any;
 
     private async checkSignIn(): Promise<void> {
 

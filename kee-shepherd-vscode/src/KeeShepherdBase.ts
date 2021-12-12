@@ -112,23 +112,14 @@ export abstract class KeeShepherdBase {
     
     protected async getSecretValues(secrets: ControlledSecret[]): Promise<{[name: string]: string}> {
 
-        var result: {[name: string]: string} = {};
+        var result: { [name: string]: string } = {};
 
-/*      TODO: Looks like parallel execution of getSecretValue() leads to https://github.com/microsoft/vscode-azure-account/issues/53
-        So by now let's just do it sequentially :((  
-
-        const promises = secrets
-            .map(async s => {
-                result[s.name] = await this.getSecretValue(s);
-            });
+        const promises = secrets.map(async s => {
+            result[s.name] = await this._valuesProvider.getSecretValue(s);
+        });
   
         await Promise.all(promises);
-*/
-        
-        for (var secret of secrets) {
-            result[secret.name] = await this._valuesProvider.getSecretValue(secret);
-        }        
-        
+
         return result;
     }
 
