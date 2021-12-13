@@ -238,7 +238,8 @@ export class KeeShepherd extends KeeShepherdBase {
                 if (missingSecrets.length > 0) {
 
                     // Notifying the user that there're still some secrets missing
-                    await this.askUserAboutMissingSecrets(currentFile, missingSecrets);
+                    // Intentionally not awaiting
+                    this.askUserAboutMissingSecrets(currentFile, missingSecrets);
                 }
             }
 
