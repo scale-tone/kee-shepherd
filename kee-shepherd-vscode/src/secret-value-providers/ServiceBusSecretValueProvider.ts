@@ -19,11 +19,9 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
 
         const keys = this.resourceManagerResponseToKeys(response.data);
-        if (!keys) {
-            return '';
-        }
+        const key = keys.find(k => k.label === secret.properties.keyName)?.value ?? '';
 
-        return keys.find(k => k.label === secret.properties.keyName)?.value ?? '';
+        return key;
     }
 
     async pickUpSecret(): Promise<SelectedSecretType | undefined> {
@@ -45,24 +43,26 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
         const token = await tokenCredentials.getToken();
 
-        const authRulesUri = `https://management.azure.com${namespaceId}/AuthorizationRules?api-version=2017-04-01`;
-        const authRulesResponse = await axios.get(authRulesUri, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
-        const authRules = authRulesResponse.data?.value;
+        const authRules: string[] = [];
 
-        if (!authRules || authRules.length < 0) {
+        authRules.push(... (await this.getRootAuthRules (namespaceId, token.accessToken)));
+        authRules.push(... (await this.getQueueAuthRules(namespaceId, token.accessToken)));
+        authRules.push(... (await this.getTopicAuthRules(namespaceId, token.accessToken)));
+
+        if (authRules.length < 0) {
             return;
         }
 
-        const authRule = await vscode.window.showQuickPick(authRules.map((r: any) => r.name), { title: 'Select Authorization Rule to use' });
+        const authRule = await vscode.window.showQuickPick(authRules, { title: 'Select Authorization Rule to use' });
         if (!authRule) {
             return;
         }
 
-        const uri = `https://management.azure.com${namespaceId}/AuthorizationRules/${authRule}/listKeys?api-version=2017-04-01`;
-        const response = await axios.post(uri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysUri = `https://management.azure.com${namespaceId}/${authRule}/listKeys?api-version=2017-04-01`;
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
         
-        const keys = this.resourceManagerResponseToKeys(response.data);
-        if (!keys) {
+        const keys = this.resourceManagerResponseToKeys(keysResponse.data);
+        if (keys.length < 0) {
             return;
         }
         
@@ -78,18 +78,86 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
             value: key.value,
             properties: {
                 subscriptionId,
-                resourceManagerUri: uri,
+                resourceManagerUri: keysUri,
                 keyName: key.label
             }
         };
     }
 
-    private resourceManagerResponseToKeys(data: any): { label: string, value: string }[] | undefined {
+
+    private async getRootAuthRules(namespaceId: string, accessToken: string): Promise<string[]> {
+
+        const uri = `https://management.azure.com${namespaceId}/authorizationRules?api-version=2017-04-01`;
+        const response = await axios.get(uri, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+
+        if (!response.data?.value) {
+
+            return [];
+        }
+
+        return response.data.value.map((r: any) => `authorizationRules/${r.name}`);
+    }
+
+    private async getQueueAuthRules(namespaceId: string, accessToken: string): Promise<string[]> {
+
+        const uri = `https://management.azure.com${namespaceId}/queues?api-version=2017-04-01`;
+        const response = await axios.get(uri, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+        const itemNames: string[] = response.data?.value?.map((t: any) => t.name);
+
+        if (!itemNames) { 
+            return [];
+        }
+
+        const promises = itemNames.map(itemName => {
+
+            const authRulesUri = `https://management.azure.com${namespaceId}/queues/${itemName}/authorizationRules?api-version=2017-04-01`;
+            return axios
+                .get(authRulesUri, { headers: { 'Authorization': `Bearer ${accessToken}` } })
+                .then(authRulesResponse => { 
+
+                    if (!authRulesResponse.data?.value) {
+                        return [];
+                    }
+
+                    return authRulesResponse.data?.value?.map((r: any) => `queues/${itemName}/authorizationRules/${r.name}`) as string[];
+                });
+        })
+
+        return (await Promise.all(promises)).flat().sort();
+    }
+
+    private async getTopicAuthRules(namespaceId: string, accessToken: string): Promise<string[]> {
+
+        const uri = `https://management.azure.com${namespaceId}/topics?api-version=2017-04-01`;
+        const response = await axios.get(uri, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+        const itemNames: string[] = response.data?.value?.map((t: any) => t.name);
+
+        if (!itemNames) { 
+            return [];
+        }
+
+        const promises = itemNames.map(itemName => {
+
+            const authRulesUri = `https://management.azure.com${namespaceId}/topics/${itemName}/authorizationRules?api-version=2017-04-01`;
+            return axios
+                .get(authRulesUri, { headers: { 'Authorization': `Bearer ${accessToken}` } })
+                .then(authRulesResponse => { 
+
+                    if (!authRulesResponse.data?.value) {
+                        return [];
+                    }
+
+                    return authRulesResponse.data?.value?.map((r: any) => `topics/${itemName}/authorizationRules/${r.name}`) as string[];
+                });
+        })
+
+        return (await Promise.all(promises)).flat().sort();
+    }
+    
+    private resourceManagerResponseToKeys(data: any): { label: string, value: string }[] {
         
         if (!data) {
-        
-            return;
-        
+            return [];
         }
 
         return Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
