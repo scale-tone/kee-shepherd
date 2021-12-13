@@ -733,24 +733,19 @@ export class KeeShepherd extends KeeShepherdBase {
         return result;
     }
 
-    private async doAndShowError(todo: () => Promise<void>, errorMessage: string): Promise<void> {
+    private doAndShowError(todo: () => Promise<void>, errorMessage: string): Promise<void> {
 
-        if (!!this._inProgress) {
-            console.log('Another operation already in progress...');
-            return;
-        }
-        this._inProgress = true;
+        // Chaining all incoming commands, to make sure they never interfere with each other
+        this._commandChain = this._commandChain.then(
 
-        try {
+            () => todo().catch(err => {
+                vscode.window.showErrorMessage(`${errorMessage}. ${(err as any).message ?? err}`);
+            }
+                
+        ));
 
-            await todo();
-    
-        } catch (err) {
-            vscode.window.showErrorMessage(`${errorMessage}. ${(err as any).message ?? err}`);
-        }
-
-        this._inProgress = false;
+        return this._commandChain;
     }
 
-    private _inProgress: boolean = false;
+    private _commandChain: Promise<void> = Promise.resolve();
 }
