@@ -3,10 +3,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // Maintains git hooks to prevent unstashed secrets of being committed
-export async function updateGitHooksForFile(fileUri: vscode.Uri, isUnstashed: boolean, secretCount: number): Promise<void> {
+export async function updateGitHooksForFile(fileUri: vscode.Uri, isUnstashed: boolean, secretsExistInThisFile: boolean): Promise<void> {
 
     // If secrets were unstashed, but there're actually no secrets in this file, then doing nothing
-    if (!!isUnstashed && secretCount <= 0) {
+    if (!!isUnstashed && !secretsExistInThisFile) {
         return;
     }
 

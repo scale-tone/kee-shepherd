@@ -110,12 +110,12 @@ export abstract class KeeShepherdBase {
         return keys;
     }
     
-    protected async getSecretValues(secrets: ControlledSecret[]): Promise<{[name: string]: string}> {
+    protected async getSecretValues(secrets: ControlledSecret[]): Promise<{secret: ControlledSecret, value: string}[]> {
 
-        var result: { [name: string]: string } = {};
+        var result: {secret: ControlledSecret, value: string}[] = [];
 
-        const promises = secrets.map(async s => {
-            result[s.name] = await this._valuesProvider.getSecretValue(s);
+        const promises = secrets.map(async secret => {
+            result.push({ secret, value: await this._valuesProvider.getSecretValue(secret) });
         });
   
         await Promise.all(promises);
@@ -209,21 +209,21 @@ export abstract class KeeShepherdBase {
         const secrets = (await Promise.all(secretPromises)).flat();
 
         // This must be done sequentially by now
-        const secretValues = await this.getSecretValues(secrets);
+        const secretsAndValues = await this.getSecretValues(secrets);
 
         // Grouping secrets by filename
         var fileCount = 0, secretCount = 0;
-        const secretsPerFile = secrets.reduce((result, currentSecret) => {
+        const secretsPerFile = secretsAndValues.reduce((result, cv) => {
         
-            if (!result[currentSecret.filePath]) {
-                result[currentSecret.filePath] = {};
+            if (!result[cv.secret.filePath]) {
+                result[cv.secret.filePath] = {};
                 fileCount++;
             }
 
             // Getting managed secrets only
-            if (currentSecret.controlType === ControlTypeEnum.Managed) {
+            if (cv.secret.controlType === ControlTypeEnum.Managed) {
                 
-                result[currentSecret.filePath][currentSecret.name] = secretValues[currentSecret.name];
+                result[cv.secret.filePath][cv.secret.name] = cv.value;
                 secretCount++;
             }
 
@@ -242,7 +242,7 @@ export abstract class KeeShepherdBase {
         for (const filePath of filePaths) {
 
             const fileUri = vscode.Uri.parse(filePath);
-            await updateGitHooksForFile(fileUri, !stash, Object.keys(secretsPerFile[filePath]).length);
+            await updateGitHooksForFile(fileUri, !stash, Object.keys(secretsPerFile[filePath]).length > 0);
         }
 
         if (secretCount > 0) {

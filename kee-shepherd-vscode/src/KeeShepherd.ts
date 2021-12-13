@@ -267,14 +267,14 @@ export class KeeShepherd extends KeeShepherdBase {
             } catch (err) { }
     
             const secrets = await this._repo.getSecrets(currentFile, true);
-            const secretValues = await this.getSecretValues(secrets);
+            const secretsAndValues = await this.getSecretValues(secrets);
 
-            const secretsValuesMap = secrets.reduce((result, currentSecret) => {
+            const secretsValuesMap = secretsAndValues.reduce((result, cv) => {
 
                 // Getting managed secrets only
-                if (currentSecret.controlType === ControlTypeEnum.Managed) {
+                if (cv.secret.controlType === ControlTypeEnum.Managed) {
                     
-                    result[currentSecret.name] = secretValues[currentSecret.name];
+                    result[cv.secret.name] = cv.value;
                 }
 
                 return result;
@@ -284,7 +284,7 @@ export class KeeShepherd extends KeeShepherdBase {
             await this.stashUnstashSecretsInFile(currentFile, stash, secretsValuesMap);
 
             // Updating git hooks for this file
-            await updateGitHooksForFile(document.uri, !stash, Object.keys(secretsValuesMap).length);
+            await updateGitHooksForFile(document.uri, !stash, Object.keys(secretsValuesMap).length > 0);
 
         }, 'KeeShepherd failed');
     }
@@ -375,6 +375,10 @@ export class KeeShepherd extends KeeShepherdBase {
                 this.treeView.refresh();
 
                 vscode.window.showInformationMessage(`KeeShepherd resolved the following secrets: ${resolvedSecretNames.join(', ')}`);
+
+            } else {
+
+                vscode.window.showInformationMessage(`KeeShepherd found no secrets to resolve in this file`);
             }
 
         }, 'KeeShepherd failed to resolve secrets');
@@ -545,14 +549,12 @@ export class KeeShepherd extends KeeShepherdBase {
             }
 
             // Also updating secret map for this file
-            const secrets = await this._repo.getSecrets(currentFile, true);
-            const secretValues = await this.getSecretValues(secrets);
-            await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
+            await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
 
             // Also updating git hooks for this file, if it is a Managed secret
             if (controlType === ControlTypeEnum.Managed) {
                 
-                await updateGitHooksForFile(editor.document.uri, true, Object.keys(secretValues).length);
+                await updateGitHooksForFile(editor.document.uri, true, true);
             }
 
             vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was added successfully.`);
@@ -618,9 +620,7 @@ export class KeeShepherd extends KeeShepherdBase {
             });
     
             // Also updating secret map for this file
-            const secrets = await this._repo.getSecrets(currentFile, true);
-            const secretValues = await this.getSecretValues(secrets);
-            await this.updateSecretMapForFile(currentFile, editor.document.getText(), secretValues);
+            await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
 
             // Immediately masking secrets in this file
             await this.internalMaskSecrets(editor, await this._mapRepo.getSecretMapForFile(currentFile));
@@ -631,7 +631,7 @@ export class KeeShepherd extends KeeShepherdBase {
             // Also updating git hooks for this file, if it is a Managed secret
             if (controlType === ControlTypeEnum.Managed) {
                 
-                await updateGitHooksForFile(editor.document.uri, true, Object.keys(secretValues).length);
+                await updateGitHooksForFile(editor.document.uri, true, true);
             }
 
             vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
