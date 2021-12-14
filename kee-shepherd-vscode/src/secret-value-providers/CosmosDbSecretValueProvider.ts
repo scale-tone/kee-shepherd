@@ -111,13 +111,13 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
             throw new Error('No Cosmos DB accounts found in this subscription');
         }
 
-        const namespaces: { id: string, name: string, sku: any, location: string }[] = response.data;
+        const namespaces: { id: string, name: string, kind: string, location: string }[] = response.data;
 
         const pickResult = await vscode.window.showQuickPick(
             namespaces.map(n => {
                 return {
                     label: n.name,
-                    description: `location: ${n.location}, SKU: ${n.sku?.name}`,
+                    description: `location: ${n.location}, kind: ${n.kind}`,
                     id: n.id
                 };
             }),
