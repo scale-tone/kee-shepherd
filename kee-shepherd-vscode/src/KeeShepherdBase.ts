@@ -212,19 +212,16 @@ export abstract class KeeShepherdBase {
         const secretsAndValues = await this.getSecretValues(secrets);
 
         // Grouping secrets by filename
-        var fileCount = 0, secretCount = 0;
         const secretsPerFile = secretsAndValues.reduce((result, cv) => {
         
             if (!result[cv.secret.filePath]) {
                 result[cv.secret.filePath] = {};
-                fileCount++;
             }
 
             // Getting managed secrets only
             if (cv.secret.controlType === ControlTypeEnum.Managed) {
                 
                 result[cv.secret.filePath][cv.secret.name] = cv.value;
-                secretCount++;
             }
 
             return result;
@@ -236,7 +233,8 @@ export abstract class KeeShepherdBase {
         // flipping secrets in each file
         const promises = filePaths
             .map(filePath => this.stashUnstashSecretsInFile(filePath, stash, secretsPerFile[filePath]));
-        await Promise.all(promises);
+        
+        const secretCount = (await Promise.all(promises)).reduce((p, c) => p + c, 0);
 
         // Also updating git hooks for these files
         for (const filePath of filePaths) {
@@ -247,11 +245,11 @@ export abstract class KeeShepherdBase {
 
         if (secretCount > 0) {
             
-            vscode.window.showInformationMessage(`KeeShepherd ${stash ? 'stashed' : 'unstashed'} ${secretCount} secrets in ${fileCount} files`);
+            vscode.window.showInformationMessage(`KeeShepherd ${stash ? 'stashed' : 'unstashed'} ${secretCount} secrets in ${filePaths.length} files`);
         }
     }
     
-    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: {[name:string]:string}): Promise<void> {
+    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: {[name:string]:string}): Promise<number> {
 
         try {
 
@@ -298,9 +296,13 @@ export abstract class KeeShepherdBase {
 
             // Saving file contents back
             await this.writeFile(fileUri, outputFileText);
+
+            // Returning the number of affected secrets
+            return Object.keys(managedSecretValues).length;
             
         } catch (err) {
             vscode.window.showErrorMessage(`KeeShepherd failed to unstash secrets in ${filePath}. ${(err as any).message ?? err}`);
+            return 0;
         }
     }
 
