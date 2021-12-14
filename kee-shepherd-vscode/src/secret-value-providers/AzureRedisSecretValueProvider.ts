@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import axios from "axios";
 
-import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
+import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
-// Implements picking and retrieving secret values from Azure Cosmos DB
-export class CosmosDbSecretValueProvider implements ISecretValueProvider {
+// Implements picking and retrieving secret values from Azure Redis Cache
+export class AzureRedisSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
@@ -22,7 +22,7 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         const key = response.data[secret.properties.keyName];
 
         if (!!secret.properties.connectionString) {
-            return `${secret.properties.connectionString}AccountKey=${key};`;
+            return `${secret.properties.connectionString}password=${key}`;
         }
 
         return key;
@@ -38,24 +38,25 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         const subscriptionId = subscription.subscription.subscriptionId;
         const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const accountId = await this.pickUpDatabaseAccountId(subscriptionId, tokenCredentials);
+        const instanceId = await this.pickUpInstanceId(subscriptionId, tokenCredentials);
 
-        if (!accountId) {
+        if (!instanceId) {
             return;
         }
 
         // Obtaining default token
         const token = await tokenCredentials.getToken();
 
-        const accountUri = `https://management.azure.com${accountId}?api-version=2021-10-15`;
-        const accountResponse = await axios.get(accountUri, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const instanceUri = `https://management.azure.com${instanceId}?api-version=2020-06-01`;
+        const instanceResponse = await axios.get(instanceUri, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
 
-        const accountName = accountResponse.data?.name;
-        const documentEndpoint = accountResponse.data?.properties?.documentEndpoint;
+        const instanceName = instanceResponse.data?.name;
+        const hostName = instanceResponse.data?.properties?.hostName;
+        const sslPort = instanceResponse.data?.properties?.sslPort;
 
-        const connString = `AccountEndpoint=${documentEndpoint};`;
+        const connString = `${hostName}:${sslPort},ssl=True,abortConnect=False,`;
 
-        const keysUri = `https://management.azure.com${accountId}/listKeys?api-version=2021-10-15`;
+        const keysUri = `https://management.azure.com${instanceId}/listKeys?api-version=2020-06-01`;
         const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
         const keys = keysResponse.data;
 
@@ -73,20 +74,20 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
                 {
                     label: `Connection String with ${keyName}`,
                     keyName: keyName,
-                    value: `${connString}AccountKey=${keys[keyName]};`,
+                    value: `${connString}password=${keys[keyName]}`,
                     connString: connString
                 }
             ];
         });
 
-        const selectedOption = await vscode.window.showQuickPick(options.flat(), { title: 'Select Cosmos DB Secret' });
+        const selectedOption = await vscode.window.showQuickPick(options.flat(), { title: 'Select Azure Redis Cache Secret' });
         if (!selectedOption) {
             return;
         }
 
         return {
-            type: SecretTypeEnum.AzureCosmosDb,
-            name: `${accountName}-${selectedOption.label}`,
+            type: SecretTypeEnum.AzureRedisCache,
+            name: `${instanceName}-${selectedOption.label}`,
             value: selectedOption.value,
             properties: {
                 subscriptionId,
@@ -97,32 +98,32 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         }
     }
 
-    private async pickUpDatabaseAccountId(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<string> {
+    private async pickUpInstanceId(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<string> {
 
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({
 
             subscriptions: [subscriptionId],
-            query: 'resources | where type == "microsoft.documentdb/databaseaccounts"'
+            query: 'resources | where type == "microsoft.cache/redis"'
                 
         });
 
         if (!response.data || response.data.length <= 0) {
-            throw new Error('No Cosmos DB accounts found in this subscription');
+            throw new Error('No Redis Cache instances found in this subscription');
         }
 
-        const namespaces: { id: string, name: string, kind: string, location: string }[] = response.data;
+        const instances: { id: string, name: string, location: string }[] = response.data;
 
         const pickResult = await vscode.window.showQuickPick(
-            namespaces.map(n => {
+            instances.map(n => {
                 return {
                     label: n.name,
-                    description: `location: ${n.location}, kind: ${n.kind}`,
+                    description: `location: ${n.location}`,
                     id: n.id
                 };
             }),
-            { title: 'Select Azure Cosmos DB account' }
+            { title: 'Select Azure Redis Cache instance' }
         );
 
         return !!pickResult ? pickResult.id : '';
