@@ -15,7 +15,8 @@ export enum SecretTypeEnum {
     AzureStorage,
     ResourceManagerRestApi,
     AzureServiceBus,
-    AzureEventHubs
+    AzureEventHubs,
+    AzureCosmosDb
 }
 
 export enum ControlTypeEnum {

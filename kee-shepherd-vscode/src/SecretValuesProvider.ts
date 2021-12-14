@@ -8,6 +8,7 @@ import { StorageSecretValueProvider } from './secret-value-providers/StorageSecr
 import { ResourceManagerRestApiSecretValueProvider } from './secret-value-providers/ResourceManagerRestApiSecretValueProvider';
 import { ServiceBusSecretValueProvider } from './secret-value-providers/ServiceBusSecretValueProvider';
 import { EventHubSecretValueProvider } from './secret-value-providers/EventHubSecretValueProvider';
+import { CosmosDbSecretValueProvider } from './secret-value-providers/CosmosDbSecretValueProvider';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
@@ -20,6 +21,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureStorage] = new StorageSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureServiceBus] = new ServiceBusSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureEventHubs] = new EventHubSecretValueProvider(this._account);
+        this._providers[SecretTypeEnum.AzureCosmosDb] = new CosmosDbSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(this._account);
     }
 
@@ -37,6 +39,7 @@ export class SecretValuesProvider {
                 { label: 'Azure Storage', type: SecretTypeEnum.AzureStorage },
                 { label: 'Azure Service Bus', type: SecretTypeEnum.AzureServiceBus },
                 { label: 'Azure Event Hubs', type: SecretTypeEnum.AzureEventHubs },
+                { label: 'Azure Cosmos DB', type: SecretTypeEnum.AzureCosmosDb },
                 { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
             ], 
             { title: 'Select where to take the secret from' }
