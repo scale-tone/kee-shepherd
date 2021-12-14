@@ -6,8 +6,8 @@ import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
-// Implements picking and retrieving secret values from Azure Service Bus
-export class ServiceBusSecretValueProvider implements ISecretValueProvider {
+// Implements picking and retrieving secret values from Azure Event Hubs
+export class EventHubSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
@@ -33,7 +33,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
         const subscriptionId = subscription.subscription.subscriptionId;
 
-        const namespaceId = await this.pickUpServiceBusNamespaceId(subscription);
+        const namespaceId = await this.pickUpEventHubNamespaceId(subscription);
 
         if (!namespaceId) {
             return;
@@ -46,8 +46,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         const authRules: string[] = [];
 
         authRules.push(... (await this.getRootAuthRules (namespaceId, token.accessToken)));
-        authRules.push(... (await this.getQueueAuthRules(namespaceId, token.accessToken)));
-        authRules.push(... (await this.getTopicAuthRules(namespaceId, token.accessToken)));
+        authRules.push(... (await this.getHubAuthRules(namespaceId, token.accessToken)));
 
         if (authRules.length < 0) {
             return;
@@ -73,7 +72,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         }
 
         return {
-            type: SecretTypeEnum.AzureServiceBus,
+            type: SecretTypeEnum.AzureEventHubs,
             name: key.label,
             value: key.value,
             properties: {
@@ -98,9 +97,9 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         return response.data.value.map((r: any) => `authorizationRules/${r.name}`);
     }
 
-    private async getQueueAuthRules(namespaceId: string, accessToken: string): Promise<string[]> {
+    private async getHubAuthRules(namespaceId: string, accessToken: string): Promise<string[]> {
 
-        const uri = `https://management.azure.com${namespaceId}/queues?api-version=2017-04-01`;
+        const uri = `https://management.azure.com${namespaceId}/eventhubs?api-version=2017-04-01`;
         const response = await axios.get(uri, { headers: { 'Authorization': `Bearer ${accessToken}` } });
         const itemNames: string[] = response.data?.value?.map((t: any) => t.name);
 
@@ -110,7 +109,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
         const promises = itemNames.map(itemName => {
 
-            const authRulesUri = `https://management.azure.com${namespaceId}/queues/${itemName}/authorizationRules?api-version=2017-04-01`;
+            const authRulesUri = `https://management.azure.com${namespaceId}/eventhubs/${itemName}/authorizationRules?api-version=2017-04-01`;
             return axios
                 .get(authRulesUri, { headers: { 'Authorization': `Bearer ${accessToken}` } })
                 .then(authRulesResponse => { 
@@ -119,35 +118,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
                         return [];
                     }
 
-                    return authRulesResponse.data?.value?.map((r: any) => `queues/${itemName}/authorizationRules/${r.name}`) as string[];
-                });
-        })
-
-        return (await Promise.all(promises)).flat().sort();
-    }
-
-    private async getTopicAuthRules(namespaceId: string, accessToken: string): Promise<string[]> {
-
-        const uri = `https://management.azure.com${namespaceId}/topics?api-version=2017-04-01`;
-        const response = await axios.get(uri, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-        const itemNames: string[] = response.data?.value?.map((t: any) => t.name);
-
-        if (!itemNames) { 
-            return [];
-        }
-
-        const promises = itemNames.map(itemName => {
-
-            const authRulesUri = `https://management.azure.com${namespaceId}/topics/${itemName}/authorizationRules?api-version=2017-04-01`;
-            return axios
-                .get(authRulesUri, { headers: { 'Authorization': `Bearer ${accessToken}` } })
-                .then(authRulesResponse => { 
-
-                    if (!authRulesResponse.data?.value) {
-                        return [];
-                    }
-
-                    return authRulesResponse.data?.value?.map((r: any) => `topics/${itemName}/authorizationRules/${r.name}`) as string[];
+                    return authRulesResponse.data?.value?.map((r: any) => `eventhubs/${itemName}/authorizationRules/${r.name}`) as string[];
                 });
         })
 
@@ -163,19 +134,19 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         return Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
     }
 
-    private async pickUpServiceBusNamespaceId(subscription: AzureSubscription): Promise<string> {
+    private async pickUpEventHubNamespaceId(subscription: AzureSubscription): Promise<string> {
 
         const resourceGraphClient = new ResourceGraphClient(subscription.session.credentials2);
     
         const response = await resourceGraphClient.resources({
 
             subscriptions: [subscription.subscription.subscriptionId],
-            query: 'resources | where type == "microsoft.servicebus/namespaces"'
+            query: 'resources | where type == "microsoft.eventhub/namespaces"'
                 
         });
 
         if (!response.data || response.data.length <= 0) {
-            throw new Error('No Service Bus namespaces found in this subscription');
+            throw new Error('No Event Hubs namespaces found in this subscription');
         }
 
         const namespaces: { id: string, name: string, sku: any, location: string }[] = response.data;
@@ -188,7 +159,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
                     id: n.id
                 };
             }),
-            { title: 'Select Azure Service Bus namespace' }
+            { title: 'Select Azure Event Hubs namespace' }
         );
 
         return !!pickResult ? pickResult.id : '';
