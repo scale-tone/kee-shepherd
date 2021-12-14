@@ -5,6 +5,7 @@ import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
+import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Cosmos DB
 export class CosmosDbSecretValueProvider implements ISecretValueProvider {
@@ -35,15 +36,15 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
+        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const accountId = await this.pickUpDatabaseAccountId(subscription);
+        const accountId = await this.pickUpDatabaseAccountId(subscriptionId, tokenCredentials);
 
         if (!accountId) {
             return;
         }
 
         // Obtaining default token
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
         const token = await tokenCredentials.getToken();
 
         const accountUri = `https://management.azure.com${accountId}?api-version=2021-10-15`;
@@ -96,13 +97,13 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         }
     }
 
-    private async pickUpDatabaseAccountId(subscription: AzureSubscription): Promise<string> {
+    private async pickUpDatabaseAccountId(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<string> {
 
-        const resourceGraphClient = new ResourceGraphClient(subscription.session.credentials2);
+        const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({
 
-            subscriptions: [subscription.subscription.subscriptionId],
+            subscriptions: [subscriptionId],
             query: 'resources | where type == "microsoft.documentdb/databaseaccounts"'
                 
         });

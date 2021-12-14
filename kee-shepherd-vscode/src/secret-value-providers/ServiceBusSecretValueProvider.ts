@@ -5,6 +5,7 @@ import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
+import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Service Bus
 export class ServiceBusSecretValueProvider implements ISecretValueProvider {
@@ -32,22 +33,22 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
+        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const namespaceId = await this.pickUpServiceBusNamespaceId(subscription);
+        const namespace = await this.pickUpServiceBusNamespace(subscriptionId, tokenCredentials);
 
-        if (!namespaceId) {
+        if (!namespace) {
             return;
         }
 
         // Obtaining default token
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
         const token = await tokenCredentials.getToken();
 
         const authRules: string[] = [];
 
-        authRules.push(... (await this.getRootAuthRules (namespaceId, token.accessToken)));
-        authRules.push(... (await this.getQueueAuthRules(namespaceId, token.accessToken)));
-        authRules.push(... (await this.getTopicAuthRules(namespaceId, token.accessToken)));
+        authRules.push(... (await this.getRootAuthRules (namespace.id, token.accessToken)));
+        authRules.push(... (await this.getQueueAuthRules(namespace.id, token.accessToken)));
+        authRules.push(... (await this.getTopicAuthRules(namespace.id, token.accessToken)));
 
         if (authRules.length < 0) {
             return;
@@ -58,7 +59,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
             return;
         }
 
-        const keysUri = `https://management.azure.com${namespaceId}/${authRule}/listKeys?api-version=2017-04-01`;
+        const keysUri = `https://management.azure.com${namespace.id}/${authRule}/listKeys?api-version=2017-04-01`;
         const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
         
         const keys = this.resourceManagerResponseToKeys(keysResponse.data);
@@ -74,7 +75,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
         return {
             type: SecretTypeEnum.AzureServiceBus,
-            name: key.label,
+            name: `${namespace.name}-${key.label}`,
             value: key.value,
             properties: {
                 subscriptionId,
@@ -163,13 +164,13 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         return Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
     }
 
-    private async pickUpServiceBusNamespaceId(subscription: AzureSubscription): Promise<string> {
+    private async pickUpServiceBusNamespace(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<{ name: string, id: string } | undefined> {
 
-        const resourceGraphClient = new ResourceGraphClient(subscription.session.credentials2);
+        const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({
 
-            subscriptions: [subscription.subscription.subscriptionId],
+            subscriptions: [subscriptionId],
             query: 'resources | where type == "microsoft.servicebus/namespaces"'
                 
         });
@@ -191,6 +192,12 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
             { title: 'Select Azure Service Bus namespace' }
         );
 
-        return !!pickResult ? pickResult.id : '';
+        if (!!pickResult) {
+            
+            return {
+                name: pickResult.label,
+                id: pickResult.id
+            }
+        }
     }    
 } 

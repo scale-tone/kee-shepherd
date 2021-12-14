@@ -37,7 +37,9 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
         }
         
         const subscriptionId = subscription.subscription.subscriptionId;
-        const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId);
+        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
+
+        const storageManagementClient = new StorageManagementClient(tokenCredentials, subscriptionId);
 
         const storageAccount = await this._account.picUpStorageAccount(storageManagementClient);
 
