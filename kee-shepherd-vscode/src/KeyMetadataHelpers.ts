@@ -18,7 +18,8 @@ export enum SecretTypeEnum {
     AzureEventHubs,
     AzureCosmosDb,
     AzureRedisCache,
-    AzureAppInsights
+    AzureAppInsights,
+    AzureEventGrid
 }
 
 export enum ControlTypeEnum {
