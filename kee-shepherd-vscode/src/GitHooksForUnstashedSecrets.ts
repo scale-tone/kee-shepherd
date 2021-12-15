@@ -93,16 +93,23 @@ filesWithSecrets=( "${filesWithSecrets.join('" "')}" )
 
 IFS=$'\\n' changedFiles=( $(git diff --name-only & git diff --cached --name-only & git ls-files --exclude-standard --others) )
 
+detectedUnstashedSecrets=false
+
 for changedFile in "\${changedFiles[@]}"
 do
     for fileWithSecrets in "\${filesWithSecrets[@]}"
     do
         if [ "$fileWithSecrets" == "$changedFile" ]; then
-            echo "KeeShepherd found unstashed secrets in" $changedFile ". Stash or remove them before committing" >&2
-            exit 1
+            echo "KeeShepherd detected unstashed secrets in" $changedFile ". Stash or remove them before committing" >&2
+            git reset HEAD -- $changedFile
+            detectedUnstashedSecrets=true
         fi
     done
-done`;
+done
+
+if [ "$detectedUnstashedSecrets" = true ] ; then
+    exit 1
+fi`;
         
         await fs.promises.writeFile(scriptFileName, scriptText);
 
