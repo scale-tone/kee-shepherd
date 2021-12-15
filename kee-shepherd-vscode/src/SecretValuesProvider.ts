@@ -10,6 +10,7 @@ import { ServiceBusSecretValueProvider } from './secret-value-providers/ServiceB
 import { EventHubSecretValueProvider } from './secret-value-providers/EventHubSecretValueProvider';
 import { CosmosDbSecretValueProvider } from './secret-value-providers/CosmosDbSecretValueProvider';
 import { AzureRedisSecretValueProvider } from './secret-value-providers/AzureRedisSecretValueProvider';
+import { AppInsightsSecretValueProvider } from './secret-value-providers/AppInsightsSecretValueProvider';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
@@ -24,6 +25,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureEventHubs] = new EventHubSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureCosmosDb] = new CosmosDbSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureRedisCache] = new AzureRedisSecretValueProvider(this._account);
+        this._providers[SecretTypeEnum.AzureAppInsights] = new AppInsightsSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(this._account);
     }
 
@@ -43,6 +45,7 @@ export class SecretValuesProvider {
                 { label: 'Azure Event Hubs', type: SecretTypeEnum.AzureEventHubs },
                 { label: 'Azure Cosmos DB', type: SecretTypeEnum.AzureCosmosDb },
                 { label: 'Azure Redis Cache', type: SecretTypeEnum.AzureRedisCache },
+                { label: 'Azure Application Insights', type: SecretTypeEnum.AzureAppInsights },
                 { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
             ], 
             { title: 'Select where to take the secret from' }
