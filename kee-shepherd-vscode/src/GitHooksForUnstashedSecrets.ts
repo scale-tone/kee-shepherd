@@ -101,7 +101,7 @@ do
     do
         if [ "$fileWithSecrets" == "$changedFile" ]; then
             echo "KeeShepherd detected unstashed secrets in" $changedFile ". Stash or remove them before committing" >&2
-            git reset HEAD -- $changedFile
+            git reset HEAD -- "$changedFile"
             detectedUnstashedSecrets=true
         fi
     done
