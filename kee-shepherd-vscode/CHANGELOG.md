@@ -15,8 +15,10 @@
   Very useful when configuring a fresh new devbox (instead of manually re-creating your config file, you can just copy the whole file from another machine *or pull it from the repo* - and restore all your secrets with this single commmand).
   
 - Git Hooks for unstashed secrets. Now when you unstash your secrets, KeeShepherd installs a [Git Hook](https://www.atlassian.com/git/tutorials/git-hooks), that prevents files containing them from being accidentally committed (a commit will be blocked and an error will be shown, if you try). When you stash secrets back, the hooks are removed. 
-
+  
   So now you can commit your config files with **stashed** secrets in them - and not be afraid of accidentally committing their unstashed values.
+
+  IMPORTANT: this only works for **managed** (stashable/unstashable) secrets. **Supervised** secrets are ignored by this feature, so you'll need to somehow protect them yourself.
 
 - Minor bugfixes.
 
