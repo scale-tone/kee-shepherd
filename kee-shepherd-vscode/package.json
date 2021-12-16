@@ -302,6 +302,11 @@
                         "When a workspace is opened"
                     ],
                     "description": "Automatically unstash secrets"
+                },
+                "kee-shepherd.setGitHooksForUnstashedSecrets": {
+                    "type": "boolean",
+                    "default": "true",
+                    "description": "Set git hooks for unstashed secrets (to prevent them from being committed)"
                 }
             }
         }

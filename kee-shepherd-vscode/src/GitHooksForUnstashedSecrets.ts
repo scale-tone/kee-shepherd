@@ -5,6 +5,14 @@ import * as path from 'path';
 // Maintains git hooks to prevent unstashed secrets of being committed
 export async function updateGitHooksForFile(fileUri: vscode.Uri, isUnstashed: boolean, secretsExistInThisFile: boolean): Promise<void> {
 
+    // Checking config setting
+    const config = vscode.workspace.getConfiguration('kee-shepherd');
+    const setGitHooks = config.get("setGitHooksForUnstashedSecrets");
+
+    if (!setGitHooks) {
+        return;
+    }
+
     // If secrets were unstashed, but there're actually no secrets in this file, then doing nothing
     if (!!isUnstashed && !secretsExistInThisFile) {
         return;
@@ -88,7 +96,7 @@ exec .git/hooks/keeshepherd-check-unstashed-secrets.sh
     if (filesWithSecrets.length > 0) {
 
         // updating the validation script...
-        scriptText = `
+        scriptText = `#!/bin/env bash
 filesWithSecrets=( "${filesWithSecrets.join('" "')}" )
 
 IFS=$'\\n' changedFiles=( $(git diff --name-only & git diff --cached --name-only & git ls-files --exclude-standard --others) )
@@ -112,6 +120,9 @@ if [ "$detectedUnstashedSecrets" = true ] ; then
 fi`;
         
         await fs.promises.writeFile(scriptFileName, scriptText);
+
+        // Need to mark as executable
+        await fs.promises.chmod(scriptFileName, '755');
 
         // ... and the hook file
 
@@ -140,5 +151,8 @@ fi`;
     } else {
 
         await fs.promises.writeFile(hookFileName, hookFileText);
+
+        // Need to mark as executable
+        await fs.promises.chmod(hookFileName, '755');
     }
 }
