@@ -6,7 +6,7 @@ Keeps an eye on credentials (secrets, access keys, connection strings etc.), tha
 
 ## Features
 
-### Insert/add, stash/unstash, mask/unmask
+### Insert/add, stash/unstash, mask/unmask, resolve
 
 To put a secret under KeeShepherd's control, you can either **insert** it via KeeShepherd:
 
@@ -16,7 +16,9 @@ or select an existing secret in the text editor and **add** it to KeeShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142854551-a3be452e-95e8-407d-90c2-dbdebad33773.png" width="600">
 
-**Insert** operation lets you pick up a secret from Azure Key Vault or directly from an Azure resource (by now Azure Storage and custom Azure Resource Manager URIs are supported, more secret sources like Service Bus, Event Hubs, Azure SQL etc. are on its way). **Add** operation will suggest to put the selected value into Azure Key Vault.
+**Insert** operation lets you pick up a secret from Azure Key Vault or directly from an Azure resource (Azure Storage, Azure Service Bus, Azure Cosmos DB etc.). 
+
+**Add** operation will suggest to put the selected value into Azure Key Vault.
 
 Once a secret is added or inserted, KeeShepherd will remember its exact position and proceed with keeping track of it.
 
@@ -30,6 +32,8 @@ Two types of secrets are supported:
   
   **Stashing/unstashing does modifies your files**, since this is the whole point of it.
   KeeShepherd can **automatically stash** all secrets in a workspace when it is closed and **automatically unstash** them when a workspace is opened. Default mode is to automatically stash, but do not automatically unstash. You can configure this via Settings (see below).
+  
+  When **unstashing**, KeeShepherd will install a [Git Hook](https://www.atlassian.com/git/tutorials/git-hooks), that prevents your secret values from being accidentally committed. When **stashing** back, these hooks will be removed. This allows you to commit your config files with **stashed** secrets in them and not be afraid of accidentally committing their unstashed values.
 
 It's perfectly fine to mix both **supervised** and **managed** secrets in the same config file. A good strategy could be to mark real secrets (access keys, connection strings etc.) as **managed** (to keep them safe) and leave less important values like user names, application ids etc. as **supervised** (to make it easy to find them later).
 
@@ -39,6 +43,12 @@ You can always **mask/unmask** them yourself:
   <img src="https://user-images.githubusercontent.com/5447190/142855972-a96f6a68-8ba9-4624-aa52-4a6038b4f034.png" width="500">
 
 A good idea would be to set some keyboard shortcuts of your choice to these **mask/unmask** commands.
+
+On a fresh new devbox you can also quickly restore all your secrets with `Resolve Managed Secrets` command:
+
+  <img src="https://user-images.githubusercontent.com/5447190/146411438-d0215ae3-9b81-4313-b6de-125dc9181a94.png" width="400">
+
+It will collect all `@KeeShepherd(secret-name)` anchors in a file and try to match those secrets by name. If a secret with that name exists in the metadata store, then a copy of it will be created for the current file. Then you can do a normal **unstash** process to get the actual secret values.
 
 ### Configure and use secret metadata storage
 
