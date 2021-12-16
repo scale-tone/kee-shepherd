@@ -96,7 +96,7 @@ exec .git/hooks/keeshepherd-check-unstashed-secrets.sh
     if (filesWithSecrets.length > 0) {
 
         // updating the validation script...
-        scriptText = `#!/bin/env bash
+        scriptText = `
 filesWithSecrets=( "${filesWithSecrets.join('" "')}" )
 
 IFS=$'\\n' changedFiles=( $(git diff --name-only & git diff --cached --name-only & git ls-files --exclude-standard --others) )
@@ -118,6 +118,12 @@ done
 if [ "$detectedUnstashedSecrets" = true ] ; then
     exit 1
 fi`;
+
+        if (process.platform !== "win32") {
+           
+            // This file header is not needed on Windows, yet it causes Visual Studio's git client to fail
+            scriptText = `#!/bin/env bash\n` + scriptText;
+        }
         
         await fs.promises.writeFile(scriptFileName, scriptText);
 
