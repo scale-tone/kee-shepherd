@@ -10,7 +10,7 @@
 
   ![image](https://user-images.githubusercontent.com/5447190/146411438-d0215ae3-9b81-4313-b6de-125dc9181a94.png)
   
-  Collects all `@KeeShepherd(secret-name)` anchors in a file and tries to match those secrets by **name**. If a secret with that name exists in the metadata store, then creates a copy of it for the current file. 
+  Collects all `@KeeShepherd(secret-name)` anchors in a file and tries to match those secrets by **name**. If a secret with that name exists in the metadata storage, then creates a copy of it for the current file. 
   
   Very useful when configuring a fresh new devbox (instead of manually re-creating your config file, you can just copy the whole file from another machine *or pull it from the repo* - and restore all your secrets with this single commmand).
   
