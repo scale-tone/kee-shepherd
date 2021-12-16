@@ -48,7 +48,7 @@ On a fresh new devbox you can also quickly restore all your secrets with `Resolv
 
   <img src="https://user-images.githubusercontent.com/5447190/146411438-d0215ae3-9b81-4313-b6de-125dc9181a94.png" width="400">
 
-It will collect all `@KeeShepherd(secret-name)` anchors in a file and try to match those secrets by name. If a secret with that name exists in the metadata store, then a copy of it will be created for the current file. Then you can do a normal **unstash** process to get the actual secret values.
+It will collect all `@KeeShepherd(secret-name)` anchors in a file and try to match those secrets by name. If a secret with that name exists in the metadata storage, then a copy of it will be created for the current file. Then you can do a normal **unstash** process to get the actual secret values.
 
 ### Configure and use secret metadata storage
 
