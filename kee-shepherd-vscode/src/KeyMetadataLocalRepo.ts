@@ -49,7 +49,29 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
             .filter((folder, index, folders) => folders.indexOf(folder) === index);
     }
 
-    getHash(str: string): string {
+
+    async updateHashAndLength(oldHash: string, newHash: string, newLength: number): Promise<void> {
+
+        const updatedSecrets = this._secrets
+            .filter(s => s.hash === oldHash)
+            .map(s => {
+
+                s.hash = newHash;
+                s.length = newLength;
+                return s;
+            });
+
+        const promises = updatedSecrets.map(secret => {
+
+            const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(secret.filePath), `${encodePathSegment(secret.name)}.json`);
+
+            return fs.promises.writeFile(secretFilePath, JSON.stringify(secret, null, 3));
+        });
+
+        await Promise.all(promises);
+    }
+
+    calculateHash(str: string): string {
 
         return getSha256Hash(str + this.salt);
     }

@@ -74,9 +74,28 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         return Object.keys(folders);
     }
 
-    getHash(str: string): string {
+    calculateHash(str: string): string {
 
         return getSha256Hash(str + this._salt);
+    }
+
+    async updateHashAndLength(oldHash: string, newHash: string, newLength: number): Promise<void> {
+
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `hash eq '${oldHash}'`
+            }
+        });
+
+        for await (const entity of response) {
+
+            const secret = this.fromTableEntity(entity as any);
+
+            secret.hash = newHash;
+            secret.length = newLength;
+
+            await this._tableClient.updateEntity(this.toTableEntity(secret, entity.partitionKey!, entity.rowKey!));
+        }
     }
 
     static async create(subscriptionId: string,

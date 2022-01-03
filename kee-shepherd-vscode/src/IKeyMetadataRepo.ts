@@ -15,5 +15,7 @@ export interface IKeyMetadataRepo {
 
     findBySecretName(name: string): Promise<ControlledSecret[]>;
 
-    getHash(str: string): string;
+    calculateHash(str: string): string;
+
+    updateHashAndLength(oldHash: string, newHash: string, newLength: number): Promise<void>;
 }

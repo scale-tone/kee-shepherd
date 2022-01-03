@@ -57,7 +57,7 @@ export abstract class KeeShepherdBase {
                 // If this secret is stashed, then keeping it as it is and adjusting posShift
                 posShift += anchorName.length - secretPos.length;
 
-            } else if (this._repo.getHash(secretText) !== secretPos.hash ) {
+            } else if (this._repo.calculateHash(secretText) !== secretPos.hash ) {
                 
                 missingSecrets.push(secretPos.name);
             
@@ -110,7 +110,7 @@ export abstract class KeeShepherdBase {
         return keys;
     }
     
-    protected async getSecretValues(secrets: ControlledSecret[]): Promise<{secret: ControlledSecret, value: string}[]> {
+    protected async getSecretValuesAndCheckHashes(secrets: ControlledSecret[]): Promise<{secret: ControlledSecret, value: string}[]> {
 
         var result: {secret: ControlledSecret, value: string}[] = [];
 
@@ -119,6 +119,26 @@ export abstract class KeeShepherdBase {
         });
   
         await Promise.all(promises);
+
+        // Checking if hashes still match. And updating metadata storage if not.
+        for (const pair of result) {
+  
+            if (!pair.value) {
+                continue;
+            }
+
+            const hash = this._repo.calculateHash(pair.value);
+
+            if (pair.secret.hash !== hash) {
+
+                await this._repo.updateHashAndLength(pair.secret.hash, hash, pair.value.length);
+
+                pair.secret.hash = hash;
+                pair.secret.length = pair.value.length;
+
+                vscode.window.showInformationMessage(`KeeShepherd detected that the value of ${pair.secret.name} has changed and updated its metadata storage accordingly.`);
+            }
+        }
 
         return result;
     }
@@ -209,7 +229,7 @@ export abstract class KeeShepherdBase {
         const secrets = (await Promise.all(secretPromises)).flat();
 
         // This must be done sequentially by now
-        const secretsAndValues = await this.getSecretValues(secrets);
+        const secretsAndValues = await this.getSecretValuesAndCheckHashes(secrets);
 
         // Grouping secrets by filename
         const secretsPerFile = secretsAndValues.reduce((result, cv) => {
@@ -354,7 +374,7 @@ export abstract class KeeShepherdBase {
                 } else {
 
                     // Otherwise calculating and trying to match the hash. Might take time, but no other options...
-                    const currentHash = this._repo.getHash(text.substr(pos, secret.length));
+                    const currentHash = this._repo.calculateHash(text.substr(pos, secret.length));
                     
                     if (currentHash === secret.hash) {
 

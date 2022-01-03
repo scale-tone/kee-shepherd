@@ -150,7 +150,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 } else {
 
                     // Calculating and trying to match the hash. Might take time, but no other options...
-                    const currentHash = this._repo.getHash(text.substr(pos, secret.length));
+                    const currentHash = this._repo.calculateHash(text.substr(pos, secret.length));
                     
                     if (currentHash === secret.hash) {
 
@@ -268,7 +268,7 @@ export class KeeShepherd extends KeeShepherdBase {
             } catch (err) { }
     
             const secrets = await this._repo.getSecrets(currentFile, true);
-            const secretsAndValues = await this.getSecretValues(secrets);
+            const secretsAndValues = await this.getSecretValuesAndCheckHashes(secrets);
 
             const secretsValuesMap = secretsAndValues.reduce((result, cv) => {
 
@@ -472,7 +472,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 throw new Error(`Secret value should not start with ${AnchorPrefix}`);
             }
 
-            const secretHash = this._repo.getHash(secretValue);
+            const secretHash = this._repo.calculateHash(secretValue);
 
             const secretName = await this.askUserForSecretName();
             if (!secretName) {
@@ -607,7 +607,7 @@ export class KeeShepherd extends KeeShepherdBase {
             }
 
             // Adding metadata to the repo
-            const secretHash = this._repo.getHash(secret.value);
+            const secretHash = this._repo.calculateHash(secret.value);
 
             await this._repo.addSecret({
                 name: localSecretName,
