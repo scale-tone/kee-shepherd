@@ -185,14 +185,17 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             machineName = os.hostname();
         }
 
-        const greaterOrEqual = encodePathSegment(path);
-        const lessThan = encodePathSegment(path.substr(0, path.length - 1) + String.fromCharCode( path.charCodeAt(path.length - 1) + 1 ));
+        var filter = `PartitionKey eq '${encodePathSegment(machineName)}'`;
 
-        const response = await this._tableClient.listEntities({
-            queryOptions: {
-                filter: `PartitionKey eq '${encodePathSegment(machineName)}' and RowKey ge '${greaterOrEqual}' and RowKey lt '${lessThan}'`
-            }
-        });
+        if (!!path) {
+            
+            const greaterOrEqual = encodePathSegment(path);
+            const lessThan = encodePathSegment(path.substr(0, path.length - 1) + String.fromCharCode( path.charCodeAt(path.length - 1) + 1 ));
+
+            filter += ` and RowKey ge '${greaterOrEqual}' and RowKey lt '${lessThan}'`;
+        }
+
+        const response = await this._tableClient.listEntities({ queryOptions: { filter } });
 
         const secrets: ControlledSecret[] = [];
         for await (const entity of response) {

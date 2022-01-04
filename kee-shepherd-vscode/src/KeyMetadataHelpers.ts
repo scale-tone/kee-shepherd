@@ -3,6 +3,10 @@ import * as Crypto from 'crypto';
 
 export const AnchorPrefix = '@KeeShepherd';
 
+export function getAnchorName(secretName: string): string {
+    return `${AnchorPrefix}(${secretName})`;
+}
+
 // Supported metadata storages
 export enum StorageTypeEnum {
     Local = 1,

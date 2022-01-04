@@ -2,17 +2,41 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 
-import { ControlTypeEnum, ControlledSecret, AnchorPrefix } from './KeyMetadataHelpers';
+import { ControlTypeEnum, ControlledSecret, AnchorPrefix, getAnchorName } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
-import { SecretTreeView } from './SecretTreeView';
+import { SecretStateEnum, SecretTreeView } from './SecretTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
 
+    static async readFile(fileUri: vscode.Uri): Promise<string> {
+
+        // Trying with vscode and falling back to fs (because vscode will fail during unload)
+        var fileBytes: Uint8Array;
+        try {
+            fileBytes = await vscode.workspace.fs.readFile(fileUri);
+        } catch (err) {
+            fileBytes = await fs.promises.readFile(fileUri.fsPath);
+        }
+    
+        return Buffer.from(fileBytes).toString();
+    }
+    
+    static async writeFile(fileUri: vscode.Uri, text: string): Promise<void> {
+    
+        // Trying with vscode and falling back to fs (because vscode will fail during unload)
+        const outputFileBytes = Buffer.from(text);
+        try {
+            await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
+        } catch (err) {
+            await fs.promises.writeFile(fileUri.fsPath, outputFileBytes);
+        }
+    }
+    
     protected constructor(protected _valuesProvider: SecretValuesProvider,
         protected _repo: IKeyMetadataRepo,
         protected readonly _mapRepo: KeyMapRepo,
@@ -46,7 +70,7 @@ export abstract class KeeShepherdBase {
                 editor.document.positionAt(secretPos.pos + posShift + secretPos.length)
             ));
 
-            const anchorName = this.getAnchorName(secretPos.name);
+            const anchorName = getAnchorName(secretPos.name);
 
             if (anchorName === editor.document.getText(
                 new vscode.Range(
@@ -143,10 +167,6 @@ export abstract class KeeShepherdBase {
         return result;
     }
 
-    protected getAnchorName(secretName: string): string {
-        return `${AnchorPrefix}(${secretName})`;
-    }
-
     protected maskAllText(editor: vscode.TextEditor): void {
         
         editor.setDecorations(this._hiddenTextDecoration, [new vscode.Range(
@@ -169,7 +189,7 @@ export abstract class KeeShepherdBase {
             // checking if any of the secrets appears at current position
             for (var secretName in secrets) {
 
-                const anchorName = this.getAnchorName(secretName);
+                const anchorName = getAnchorName(secretName);
 
                 const secretValue = secrets[secretName];
                 if (!secretValue) {
@@ -269,7 +289,7 @@ export abstract class KeeShepherdBase {
         }
     }
     
-    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: {[name:string]:string}): Promise<number> {
+    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: { [name:string]:string }): Promise<number> {
 
         try {
 
@@ -287,7 +307,7 @@ export abstract class KeeShepherdBase {
             const fileUri = vscode.Uri.parse(filePath);
 
             // Reading current file contents.
-            var fileText = await this.readFile(fileUri);
+            var fileText = await KeeShepherdBase.readFile(fileUri);
             
             // Replacing @KeeShepherd() links with secret values
             const outputFileText = await this.internalStashUnstashSecrets(filePath, fileText, managedSecretValues, stash);
@@ -315,7 +335,12 @@ export abstract class KeeShepherdBase {
             }
 
             // Saving file contents back
-            await this.writeFile(fileUri, outputFileText);
+            await KeeShepherdBase.writeFile(fileUri, outputFileText);
+
+            // Refreshing secret tree view
+            for (const secretName in managedSecretValues) {
+                this.treeView.setSecretNodeState(filePath, secretName, !stash ? SecretStateEnum.Unstashed : SecretStateEnum.Stashed);
+            }
 
             // Returning the number of affected secrets
             return Object.keys(managedSecretValues).length;
@@ -342,7 +367,7 @@ export abstract class KeeShepherdBase {
             // checking if any of the secrets appears at current position
             for (var secret of secrets) {
 
-                const anchorName = this.getAnchorName(secret.name);
+                const anchorName = getAnchorName(secret.name);
                 const secretValue = secretValues[secret.name];
 
                 if (!!text.startsWith(anchorName, pos)) {
@@ -411,30 +436,6 @@ export abstract class KeeShepherdBase {
 
             vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten`);
             this.treeView.refresh();
-        }
-    }
-
-    protected async readFile(fileUri: vscode.Uri): Promise<string> {
-
-        // Trying with vscode and falling back to fs (because vscode will fail during unload)
-        var fileBytes: Uint8Array;
-        try {
-            fileBytes = await vscode.workspace.fs.readFile(fileUri);
-        } catch (err) {
-            fileBytes = await fs.promises.readFile(fileUri.fsPath);
-        }
-
-        return Buffer.from(fileBytes).toString();
-    }
-
-    private async writeFile(fileUri: vscode.Uri, text: string): Promise<void> {
-
-        // Trying with vscode and falling back to fs (because vscode will fail during unload)
-        const outputFileBytes = Buffer.from(text);
-        try {
-            await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
-        } catch (err) {
-            await fs.promises.writeFile(fileUri.fsPath, outputFileBytes);
         }
     }
 }

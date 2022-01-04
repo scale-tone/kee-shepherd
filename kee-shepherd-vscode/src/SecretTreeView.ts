@@ -2,14 +2,21 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { KeeShepherdBase } from './KeeShepherdBase';
 
 export enum NodeTypeEnum {
     Machine = 1,
     Folder,
     File,
     Secret
+}
+
+export enum SecretStateEnum {
+    Unknown = 0,
+    Stashed,
+    Unstashed
 }
 
 export type KeeShepherdTreeItem = vscode.TreeItem & {
@@ -36,6 +43,24 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
         this._onDidChangeTreeData.fire(undefined);
     }
 
+    setSecretNodeState(filePath: string, secretName: string, secretState: SecretStateEnum): void {
+
+        const node = this._secretNodes[filePath + secretName];
+        if (!!node) {
+
+            switch (secretState) {
+                case SecretStateEnum.Stashed:
+                    node.iconPath = path.join(this._resourcesFolder, 'secret-stashed.svg');
+                    break;
+                case SecretStateEnum.Unstashed:
+                    node.iconPath = path.join(this._resourcesFolder, 'secret-unstashed.svg');
+                    break;
+            }
+
+            this._onDidChangeTreeData.fire(node);
+        }
+    }
+
     // Does nothing, actually
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
 
@@ -49,6 +74,10 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
             switch (parent?.nodeType) {
                 
                 case undefined: {
+
+                    this._secretNodes = {};
+                    // Asynchronously getting secret states
+                    this._secretStatesPromise = this.getSecretStates();
 
                     const machineNames = await this._getRepo().getMachineNames();
 
@@ -167,7 +196,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             command: 'kee-shepherd-vscode.view-context.gotoSecret',
                             arguments: [secret]
                         } : undefined;
-        
+
                         const node = {
                             label: secret.name,
                             description,
@@ -176,7 +205,26 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             command,
                             isLocal: parent.isLocal,
                             contextValue: parent.isLocal ? 'tree-secret-local' : 'tree-secret',
-                            iconPath: path.join(this._resourcesFolder, 'secret.svg')
+                            iconPath: path.join(this._resourcesFolder, secret.controlType === ControlTypeEnum.Supervised ? 'secret-supervised.svg' : 'secret.svg')
+                        }
+
+                        if (!!parent.isLocal) {
+
+                            // Updating node icon according to secret's current state
+                            const secretStates = await this._secretStatesPromise;
+                            const secretState = secretStates[secret.filePath + secret.name];
+
+                            switch (secretState) {
+                                case SecretStateEnum.Stashed:
+                                    node.iconPath = path.join(this._resourcesFolder, 'secret-stashed.svg');
+                                    break;
+                                case SecretStateEnum.Unstashed:
+                                    node.iconPath = path.join(this._resourcesFolder, 'secret-unstashed.svg');
+                                    break;
+                            }
+                            
+                            // Also saving this node in the secrets node map, to be able to refresh these tree nodes later
+                            this._secretNodes[secret.filePath + secret.name] = node;
                         }
 
                         // Sorting by name on the fly
@@ -192,5 +240,38 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
         }
 
         return result;
+    }
+
+    private _secretNodes: { [id: string]: { iconPath: string } } = {};
+    private _secretStatesPromise: Promise<{ [id: string]: SecretStateEnum }> = Promise.resolve({});
+
+    private async getSecretStates(): Promise<{ [id: string]: SecretStateEnum }> {
+        
+        const result: { [id: string]: SecretStateEnum } = {};
+
+        try {
+
+            const managedSecrets = (await this._getRepo().getSecrets('', false))
+                .filter(s => s.controlType === ControlTypeEnum.Managed);
+
+            const promises = managedSecrets.map(async secret => {
+                result[secret.filePath + secret.name] = await this.getSecretState(secret);
+            });
+
+            await Promise.all(promises);
+            
+        } catch (err) {
+            console.log(`Failed to determine secret states. ${(err as any).message}`);
+        }
+        
+        return result;
+    }
+
+    private async getSecretState(secret: ControlledSecret): Promise<SecretStateEnum> {
+
+        const fileText = await KeeShepherdBase.readFile(vscode.Uri.parse(secret.filePath));
+        const anchorName = getAnchorName(secret.name);
+
+        return fileText.includes(anchorName) ? SecretStateEnum.Stashed : SecretStateEnum.Unstashed;
     }
 }

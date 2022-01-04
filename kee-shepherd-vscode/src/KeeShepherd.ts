@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -138,7 +138,7 @@ export class KeeShepherd extends KeeShepherdBase {
             for (var pos = 0; pos < text.length; pos++) {
     
                 // checking if the secret appears at current position
-                const anchorName = this.getAnchorName(secret.name);
+                const anchorName = getAnchorName(secret.name);
 
                 if (!!text.startsWith(anchorName, pos)) {
 
@@ -307,7 +307,7 @@ export class KeeShepherd extends KeeShepherdBase {
             const existingSecrets = await this._repo.getSecrets(currentFileUri.toString(), true);
 
             // Reading current file contents
-            var fileText = await this.readFile(currentFileUri);
+            var fileText = await KeeShepherdBase.readFile(currentFileUri);
 
             const resolvedSecretNames: string[] = [];
 
