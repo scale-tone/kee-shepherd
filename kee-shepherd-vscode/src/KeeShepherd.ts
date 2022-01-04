@@ -33,12 +33,16 @@ export class KeeShepherd extends KeeShepherdBase {
 
     static async create(context: vscode.ExtensionContext): Promise<KeeShepherd> {
 
+        const logChannel = vscode.window.createOutputChannel('KeeShepherd');
+        context.subscriptions.push(logChannel);
+        logChannel.appendLine(`${new Date().toISOString()} KeeShepherd started`);
+
         const account = new AzureAccountWrapper();
         var metadataRepo: IKeyMetadataRepo;
 
         try {
 
-            metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account);
+            metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, logChannel);
             
         } catch (err) {
 
@@ -48,6 +52,8 @@ export class KeeShepherd extends KeeShepherdBase {
 
             if ((await vscode.window.showWarningMessage(msg, option1, option2)) !== option1) {
 
+                logChannel.appendLine(`${new Date().toISOString()} Failed to initialize metadata storage. ${(err as any).message ?? err}`)
+
                 throw err;
             }
 
@@ -56,21 +62,19 @@ export class KeeShepherd extends KeeShepherdBase {
             // trying again
             try {
                 
-                metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account);
+                metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, logChannel);
 
             } catch (err2) {
 
                 vscode.window.showErrorMessage(`KeeShepherd still couldn't initialize its metadata storage`);
+
+                logChannel.appendLine(`${new Date().toISOString()} Failed to initialize metadata storage. ${(err2 as any).message ?? err2}`)
 
                 throw err2;
             }
         }
 
         const resourcesFolderPath = context.asAbsolutePath('resources');
-
-        const logChannel = vscode.window.createOutputChannel('KeeShepherd');
-        context.subscriptions.push(logChannel);
-        logChannel.appendLine(`${new Date().toISOString()} KeeShepherd started`);
 
         return new KeeShepherd(
             account, metadataRepo,
@@ -86,7 +90,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             await KeeShepherd.cleanupSettings(context);
 
-            this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account);
+            this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account, this._logChannel);
 
             this.treeView.refresh();
 
@@ -655,7 +659,7 @@ export class KeeShepherd extends KeeShepherdBase {
         await context.globalState.update(SettingNames.ResourceGroupName, undefined);
     }
 
-    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper): Promise<IKeyMetadataRepo> {
+    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper, logChannel: vscode.OutputChannel): Promise<IKeyMetadataRepo> {
 
         const storageFolder = context.globalStorageUri.fsPath;
 
@@ -686,6 +690,8 @@ export class KeeShepherd extends KeeShepherdBase {
         if (storageType === StorageTypeEnum.Local) {
 
             result = await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata'));
+
+            logChannel.appendLine(`${new Date().toISOString()} Metadata storage: local (${storageFolder})`);
 
             accountName = undefined;
             tableName = undefined;
@@ -726,6 +732,8 @@ export class KeeShepherd extends KeeShepherdBase {
             }
     
             result = await KeyMetadataTableRepo.create(subscriptionId as any, resourceGroupName as any, accountName as any, tableName as any, account);
+
+            logChannel.appendLine(`${new Date().toISOString()} Metadata storage: Azure Table (${accountName}/${tableName})`);
         }
 
         // Updating all settings, but only after the instance was successfully created
