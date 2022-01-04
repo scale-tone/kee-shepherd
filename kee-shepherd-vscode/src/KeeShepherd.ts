@@ -155,10 +155,13 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            const editor = await vscode.window.showTextDocument(vscode.Uri.parse(secret.filePath));
+            const fileUri = vscode.Uri.parse(secret.filePath);
+            const editor = await vscode.window.showTextDocument(fileUri);
+
+            // Reading file contents through vscode.workspace.fs.readFile() seems more reliable than using editor.document.getText()
+            const text = await KeeShepherdBase.readFile(fileUri);
 
             // Searching for this secret in a brute-force way. Deliberately not using secret map here (as it might be outdated).
-            const text = editor.document.getText();
             var secretPos = -1, secretLength = 0;
 
             for (var pos = 0; pos < text.length; pos++) {
@@ -187,13 +190,19 @@ export class KeeShepherd extends KeeShepherdBase {
                 }
             }
 
+            var secretMap = await this._mapRepo.getSecretMapForFile(secret.filePath);
+
             // If the secret wasn't found, then updating the entire secret map
-            if (secretPos < 0) {
+            if (secretPos < 0 || secretMap.length <= 0) {
+
                 await this.updateSecretMapForFile(secret.filePath, text, {});
+
+                // There might be stale secrets cached in the tree, so better to refresh it
+                this.treeView.refresh();
+
             }
 
             // Explicitly masking secrets here, because onDidChangeActiveTextEditor will interfere with this handler
-            var secretMap = await this._mapRepo.getSecretMapForFile(secret.filePath);
             await this.internalMaskSecrets(editor, secretMap);
 
             if (secretPos < 0) {
