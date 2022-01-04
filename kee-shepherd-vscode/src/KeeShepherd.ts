@@ -27,8 +27,8 @@ const SettingNames = {
 // Main functionality lies here
 export class KeeShepherd extends KeeShepherdBase {
 
-    private constructor(private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string, logChannel: vscode.OutputChannel) {
-        super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder), logChannel);
+    private constructor(private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string, protected log: (s: string, withEof: boolean, withTimestamp: boolean) => void) {
+        super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder), log);
     }
 
     static async create(context: vscode.ExtensionContext): Promise<KeeShepherd> {
@@ -37,12 +37,28 @@ export class KeeShepherd extends KeeShepherdBase {
         context.subscriptions.push(logChannel);
         logChannel.appendLine(`${new Date().toISOString()} KeeShepherd started`);
 
+        const log = (s: string, withEof: boolean, withTimestamp: boolean) => {
+            try {
+
+                const timestamp = !!withTimestamp ? `${new Date().toISOString()} ` : '';
+
+                if (!!withEof) {
+                    logChannel.appendLine(timestamp + s);
+                } else {
+                    logChannel.append(timestamp + s);
+                }
+                
+            } catch (err) {
+                // Output channels are unreliable during shutdown, so need to wrap them with this try-catch
+            }
+        };
+
         const account = new AzureAccountWrapper();
         var metadataRepo: IKeyMetadataRepo;
 
         try {
 
-            metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, logChannel);
+            metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, log);
             
         } catch (err) {
 
@@ -62,7 +78,7 @@ export class KeeShepherd extends KeeShepherdBase {
             // trying again
             try {
                 
-                metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, logChannel);
+                metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, log);
 
             } catch (err2) {
 
@@ -80,7 +96,7 @@ export class KeeShepherd extends KeeShepherdBase {
             account, metadataRepo,
             await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
             resourcesFolderPath,
-            logChannel
+            log
         );
     }
 
@@ -90,7 +106,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             await KeeShepherd.cleanupSettings(context);
 
-            this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account, this._logChannel);
+            this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account, this._log);
 
             this.treeView.refresh();
 
@@ -128,6 +144,7 @@ export class KeeShepherd extends KeeShepherdBase {
             
             await this._repo.removeSecrets(filePath, secrets.map(s => s.name));
 
+            this._log(`${secrets.length} secrets have been forgotten from ${filePath}`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);
             this.treeView.refresh();
 
@@ -209,6 +226,8 @@ export class KeeShepherd extends KeeShepherdBase {
             }
     
             editor.setDecorations(this._hiddenTextDecoration, []);
+
+            this._log(`Unmasked secrets in ${editor.document.uri}`, true, true);
 
         }, 'KeeShepherd failed to unmask secrets');
     }
@@ -384,10 +403,12 @@ export class KeeShepherd extends KeeShepherdBase {
                 
                 this.treeView.refresh();
 
+                this._log(`Resolved the following secrets: ${resolvedSecretNames.join(', ')} in ${currentFileUri}`, true, true);
                 vscode.window.showInformationMessage(`KeeShepherd resolved the following secrets: ${resolvedSecretNames.join(', ')}`);
 
             } else {
 
+                this._log(`Found no secrets to resolve in ${currentFileUri}`, true, true);
                 vscode.window.showInformationMessage(`KeeShepherd found no secrets to resolve in this file`);
             }
 
@@ -448,6 +469,8 @@ export class KeeShepherd extends KeeShepherdBase {
             if (!folders || folders.length <= 0) {
                 return;
             }
+
+            this._log(`Stashing the following pending folders: ${folders.join(',')}`, true, true);
 
             await this.stashUnstashAllSecretsInFolders(folders, true);
 
@@ -659,7 +682,7 @@ export class KeeShepherd extends KeeShepherdBase {
         await context.globalState.update(SettingNames.ResourceGroupName, undefined);
     }
 
-    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper, logChannel: vscode.OutputChannel): Promise<IKeyMetadataRepo> {
+    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper, log: (s: string, withEof: boolean, withTimestamp: boolean) => void): Promise<IKeyMetadataRepo> {
 
         const storageFolder = context.globalStorageUri.fsPath;
 
@@ -691,7 +714,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             result = await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata'));
 
-            logChannel.appendLine(`${new Date().toISOString()} Metadata storage: local (${storageFolder})`);
+            log(`Metadata storage: local (${storageFolder})`, true, true);
 
             accountName = undefined;
             tableName = undefined;
@@ -733,7 +756,7 @@ export class KeeShepherd extends KeeShepherdBase {
     
             result = await KeyMetadataTableRepo.create(subscriptionId as any, resourceGroupName as any, accountName as any, tableName as any, account);
 
-            logChannel.appendLine(`${new Date().toISOString()} Metadata storage: Azure Table (${accountName}/${tableName})`);
+            log(`Metadata storage: Azure Table (${accountName}/${tableName})`, true, true);
         }
 
         // Updating all settings, but only after the instance was successfully created
@@ -752,7 +775,10 @@ export class KeeShepherd extends KeeShepherdBase {
         this._commandChain = this._commandChain.then(
 
             () => todo().catch(err => {
-                vscode.window.showErrorMessage(`${errorMessage}. ${(err as any).message ?? err}`);
+
+                const msg = `${errorMessage}. ${err.message ?? err}`;
+                this._log(msg, true, true);
+                vscode.window.showErrorMessage(msg);
             }
                 
         ));

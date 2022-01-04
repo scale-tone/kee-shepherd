@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 
-import { ControlTypeEnum, ControlledSecret, AnchorPrefix, getAnchorName } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, AnchorPrefix, getAnchorName } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
@@ -41,7 +41,7 @@ export abstract class KeeShepherdBase {
         protected _repo: IKeyMetadataRepo,
         protected readonly _mapRepo: KeyMapRepo,
         public readonly treeView: SecretTreeView,
-        protected _logChannel: vscode.OutputChannel
+        protected _log: (s: string, withEof: boolean, withTimestamp: boolean) => void
     ) { }
 
     dispose(): void {
@@ -98,11 +98,11 @@ export abstract class KeeShepherdBase {
 
         editor.setDecorations(this._hiddenTextDecoration, decorations);
 
-        this._logChannel.append(`${new Date().toISOString()} Masked ${decorations.length} secrets`);
+        this._log(`Masked ${decorations.length} secrets`, false, true);
         if (!!missingSecrets.length) {
-            this._logChannel.append(`, ${missingSecrets.length} are missing`);
+            this._log(`, ${missingSecrets.length} secrets are missing`, false, false);
         }
-        this._logChannel.appendLine(` in ${editor.document.uri}`);
+        this._log(` in ${editor.document.uri}`, true, false);
 
         return missingSecrets;
     }
@@ -120,26 +120,6 @@ export abstract class KeeShepherdBase {
 
         return secretName;
     }
-
-    protected resourceManagerResponseToKeys(data: any): { label: string, value: string }[] | undefined {
-        
-        var keys;
-
-        if (!data) {
-        
-            return;
-        
-        } else if (!!data.keys && Array.isArray(data.keys)) {
-        
-            keys = data.keys.map((k: any) => { return { label: k.keyName, value: k.value }; });
-
-        } else {
-
-            keys = Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
-        }
-
-        return keys;
-    }
     
     protected async getSecretValuesAndCheckHashes(secrets: ControlledSecret[]): Promise<{secret: ControlledSecret, value: string}[]> {
 
@@ -155,7 +135,13 @@ export abstract class KeeShepherdBase {
         for (const pair of result) {
   
             if (!pair.value) {
+
+                this._log(`Failed to retrieve the value of ${pair.secret.name} from ${SecretTypeEnum[pair.secret.type]}`, true, true);
                 continue;
+
+            } else {
+
+                this._log(`Retrieved the value of ${pair.secret.name} from ${SecretTypeEnum[pair.secret.type]}`, true, true);
             }
 
             const hash = this._repo.calculateHash(pair.value);
@@ -167,7 +153,7 @@ export abstract class KeeShepherdBase {
                 pair.secret.hash = hash;
                 pair.secret.length = pair.value.length;
 
-                vscode.window.showInformationMessage(`KeeShepherd detected that the value of ${pair.secret.name} has changed and updated its metadata storage accordingly.`);
+                this._log(`Detected that the value of ${pair.secret.name} has changed and updated its metadata storage accordingly.`, true, true);
             }
         }
 
@@ -186,6 +172,7 @@ export abstract class KeeShepherdBase {
 
         var outputText = '';
 
+        var secretsFound = 0;
         const missingSecrets: { [name: string]: string } = {...secrets};
 
         var pos = 0, prevPos = 0;
@@ -210,6 +197,8 @@ export abstract class KeeShepherdBase {
 
                     // Copying a replacement into output
                     outputText += text.substring(prevPos, pos) + toReplace;
+
+                    secretsFound++;
 
                     pos += toFind.length;
                     prevPos = pos;
@@ -239,10 +228,17 @@ export abstract class KeeShepherdBase {
 
         // Checking if any of these secrets were not found and need to be removed
         const missingSecretNames = Object.keys(missingSecrets);
+
+        this._log(`${stash ? 'Stashed' : 'Unstashed'} ${secretsFound} secrets`, false, true);
+
         if (missingSecretNames.length > 0) {
+
+            this._log(` , ${missingSecretNames.length} secrets are missing`, false, false);
             
             await this.askUserAboutMissingSecrets(filePath, missingSecretNames);
         }
+
+        this._log(` in ${filePath}`, true, false);
 
         // Updating secrets map
         await this.updateSecretMapForFile(filePath, outputText, secrets);
@@ -427,6 +423,8 @@ export abstract class KeeShepherdBase {
 
         await this._mapRepo.saveSecretMapForFile(filePath, outputMap);
 
+        this._log(`Updated secret map (${outputMap.length} secrets) for ${filePath}.`, true, true);
+
         // returning secrets that were not found
         return secrets.filter(s => !secretsFound.includes(s.name)).map(s => s.name);
     }
@@ -441,7 +439,8 @@ export abstract class KeeShepherdBase {
             
             await this._repo.removeSecrets(filePath, missingSecrets);
 
-            vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten`);
+            this._log(`${missingSecrets.length} secrets have been forgotten`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten from ${filePath}`);
             this.treeView.refresh();
         }
     }
