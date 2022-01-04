@@ -13,12 +13,6 @@ export enum NodeTypeEnum {
     Secret
 }
 
-export enum SecretStateEnum {
-    Unknown = 0,
-    Stashed,
-    Unstashed
-}
-
 export type KeeShepherdTreeItem = vscode.TreeItem & {
     
     nodeType: NodeTypeEnum,
@@ -43,19 +37,12 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
         this._onDidChangeTreeData.fire(undefined);
     }
 
-    setSecretNodeState(filePath: string, secretName: string, secretState: SecretStateEnum): void {
+    setSecretNodeState(filePath: string, secretName: string, stashed: boolean): void {
 
         const node = this._secretNodes[filePath + secretName];
         if (!!node) {
 
-            switch (secretState) {
-                case SecretStateEnum.Stashed:
-                    node.iconPath = path.join(this._resourcesFolder, 'secret-stashed.svg');
-                    break;
-                case SecretStateEnum.Unstashed:
-                    node.iconPath = path.join(this._resourcesFolder, 'secret-unstashed.svg');
-                    break;
-            }
+            node.iconPath = path.join(this._resourcesFolder, !!stashed ? 'secret-stashed.svg' : 'secret-unstashed.svg');
 
             this._onDidChangeTreeData.fire(node);
         }
@@ -76,8 +63,6 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                 case undefined: {
 
                     this._secretNodes = {};
-                    // Asynchronously getting secret states
-                    this._secretStatesPromise = this.getSecretStates();
 
                     const machineNames = await this._getRepo().getMachineNames();
 
@@ -184,6 +169,11 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                 break;
                 case NodeTypeEnum.File: {
 
+                    // Obtaining the file text in parallel
+                    const fileTextPromise = !parent.isLocal ?
+                        Promise.resolve('') :
+                        KeeShepherdBase.readFile(vscode.Uri.parse(parent.filePath!)).catch(() => '');
+
                     const secrets = await this._getRepo().getSecrets(parent.filePath!, true, parent.machineName);
 
                     for (const secret of secrets) {
@@ -197,6 +187,22 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             arguments: [secret]
                         } : undefined;
 
+                        var icon = 'secret.svg';
+
+                        if (secret.controlType === ControlTypeEnum.Supervised) {
+                            
+                            var icon = 'secret-supervised.svg';
+
+                        } else {
+
+                            const fileText = await fileTextPromise;
+                            if (!!fileText) {
+
+                                const anchorName = getAnchorName(secret.name);
+                                icon = fileText.includes(anchorName) ? 'secret-stashed.svg' : 'secret-unstashed.svg';
+                            }
+                        }
+
                         const node = {
                             label: secret.name,
                             description,
@@ -205,24 +211,11 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             command,
                             isLocal: parent.isLocal,
                             contextValue: parent.isLocal ? 'tree-secret-local' : 'tree-secret',
-                            iconPath: path.join(this._resourcesFolder, secret.controlType === ControlTypeEnum.Supervised ? 'secret-supervised.svg' : 'secret.svg')
+                            iconPath: path.join(this._resourcesFolder, icon)
                         }
 
                         if (!!parent.isLocal) {
 
-                            // Updating node icon according to secret's current state
-                            const secretStates = await this._secretStatesPromise;
-                            const secretState = secretStates[secret.filePath + secret.name];
-
-                            switch (secretState) {
-                                case SecretStateEnum.Stashed:
-                                    node.iconPath = path.join(this._resourcesFolder, 'secret-stashed.svg');
-                                    break;
-                                case SecretStateEnum.Unstashed:
-                                    node.iconPath = path.join(this._resourcesFolder, 'secret-unstashed.svg');
-                                    break;
-                            }
-                            
                             // Also saving this node in the secrets node map, to be able to refresh these tree nodes later
                             this._secretNodes[secret.filePath + secret.name] = node;
                         }
@@ -243,35 +236,4 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
     }
 
     private _secretNodes: { [id: string]: { iconPath: string } } = {};
-    private _secretStatesPromise: Promise<{ [id: string]: SecretStateEnum }> = Promise.resolve({});
-
-    private async getSecretStates(): Promise<{ [id: string]: SecretStateEnum }> {
-        
-        const result: { [id: string]: SecretStateEnum } = {};
-
-        try {
-
-            const managedSecrets = (await this._getRepo().getSecrets('', false))
-                .filter(s => s.controlType === ControlTypeEnum.Managed);
-
-            const promises = managedSecrets.map(async secret => {
-                result[secret.filePath + secret.name] = await this.getSecretState(secret);
-            });
-
-            await Promise.all(promises);
-            
-        } catch (err) {
-            console.log(`Failed to determine secret states. ${(err as any).message}`);
-        }
-        
-        return result;
-    }
-
-    private async getSecretState(secret: ControlledSecret): Promise<SecretStateEnum> {
-
-        const fileText = await KeeShepherdBase.readFile(vscode.Uri.parse(secret.filePath));
-        const anchorName = getAnchorName(secret.name);
-
-        return fileText.includes(anchorName) ? SecretStateEnum.Stashed : SecretStateEnum.Unstashed;
-    }
 }

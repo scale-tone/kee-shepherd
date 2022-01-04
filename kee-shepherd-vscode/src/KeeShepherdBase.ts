@@ -6,7 +6,7 @@ import { ControlTypeEnum, ControlledSecret, AnchorPrefix, getAnchorName } from '
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
-import { SecretStateEnum, SecretTreeView } from './SecretTreeView';
+import { SecretTreeView } from './SecretTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 
@@ -40,7 +40,8 @@ export abstract class KeeShepherdBase {
     protected constructor(protected _valuesProvider: SecretValuesProvider,
         protected _repo: IKeyMetadataRepo,
         protected readonly _mapRepo: KeyMapRepo,
-        public readonly treeView: SecretTreeView
+        public readonly treeView: SecretTreeView,
+        protected _logChannel: vscode.OutputChannel
     ) { }
 
     dispose(): void {
@@ -96,6 +97,12 @@ export abstract class KeeShepherdBase {
         }
 
         editor.setDecorations(this._hiddenTextDecoration, decorations);
+
+        this._logChannel.append(`${new Date().toISOString()} Masked ${decorations.length} secrets`);
+        if (!!missingSecrets.length) {
+            this._logChannel.append(`, ${missingSecrets.length} are missing`);
+        }
+        this._logChannel.appendLine(` in ${editor.document.uri}`);
 
         return missingSecrets;
     }
@@ -339,7 +346,7 @@ export abstract class KeeShepherdBase {
 
             // Refreshing secret tree view
             for (const secretName in managedSecretValues) {
-                this.treeView.setSecretNodeState(filePath, secretName, !stash ? SecretStateEnum.Unstashed : SecretStateEnum.Stashed);
+                this.treeView.setSecretNodeState(filePath, secretName, stash);
             }
 
             // Returning the number of affected secrets

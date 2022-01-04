@@ -27,8 +27,8 @@ const SettingNames = {
 // Main functionality lies here
 export class KeeShepherd extends KeeShepherdBase {
 
-    private constructor(private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string) {
-        super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder));
+    private constructor(private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string, logChannel: vscode.OutputChannel) {
+        super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder), logChannel);
     }
 
     static async create(context: vscode.ExtensionContext): Promise<KeeShepherd> {
@@ -68,10 +68,15 @@ export class KeeShepherd extends KeeShepherdBase {
 
         const resourcesFolderPath = context.asAbsolutePath('resources');
 
+        const logChannel = vscode.window.createOutputChannel('KeeShepherd');
+        context.subscriptions.push(logChannel);
+        logChannel.appendLine(`${new Date().toISOString()} KeeShepherd started`);
+
         return new KeeShepherd(
             account, metadataRepo,
             await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
-            resourcesFolderPath
+            resourcesFolderPath,
+            logChannel
         );
     }
 
