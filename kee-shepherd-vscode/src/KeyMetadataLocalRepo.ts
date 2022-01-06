@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as Crypto from 'crypto';
-import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength } from './KeyMetadataHelpers';
+import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, EnvVariableSpecialPath, ControlTypeEnum } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 
 // Stores secret metadata locally in JSON files
@@ -45,10 +45,9 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
     async getFolders(machineName: string): Promise<string[]> {
 
         return this._secrets
-            .map(s => path.dirname(s.filePath))
+            .map(s => s.controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : path.dirname(s.filePath))
             .filter((folder, index, folders) => folders.indexOf(folder) === index);
     }
-
 
     async updateHashAndLength(oldHash: string, newHash: string, newLength: number): Promise<void> {
 
@@ -95,6 +94,10 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     async getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]> {
 
+        if (path === EnvVariableSpecialPath) {
+            return this._secrets.filter(s => s.controlType === ControlTypeEnum.EnvVariable );
+        }
+
         return this._secrets.filter(s => !!exactMatch ?
             s.filePath.toLowerCase() === path.toLowerCase() :
             s.filePath.toLowerCase().startsWith(path.toLowerCase())
@@ -112,10 +115,12 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         if (!!secretsWithSameName.find(s => s.hash != secret.hash)) {
             
             throw new Error('A secret with same name but different hash already exists in this file');
-
         }
 
-        const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(secret.filePath), `${encodePathSegment(secret.name)}.json`);
+        const secretFilePath = getFullPathThatFits(this._storageFolder,
+            encodePathSegment(secret.controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : secret.filePath),
+            `${encodePathSegment(secret.name)}.json`
+        );
 
         if (!fs.existsSync(path.dirname(secretFilePath))) {
             await fs.promises.mkdir(path.dirname(secretFilePath));
@@ -139,7 +144,14 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         
         await this.cleanupEmptyFolders();
 
-        this._secrets = this._secrets.filter(s => !(s.filePath === filePath && names.includes(s.name)));
+        if (filePath === EnvVariableSpecialPath) {
+            
+            this._secrets = this._secrets.filter(s => !(s.controlType === ControlTypeEnum.EnvVariable && names.includes(s.name)));
+
+        } else {
+
+            this._secrets = this._secrets.filter(s => !(s.filePath === filePath && names.includes(s.name)));
+        }
     }
 
     private static async readSecretFilesFromFolder(folderPath: string): Promise<ControlledSecret[]> {

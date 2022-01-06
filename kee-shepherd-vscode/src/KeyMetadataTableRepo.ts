@@ -4,7 +4,7 @@ import * as Crypto from 'crypto';
 
 import { TableServiceClient, TableClient, TableEntity } from '@azure/data-tables';
 
-import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength } from './KeyMetadataHelpers';
+import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength, EnvVariableSpecialPath } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
@@ -16,87 +16,6 @@ const SaltKey = '|KeeShepherdSalt|'
 export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     private constructor(private _tableClient: TableClient, private _salt: string) { }
-
-    async findBySecretName(name: string): Promise<ControlledSecret[]> {
-
-        // No other option here but doing a full scan 
-        const response = await this._tableClient.listEntities({
-            queryOptions: {
-                filter: `PartitionKey ne '${SaltKey}'`
-            }
-        });
-
-        const secrets: ControlledSecret[] = [];
-        for await (const entity of response) {
-
-            const secret = this.fromTableEntity(entity as any);
-
-            if (secret.name === name) {
-                secrets.push(secret)
-            }
-        }
-
-        return secrets;
-    }
-
-    async getMachineNames(): Promise<string[]> {
-
-        const response = await this._tableClient.listEntities({
-            queryOptions: {
-                filter: `PartitionKey ne '${SaltKey}'`
-            }
-        });
-
-        const machines: any = {};
-        for await (const entity of response) {
-
-            machines[entity.partitionKey!] = '';
-        }
-
-        return Object.keys(machines);
-    }
-
-    async getFolders(machineName: string): Promise<string[]> {
-
-        const response = await this._tableClient.listEntities({
-            queryOptions: {
-                filter: `PartitionKey eq '${encodePathSegment(machineName)}'`
-            }
-        });
-
-        const folders: any = {};
-        for await (const entity of response) {
-
-            const secret = this.fromTableEntity(entity as any);
-            folders[path.dirname(secret.filePath)] = '';
-        }
-
-        return Object.keys(folders);
-    }
-
-    calculateHash(str: string): string {
-
-        return getSha256Hash(str + this._salt);
-    }
-
-    async updateHashAndLength(oldHash: string, newHash: string, newLength: number): Promise<void> {
-
-        const response = await this._tableClient.listEntities({
-            queryOptions: {
-                filter: `hash eq '${oldHash}'`
-            }
-        });
-
-        for await (const entity of response) {
-
-            const secret = this.fromTableEntity(entity as any);
-
-            secret.hash = newHash;
-            secret.length = newLength;
-
-            await this._tableClient.updateEntity(this.toTableEntity(secret, entity.partitionKey!, entity.rowKey!));
-        }
-    }
 
     static async create(subscriptionId: string,
         resourceGroupName: string,
@@ -151,6 +70,93 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         return new KeyMetadataTableRepo(tableClient, salt);
     }
 
+    async findBySecretName(name: string): Promise<ControlledSecret[]> {
+
+        // No other option here but doing a full scan 
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `PartitionKey ne '${SaltKey}'`
+            }
+        });
+
+        const secrets: ControlledSecret[] = [];
+        for await (const entity of response) {
+
+            const secret = this.fromTableEntity(entity as any);
+
+            if (secret.name === name) {
+                secrets.push(secret)
+            }
+        }
+
+        return secrets;
+    }
+
+    async getMachineNames(): Promise<string[]> {
+
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `PartitionKey ne '${SaltKey}'`
+            }
+        });
+
+        const machines: any = {};
+        for await (const entity of response) {
+
+            machines[entity.partitionKey!] = '';
+        }
+
+        return Object.keys(machines);
+    }
+
+    async getFolders(machineName: string): Promise<string[]> {
+
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `PartitionKey eq '${encodePathSegment(machineName)}'`
+            }
+        });
+
+        const folders: any = {};
+        for await (const entity of response) {
+
+            // If it is an environment
+            if (entity.rowKey?.startsWith(EnvVariableSpecialPath)) {
+                folders[EnvVariableSpecialPath] = '';
+                continue;
+            }
+
+            const secret = this.fromTableEntity(entity as any);
+            folders[path.dirname(secret.filePath)] = '';
+        }
+
+        return Object.keys(folders);
+    }
+
+    calculateHash(str: string): string {
+
+        return getSha256Hash(str + this._salt);
+    }
+
+    async updateHashAndLength(oldHash: string, newHash: string, newLength: number): Promise<void> {
+
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `hash eq '${oldHash}'`
+            }
+        });
+
+        for await (const entity of response) {
+
+            const secret = this.fromTableEntity(entity as any);
+
+            secret.hash = newHash;
+            secret.length = newLength;
+
+            await this._tableClient.updateEntity(this.toTableEntity(secret, entity.partitionKey!, entity.rowKey!));
+        }
+    }
+
     async addSecret(secret: ControlledSecret): Promise<void> {
 
         if (secret.length < MinSecretLength) {
@@ -158,7 +164,16 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         }
 
         const partitionKey = encodePathSegment(os.hostname());
-        const rowKey = encodePathSegment(secret.filePath) + '|' + encodePathSegment(secret.name);
+        var rowKey;
+
+        if (secret.controlType === ControlTypeEnum.EnvVariable) {
+            
+            rowKey = EnvVariableSpecialPath + '|' + encodePathSegment(secret.name);
+
+        } else {
+
+            rowKey = encodePathSegment(secret.filePath) + '|' + encodePathSegment(secret.name);
+        }
 
         try {
 
@@ -185,15 +200,10 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             machineName = os.hostname();
         }
 
-        var filter = `PartitionKey eq '${encodePathSegment(machineName)}'`;
+        const greaterOrEqual = path === EnvVariableSpecialPath ? EnvVariableSpecialPath : encodePathSegment(path);
+        const lessThan = greaterOrEqual.substr(0, greaterOrEqual.length - 1) + String.fromCharCode( greaterOrEqual.charCodeAt(greaterOrEqual.length - 1) + 1 );
 
-        if (!!path) {
-            
-            const greaterOrEqual = encodePathSegment(path);
-            const lessThan = encodePathSegment(path.substr(0, path.length - 1) + String.fromCharCode( path.charCodeAt(path.length - 1) + 1 ));
-
-            filter += ` and RowKey ge '${greaterOrEqual}' and RowKey lt '${lessThan}'`;
-        }
+        const filter = `PartitionKey eq '${encodePathSegment(machineName)}' and RowKey ge '${greaterOrEqual}' and RowKey lt '${lessThan}'`;
 
         const response = await this._tableClient.listEntities({ queryOptions: { filter } });
 
@@ -202,7 +212,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
             const secret = this.fromTableEntity(entity as any);
 
-            if (!exactMatch || secret.filePath.toLowerCase() === path.toLowerCase()) {
+            if (!exactMatch || path === EnvVariableSpecialPath || secret.filePath.toLowerCase() === path.toLowerCase()) {
                
                 secrets.push(secret);
             }
@@ -219,7 +229,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
         const promises = names.map(async secretName => {
 
-            const rowKey = encodePathSegment(filePath) + '|' + encodePathSegment(secretName);
+            const rowKey = (filePath === EnvVariableSpecialPath ? EnvVariableSpecialPath : encodePathSegment(filePath)) + '|' + encodePathSegment(secretName);
             try {
                 
                 await this._tableClient.deleteEntity(encodePathSegment(machineName!), rowKey)

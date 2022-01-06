@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "./AzureAccountWrapper";
-import { ControlledSecret, SecretTypeEnum } from "./KeyMetadataHelpers";
+import { AnchorPrefix, ControlledSecret, SecretTypeEnum } from "./KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from './secret-value-providers/ISecretValueProvider';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 import { StorageSecretValueProvider } from './secret-value-providers/StorageSecretValueProvider';
@@ -59,6 +59,16 @@ export class SecretValuesProvider {
         }
 
         const provider = this._providers[secretType.type];
-        return provider?.pickUpSecret();
+        if (!provider) {
+            return undefined;
+        }
+
+        const secret = await provider.pickUpSecret();
+
+        if (!!secret && secret.value.startsWith(AnchorPrefix)) {
+            throw new Error(`Secret value should not start with ${AnchorPrefix}`);
+        }            
+
+        return secret;
     }
 }

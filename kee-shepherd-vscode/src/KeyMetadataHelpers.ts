@@ -1,6 +1,8 @@
 import * as path from 'path';
 import * as Crypto from 'crypto';
 
+export const EnvVariableSpecialPath = '|KeeShepherdEnvironmentVariables'
+
 export const AnchorPrefix = '@KeeShepherd';
 
 export function getAnchorName(secretName: string): string {
@@ -29,6 +31,7 @@ export enum SecretTypeEnum {
 export enum ControlTypeEnum {
     Supervised = 0,
     Managed,
+    EnvVariable
 }
 
 export type ControlledSecret = {

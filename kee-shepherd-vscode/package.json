@@ -76,6 +76,14 @@
                 "title": "KeeShepherd: Resolve Managed Secrets in Current File"
             },
             {
+                "command": "kee-shepherd-vscode.registerSecretAsEnvVariable",
+                "title": "KeeShepherd: Register Secret as an Environment Variable"
+            },
+            {
+                "command": "kee-shepherd-vscode.openTerminal",
+                "title": "KeeShepherd: Open Terminal Window with Mounted Environment Variables"
+            },
+            {
                 "command": "kee-shepherd-vscode.editor-context.superviseSecret",
                 "title": "Supervise this Secret..."
             },
@@ -138,6 +146,22 @@
             {
                 "command": "kee-shepherd-vscode.view-context.unstashSecrets",
                 "title": "Unstash Secrets in this Folder"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
+                "title": "Remove this Variable"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
+                "title": "Remove all Variables"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.openTerminal",
+                "title": "Open Terminal"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
+                "title": "Register Secret as an Environment Variable..."
             }
         ],
         "submenus": [
@@ -207,6 +231,22 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.refresh",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.openTerminal",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
                     "when": "never"
                 }
             ],
@@ -279,6 +319,22 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.unstashSecrets",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-folder-local"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.openTerminal",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-machine-local"
                 }
             ]
         },

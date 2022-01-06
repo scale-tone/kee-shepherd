@@ -1,10 +1,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { execSync } from 'child_process';
 
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -155,10 +156,14 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
+            if (!secret.filePath) {
+                return;
+            }
+
             const fileUri = vscode.Uri.parse(secret.filePath);
             const editor = await vscode.window.showTextDocument(fileUri);
 
-            // Reading file contents through vscode.workspace.fs.readFile() seems more reliable than using editor.document.getText()
+            // Reading file contents through vscode.workspace.fs.readFile() seems more reliable than using editor.getText()
             const text = await KeeShepherdBase.readFile(fileUri);
 
             // Searching for this secret in a brute-force way. Deliberately not using secret map here (as it might be outdated).
@@ -628,10 +633,6 @@ export class KeeShepherd extends KeeShepherdBase {
             if (!secret) {
                 return;
             }
-
-            if (secret.value.startsWith(AnchorPrefix)) {
-                throw new Error(`Secret value should not start with ${AnchorPrefix}`);
-            }            
             
             // Pasting secret value at current cursor position
             var success = await editor.edit(edit => {
@@ -679,6 +680,98 @@ export class KeeShepherd extends KeeShepherdBase {
             vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
 
         }, 'KeeShepherd failed to insert a secret');
+    }
+
+    async registerSecretAsEnvVariable(): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const secret = await this._valuesProvider.pickUpSecret();
+
+            if (!secret) {
+                return;
+            }
+            
+            const localSecretName = await this.askUserForSecretName(secret.name);
+            if (!localSecretName) {
+                return;
+            }
+
+            // Adding metadata to the repo
+            const secretHash = this._repo.calculateHash(secret.value);
+
+            await this._repo.addSecret({
+                name: localSecretName,
+                type: secret.type,
+                controlType: ControlTypeEnum.EnvVariable,
+                filePath: '',
+                hash: secretHash,
+                length: secret.value.length,
+                timestamp: new Date(),
+                properties: secret.properties
+            });
+    
+            this.treeView.refresh();
+
+            vscode.window.showInformationMessage(`KeeShepherd registered ${localSecretName} as an environment variable.`);
+
+        }, 'KeeShepherd failed to register secret as env variable');
+    }
+
+    async removeEnvVariables(treeItem: KeeShepherdTreeItem): Promise<void>{
+
+        await this.doAndShowError(async () => {
+
+            var secretNames: string[] = [];
+
+            if (treeItem.nodeType === NodeTypeEnum.EnvVariables) {
+
+                secretNames = (await this._repo.getSecrets(EnvVariableSpecialPath, true)).map(s => s.name);
+                
+            } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && treeItem.contextValue?.startsWith('tree-env-variable')) {
+                
+                secretNames = [treeItem.label as string];
+
+            } else {
+                return;
+            }
+            
+            const userResponse = await vscode.window.showWarningMessage(
+                `Secrets ${secretNames.join(', ')} will be dropped from secret metadata storage. If they were mounted as global environment variables, those will be removed as well. Do you want to proceed?`,
+                'Yes', 'No');
+   
+            if (userResponse !== 'Yes') {
+                return;
+            }
+            
+            await this._repo.removeSecrets(EnvVariableSpecialPath, secretNames);
+
+            this._log(`${secretNames.length} secrets have been removed`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: ${secretNames.length} secrets have been removed`);
+            this.treeView.refresh();
+
+        }, 'KeeShepherd failed to forget secrets');
+    }
+
+    async openTerminal(): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
+            const secretValues = await this.getSecretValuesAndCheckHashes(secrets);
+
+            const env: { [name: string]: string } = {};
+            for (const pair of secretValues) {
+                env[pair.secret.name] = pair.value;
+            }
+
+            const terminal = vscode.window.createTerminal({
+                name: 'KeeShepherd',
+                env
+            });
+            terminal.show();
+
+        }, 'KeeShepherd failed to open terminal window');
     }
 
     private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
