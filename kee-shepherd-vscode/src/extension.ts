@@ -57,6 +57,8 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.openTerminal', () => shepherd.openTerminal()),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.openTerminal', () => shepherd.openTerminal()),
 
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copySecretValue', (item) => shepherd.copySecretValue(item)),
+
         vscode.window.onDidChangeActiveTextEditor((editor) => shepherd.maskSecretsInThisFile(true)),
  
         vscode.workspace.onDidSaveTextDocument((doc) => shepherd.maskSecretsInThisFile(true)),

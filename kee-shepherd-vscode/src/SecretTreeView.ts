@@ -21,6 +21,7 @@ export type KeeShepherdTreeItem = vscode.TreeItem & {
     filePath?: string,
     machineName?: string,
     folderUri?: string,
+    secret?: ControlledSecret, 
     command?: {
         arguments: ControlledSecret[]
     }
@@ -226,6 +227,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             description,
                             nodeType: NodeTypeEnum.Secret,
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
+                            secret,
                             command,
                             isLocal: parent.isLocal,
                             contextValue: !!parent.isLocal ? 'tree-secret-local' : 'tree-secret',
@@ -259,6 +261,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             description,
                             nodeType: NodeTypeEnum.Secret,
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
+                            secret,
                             isLocal: parent.isLocal,
                             contextValue: parent.isLocal ? 'tree-env-variable-local' : 'tree-env-variable',
                             iconPath: path.join(this._resourcesFolder, icon)

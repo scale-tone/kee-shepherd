@@ -162,6 +162,10 @@
             {
                 "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
                 "title": "Register Secret as an Environment Variable..."
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.copySecretValue",
+                "title": "Copy Value to Clipboard"
             }
         ],
         "submenus": [
@@ -248,6 +252,10 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
                     "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copySecretValue",
+                    "when": "never"
                 }
             ],
 
@@ -307,6 +315,10 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetSecret",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-secret-local"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copySecretValue",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-secret || viewItem == tree-secret || viewItem == tree-env-variable-local || viewItem == tree-env-variable-local"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetSecrets",

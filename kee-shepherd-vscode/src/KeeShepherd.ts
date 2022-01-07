@@ -778,6 +778,28 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to open terminal window');
     }
 
+    async copySecretValue(treeItem: KeeShepherdTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const secret = treeItem.secret;
+            if (!secret) {
+                return;
+            }
+
+            const secretValue = (await this.getSecretValuesAndCheckHashes([secret]))[0].value;
+
+            if (!secretValue) {
+                throw new Error(`Failed to get secret value`);
+            }
+
+            vscode.env.clipboard.writeText(secretValue);
+
+            vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
+
+        }, 'KeeShepherd failed to copy secret value');
+    }
+
     private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
         
         // Zeroing settings
