@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="16"
+   height="16"
+   viewBox="0 0 16 16"
+   fill="none"
+   version="1.1"
+   id="svg4"
+   sodipodi:docname="env-var.svg"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs8" />
+  <sodipodi:namedview
+     id="namedview6"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="47.0625"
+     inkscape:cx="9.2324037"
+     inkscape:cy="7.7875166"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="2992"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4" />
+  <text
+     xml:space="preserve"
+     style="font-size:8px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal'"
+     x="3.867198"
+     y="7.1819391"
+     id="text1325"><tspan
+       sodipodi:role="line"
+       id="tspan1323"
+       x="3.867198"
+       y="7.1819391"
+       style="font-size:8px">A</tspan></text>
+  <text
+     xml:space="preserve"
+     style="font-size:12.2269px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';stroke-width:1.52836;fill:#424242;fill-opacity:1"
+     x="-0.97216743"
+     y="11.841248"
+     id="text5355"
+     transform="scale(0.97882279,1.0216354)"><tspan
+       sodipodi:role="line"
+       id="tspan5353"
+       x="-0.97216743"
+       y="11.841248"
+       style="font-style:italic;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'Lucida Sans';-inkscape-font-specification:'Lucida Sans Semi-Bold Italic';fill:#424242;stroke-width:1.52836;fill-opacity:1">(X)</tspan></text>
+</svg>

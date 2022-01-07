@@ -81,7 +81,7 @@
             },
             {
                 "command": "kee-shepherd-vscode.openTerminal",
-                "title": "KeeShepherd: Open Terminal Window with Mounted Environment Variables"
+                "title": "KeeShepherd: Open Terminal with Environment Variables mounted"
             },
             {
                 "command": "kee-shepherd-vscode.editor-context.superviseSecret",

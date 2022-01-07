@@ -762,6 +762,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             const env: { [name: string]: string } = {};
             for (const pair of secretValues) {
+
                 env[pair.secret.name] = pair.value;
             }
 

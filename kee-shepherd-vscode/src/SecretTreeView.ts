@@ -114,6 +114,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                             label = 'Environment Variables';
                             nodeType = NodeTypeEnum.EnvVariables;
+                            icon = 'env-var.svg';
                             contextValue = 'tree-env-variables';
                             
                         } else if (label.startsWith('file:///')) {
@@ -251,7 +252,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                         const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
         
-                        var icon = 'secret.svg';
+                        var icon = 'secret-stashed.svg';
 
                         const node = {
                             label: secret.name,
