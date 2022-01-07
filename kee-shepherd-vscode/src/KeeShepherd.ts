@@ -28,7 +28,7 @@ const SettingNames = {
 // Main functionality lies here
 export class KeeShepherd extends KeeShepherdBase {
 
-    private constructor(private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string, protected log: (s: string, withEof: boolean, withTimestamp: boolean) => void) {
+    private constructor(private _context: vscode.ExtensionContext, private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string, protected log: (s: string, withEof: boolean, withTimestamp: boolean) => void) {
         super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder), log);
     }
 
@@ -94,6 +94,7 @@ export class KeeShepherd extends KeeShepherdBase {
         const resourcesFolderPath = context.asAbsolutePath('resources');
 
         return new KeeShepherd(
+            context,
             account, metadataRepo,
             await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
             resourcesFolderPath,
@@ -770,6 +771,8 @@ export class KeeShepherd extends KeeShepherdBase {
                 name: 'KeeShepherd',
                 env
             });
+            this._context.subscriptions.push(terminal);
+
             terminal.show();
 
         }, 'KeeShepherd failed to open terminal window');
