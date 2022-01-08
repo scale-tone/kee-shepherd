@@ -13,6 +13,8 @@ export interface IKeyMetadataRepo {
 
     removeSecrets(filePath: string, names: string[], machineName?: string): Promise<void>;
 
+    removeAllSecrets(machineName?: string): Promise<void>;
+
     findBySecretName(name: string): Promise<ControlledSecret[]>;
 
     calculateHash(str: string): string;

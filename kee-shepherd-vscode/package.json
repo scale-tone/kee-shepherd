@@ -166,6 +166,10 @@
             {
                 "command": "kee-shepherd-vscode.view-context.copySecretValue",
                 "title": "Copy Value to Clipboard"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
+                "title": "Forget All Secrets on this Machine"
             }
         ],
         "submenus": [
@@ -256,6 +260,10 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.copySecretValue",
                     "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
+                    "when": "never"
                 }
             ],
 
@@ -318,7 +326,7 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copySecretValue",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-secret || viewItem == tree-secret || viewItem == tree-env-variable-local || viewItem == tree-env-variable-local"
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-secret || viewItem == tree-secret-local || viewItem == tree-env-variable-local || viewItem == tree-env-variable-local"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetSecrets",
@@ -347,6 +355,10 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-machine-local"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-machine"
                 }
             ]
         },

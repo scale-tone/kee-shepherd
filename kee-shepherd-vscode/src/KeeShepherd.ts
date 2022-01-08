@@ -137,7 +137,7 @@ export class KeeShepherd extends KeeShepherdBase {
             }
             
             const userResponse = await vscode.window.showWarningMessage(
-                `Secrets ${secrets.map(s => s.name).join(', ')} will be dropped from secret metadata storage. This will NOT affect the secret itself or the file itself. Do you want to proceed?`,
+                `Secrets ${secrets.map(s => s.name).join(', ')} will be dropped from secret metadata storage. This will NOT affect the secret itself or the file contents. Do you want to proceed?`,
                 'Yes', 'No');
    
             if (userResponse !== 'Yes') {
@@ -148,6 +148,33 @@ export class KeeShepherd extends KeeShepherdBase {
 
             this._log(`${secrets.length} secrets have been forgotten from ${filePath}`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);
+            this.treeView.refresh();
+
+        }, 'KeeShepherd failed to forget secrets');
+    }
+
+    async forgetAllSecrets(treeItem: KeeShepherdTreeItem): Promise<void>{
+
+        await this.doAndShowError(async () => {
+
+            if (treeItem.nodeType !== NodeTypeEnum.Machine || treeItem.contextValue !== 'tree-machine') {
+                return;
+            }
+
+            const machineName = treeItem.label as string;
+            
+            const userResponse = await vscode.window.showWarningMessage(
+                `All secrets on ${machineName} will be dropped from secret metadata storage. If the machine still contains secret values, those values WILL REMAIN there. Do you want to proceed?`,
+                'Yes', 'No');
+   
+            if (userResponse !== 'Yes') {
+                return;
+            }
+            
+            await this._repo.removeAllSecrets(machineName);
+
+            this._log(`All secrets on ${machineName} have been forgotten`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: all secrets on ${machineName} have been forgotten`);
             this.treeView.refresh();
 
         }, 'KeeShepherd failed to forget secrets');

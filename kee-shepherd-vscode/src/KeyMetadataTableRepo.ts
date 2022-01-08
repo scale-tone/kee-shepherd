@@ -231,7 +231,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
             const rowKey = (filePath === EnvVariableSpecialPath ? EnvVariableSpecialPath : encodePathSegment(filePath)) + '|' + encodePathSegment(secretName);
             try {
-                
+
                 await this._tableClient.deleteEntity(encodePathSegment(machineName!), rowKey)
 
             } catch (err) {
@@ -240,6 +240,35 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
                 }
             }
         });
+
+        await Promise.all(promises);
+    }
+
+    async removeAllSecrets(machineName?: string): Promise<void> {
+
+        if (!machineName) {
+            machineName = os.hostname();
+        }
+
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `PartitionKey eq '${encodePathSegment(machineName)}'`
+            }
+        });
+
+        const promises: Promise<any>[] = [];
+
+        for await (const entity of response) {
+
+            promises.push(
+                this._tableClient.deleteEntity(entity.partitionKey!, entity.rowKey!)
+                    .catch(err => { 
+                        if (err.statusCode !== 404) {
+                            throw err;
+                        }
+                    })
+            );
+        }
 
         await Promise.all(promises);
     }
