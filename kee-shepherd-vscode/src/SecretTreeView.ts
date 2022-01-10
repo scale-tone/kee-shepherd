@@ -1,6 +1,8 @@
 import * as os from 'os';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
 
 import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName, EnvVariableSpecialPath } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
@@ -31,7 +33,7 @@ export type KeeShepherdTreeItem = vscode.TreeItem & {
 // Renders the 'Secrets' TreeView
 export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(private _getRepo: () => IKeyMetadataRepo, private _resourcesFolder: string) {}
+    constructor(private _getRepo: () => IKeyMetadataRepo, private _resourcesFolder: string, private _log: (s: string, withEof: boolean, withTimestamp: boolean) => void) {}
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -290,11 +292,17 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                     const secrets = await this._getRepo().getSecrets(EnvVariableSpecialPath, true, parent.machineName);
 
+                    const envVarsAreSet: { [name: string] : boolean } = {};
+                    const promises = secrets.map(async s => {
+                        envVarsAreSet[s.name] = await this.getEnvVariableIsSet(s.name);
+                    });
+                    await Promise.all(promises);
+
                     for (const secret of secrets) {
 
                         const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
         
-                        var icon = 'secret-stashed.svg';
+                        const icon = !envVarsAreSet[secret.name] ?  'secret-stashed.svg' : 'secret-unstashed.svg';
 
                         const node = {
                             label: secret.name,
@@ -323,4 +331,48 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
     }
 
     private _secretNodes: { [id: string]: { iconPath: string } } = {};
+
+    private async getEnvVariableIsSet(name: string): Promise<boolean> {
+
+        if (process.platform === "win32") {
+
+            // On Windows reading directly from registry
+            return new Promise<boolean>((resolve, reject) => {
+
+                exec(`reg query HKCU\\Environment /v ${name}`, (err, stdout) => {
+    
+                    if (!!err) {
+
+                        resolve(false);
+    
+                    } else {
+    
+                        var value = stdout.trim();
+                        if (value === `%${name}%`) {
+                            resolve(false);
+                        } else {
+                            resolve(!!value);
+                        }
+                    }
+                });
+            });
+    
+        }
+
+        // Didn't find any better way to determine the current state of the variable, other than reading ~/.bashrc directly
+        const filePath = os.homedir() + '/.bashrc';
+        var fileText = '';
+        try {
+
+            fileText = Buffer.from(await fs.promises.readFile(filePath)).toString();
+            
+        } catch (err) {
+
+            this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
+        }
+
+        const regex = new RegExp(`export ${name}=.*`, 'g');
+
+        return !!regex.exec(fileText);
+    }
 }

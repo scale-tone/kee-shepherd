@@ -170,6 +170,14 @@
             {
                 "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
                 "title": "Forget All Secrets on this Machine"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable",
+                "title": "Mount as Global Environment Variable"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable",
+                "title": "Unmount from Global Environment Variables"
             }
         ],
         "submenus": [
@@ -264,6 +272,14 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
                     "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable",
+                    "when": "never"
                 }
             ],
 
@@ -325,10 +341,6 @@
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-secret-local"
                 },
                 {
-                    "command": "kee-shepherd-vscode.view-context.copySecretValue",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-secret || viewItem == tree-secret-local || viewItem == tree-env-variable-local || viewItem == tree-env-variable-local"
-                },
-                {
                     "command": "kee-shepherd-vscode.view-context.forgetSecrets",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-file-local"
                 },
@@ -339,10 +351,6 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.unstashSecrets",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-folder-local"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
@@ -359,6 +367,27 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-machine"
+                },
+                
+                {
+                    "command": "kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local",
+                    "group": "kee-shepherd-vscode.view-context-group@1"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local",
+                    "group": "kee-shepherd-vscode.view-context-group@2"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copySecretValue",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-secret || viewItem == tree-secret-local || viewItem == tree-env-variable-local || viewItem == tree-env-variable-local",
+                    "group": "kee-shepherd-vscode.view-context-group@3"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local",
+                    "group": "kee-shepherd-vscode.view-context-group@4"
                 }
             ]
         },

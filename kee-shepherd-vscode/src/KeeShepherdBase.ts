@@ -1,3 +1,4 @@
+import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
@@ -9,6 +10,7 @@ import { SecretMapEntry } from './KeyMapRepo';
 import { SecretTreeView } from './SecretTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
+import { execSync } from 'child_process';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
@@ -443,5 +445,67 @@ export abstract class KeeShepherdBase {
             vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten from ${filePath}`);
             this.treeView.refresh();
         }
+    }
+
+    protected async setGlobalEnvVariable(name: string, value: string | undefined): Promise<void> {
+
+        if (process.platform === "win32") {
+
+            if (!!value) {
+                // Escaping double quotes
+                value = value.replace(/\"/g, `\\"`);
+            }
+
+            var cmd = `setx ${name} "${value ?? ''}"`;
+
+            this._log(`Executing setx ${name} "xxx"`, true, true);
+            execSync(cmd);
+            this._log(`Succeeded setx ${name} "xxx"`, true, true);
+            
+            if (!value) {
+                // Also need to remove from registry (otherwise the variable will be left as existing but empty)
+
+                cmd = `reg delete HKCU\\Environment /f /v ${name}`;
+
+                this._log(`Executing ${cmd}`, true, true);
+                execSync(cmd);
+                this._log(`Succeeded executing ${cmd}`, true, true);
+            }
+
+            return;
+        }
+
+        await this.addSetEnvVariableCommand(os.homedir() + '/.bashrc', name, value);
+    }
+
+    private async addSetEnvVariableCommand(filePath: string, name: string, value: string | undefined): Promise<void> {
+
+        var fileText = '';
+        try {
+
+            fileText = Buffer.from(await fs.promises.readFile(filePath)).toString();
+            
+        } catch (err) {
+
+            this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
+        }
+        
+        fileText = fileText.replace(new RegExp(`(\r)?(\n)?export ${name}=.*`, 'g'), '');
+
+        if (!!value) {
+
+            // Escaping double quotes
+            value = value.replace(/\"/g, `\\"`);
+
+            if (fileText.length > 0 && fileText[fileText.length - 1] != '\n') {
+                fileText += '\n';
+            }
+            
+            fileText += `export ${name}="${value}"`;
+        }
+
+        await fs.promises.writeFile(filePath, Buffer.from(fileText));
+
+        this._log(`${name} and its value were ${!!value ? 'written to' : 'removed from'} ${filePath}`, true, true);
     }
 }

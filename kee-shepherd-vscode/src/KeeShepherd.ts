@@ -1,6 +1,5 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { execSync } from 'child_process';
 
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
@@ -29,7 +28,7 @@ const SettingNames = {
 export class KeeShepherd extends KeeShepherdBase {
 
     private constructor(private _context: vscode.ExtensionContext, private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string, protected log: (s: string, withEof: boolean, withTimestamp: boolean) => void) {
-        super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder), log);
+        super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder, log), log);
     }
 
     static async create(context: vscode.ExtensionContext): Promise<KeeShepherd> {
@@ -825,6 +824,46 @@ export class KeeShepherd extends KeeShepherdBase {
             vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
 
         }, 'KeeShepherd failed to copy secret value');
+    }
+
+    async mountAsGlobalEnv(treeItem: KeeShepherdTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const secret = treeItem.secret;
+            if (!secret) {
+                return;
+            }
+
+            const secretValue = (await this.getSecretValuesAndCheckHashes([secret]))[0].value;
+
+            if (!secretValue) {
+                throw new Error(`Failed to get secret value`);
+            }
+
+            await this.setGlobalEnvVariable(secret.name, secretValue);
+
+            vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was added to global environment variables. Restart your shell to see the effect.`);
+            this.treeView.refresh();
+
+        }, 'KeeShepherd failed to mount secret as global environment variable');
+    }
+
+    async unmountAsGlobalEnv(treeItem: KeeShepherdTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const secret = treeItem.secret;
+            if (!secret) {
+                return;
+            }
+
+            await this.setGlobalEnvVariable(secret.name, undefined);
+
+            vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was removed from global environment variables. Restart your shell to see the effect.`);
+            this.treeView.refresh();
+
+        }, 'KeeShepherd failed to unmount secret from global environment variables');
     }
 
     private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
