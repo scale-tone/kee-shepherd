@@ -101,9 +101,19 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         });
 
         const machines: any = {};
+        var localMachineExists = false;
         for await (const entity of response) {
 
             machines[entity.partitionKey!] = '';
+
+            if (entity.partitionKey?.toLowerCase() === os.hostname().toLowerCase()) {
+                localMachineExists = true;
+            }
+        }
+
+        // Always showing local machine
+        if (!localMachineExists) {
+            machines[os.hostname()] = '';
         }
 
         return Object.keys(machines);

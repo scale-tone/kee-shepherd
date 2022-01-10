@@ -11,7 +11,8 @@ export enum NodeTypeEnum {
     Folder,
     File,
     Secret,
-    EnvVariables
+    EnvVariables,
+    InitialCommand
 }
 
 export type KeeShepherdTreeItem = vscode.TreeItem & {
@@ -70,7 +71,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                     for (const machineName of machineNames) {
                         
-                        const isLocal = machineName === os.hostname();
+                        const isLocal = machineName.toLowerCase() === os.hostname().toLowerCase();
         
                         const collapsibleState = isLocal ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
         
@@ -145,6 +146,45 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             node.nodeType == NodeTypeEnum.EnvVariables);
 
                         result.splice(index < 0 ? result.length : index, 0, node);
+                    }
+
+                    if (!!parent.isLocal && result.length <= 0) {
+
+                        // Some initial nodes for a quick start
+                        result.push({
+                            label: 'Register Secret as an Environment Variable...',
+                            nodeType: NodeTypeEnum.InitialCommand,
+                            isLocal: true,
+                            command: {
+                                title: 'Register Secret as an Environment Variable...',
+                                command: 'kee-shepherd-vscode.registerSecretAsEnvVariable',
+                                arguments: []
+                            }
+                        });
+
+                        result.push({
+                            label: 'Insert a Supervised Secret...',
+                            tooltip: 'Insert a Supervised Secret at current cursor position in the text editor',
+                            nodeType: NodeTypeEnum.InitialCommand,
+                            isLocal: true,
+                            command: {
+                                title: 'Insert a Supervised Secret...',
+                                command: 'kee-shepherd-vscode.editor-context.insertSupervisedSecret',
+                                arguments: []
+                            }
+                        });
+
+                        result.push({
+                            label: 'Insert a Managed Secret...',
+                            tooltip: 'Insert a Managed Secret at current cursor position in the text editor',
+                            nodeType: NodeTypeEnum.InitialCommand,
+                            isLocal: true,
+                            command: {
+                                title: 'Insert a Managed Secret...',
+                                command: 'kee-shepherd-vscode.editor-context.insertManagedSecret',
+                                arguments: []
+                            }
+                        });
                     }
                 }
                 break;

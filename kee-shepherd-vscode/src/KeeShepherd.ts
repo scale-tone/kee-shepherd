@@ -644,7 +644,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             const editor = vscode.window.activeTextEditor;
             if (!editor || !editor.document) {
-                return;
+                throw new Error(`Couldn't find any open text editor`);
             }
 
             if (editor.document.isUntitled) {
