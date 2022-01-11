@@ -84,7 +84,7 @@ export abstract class KeeShepherdBase {
                 // If this secret is stashed, then keeping it as it is and adjusting posShift
                 posShift += anchorName.length - secretPos.length;
 
-            } else if (this._repo.calculateHash(secretText) !== secretPos.hash ) {
+            } else if (this._repo.calculateHash(secretText) !== secretPos.hash) {
                 
                 missingSecrets.push(secretPos.name);
             
@@ -123,9 +123,9 @@ export abstract class KeeShepherdBase {
         return secretName;
     }
     
-    protected async getSecretValuesAndCheckHashes(secrets: ControlledSecret[]): Promise<{secret: ControlledSecret, value: string}[]> {
+    protected async getSecretValuesAndCheckHashes(secrets: ControlledSecret[]): Promise<{ secret: ControlledSecret, value: string }[]> {
 
-        var result: {secret: ControlledSecret, value: string}[] = [];
+        var result: { secret: ControlledSecret, value: string }[] = [];
 
         const promises = secrets.map(async secret => {
             result.push({ secret, value: await this._valuesProvider.getSecretValue(secret) });
@@ -167,7 +167,7 @@ export abstract class KeeShepherdBase {
         editor.setDecorations(this._hiddenTextDecoration, [new vscode.Range(
             editor.document.positionAt(0),
             editor.document.positionAt(editor.document.getText().length)
-        )] );
+        )]);
     }
 
     private async internalStashUnstashSecrets(filePath: string, text: string, secrets: { [name: string]: string }, stash: boolean): Promise<string> {
@@ -175,7 +175,7 @@ export abstract class KeeShepherdBase {
         var outputText = '';
 
         var secretsFound = 0;
-        const missingSecrets: { [name: string]: string } = {...secrets};
+        const missingSecrets: { [name: string]: string } = { ...secrets };
 
         var pos = 0, prevPos = 0;
         while (pos < text.length) {
@@ -192,7 +192,7 @@ export abstract class KeeShepherdBase {
                     throw new Error(`Failed to get the value of ${secretName}`);
                 }
 
-                const toFind = stash ? secretValue: anchorName;
+                const toFind = stash ? secretValue : anchorName;
                 const toReplace = stash ? anchorName : secretValue;
 
                 if (!!text.startsWith(toFind, pos)) {
@@ -271,7 +271,7 @@ export abstract class KeeShepherdBase {
 
             return result;
         
-        }, {} as { [f: string] : {[name: string]: string} });
+        }, {} as { [f: string]: { [name: string]: string } });
 
         const filePaths = Object.keys(secretsPerFile);
 
@@ -294,7 +294,7 @@ export abstract class KeeShepherdBase {
         }
     }
     
-    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: { [name:string]:string }): Promise<number> {
+    protected async stashUnstashSecretsInFile(filePath: string, stash: boolean, managedSecretValues: { [name: string]: string }): Promise<number> {
 
         try {
 
@@ -307,7 +307,7 @@ export abstract class KeeShepherdBase {
                     currentEditor = undefined;
                 }
                     
-            } catch (err) {}
+            } catch (err) { }
 
             const fileUri = vscode.Uri.parse(filePath);
 
@@ -447,38 +447,43 @@ export abstract class KeeShepherdBase {
         }
     }
 
-    protected async setGlobalEnvVariable(name: string, value: string | undefined): Promise<void> {
+    protected async setGlobalEnvVariables(variables: { [n: string] : string | undefined }): Promise<void> {
 
         if (process.platform === "win32") {
 
-            if (!!value) {
-                // Escaping double quotes
-                value = value.replace(/\"/g, `\\"`);
-            }
-
-            var cmd = `setx ${name} "${value ?? ''}"`;
-
-            this._log(`Executing setx ${name} "xxx"`, true, true);
-            execSync(cmd);
-            this._log(`Succeeded setx ${name} "xxx"`, true, true);
-            
-            if (!value) {
-                // Also need to remove from registry (otherwise the variable will be left as existing but empty)
-
-                cmd = `reg delete HKCU\\Environment /f /v ${name}`;
-
-                this._log(`Executing ${cmd}`, true, true);
+            for (const name of Object.keys(variables)) {
+                
+                var value = variables[name];
+               
+                if (!!value) {
+                    // Escaping double quotes
+                    value = value.replace(/\"/g, `\\"`);
+                }
+    
+                var cmd = `setx ${name} "${value ?? ''}"`;
+    
+                this._log(`Executing setx ${name} "xxx"`, true, true);
                 execSync(cmd);
-                this._log(`Succeeded executing ${cmd}`, true, true);
+                this._log(`Succeeded setx ${name} "xxx"`, true, true);
+                
+                if (!value) {
+                    // Also need to remove from registry (otherwise the variable will be left as existing but empty)
+    
+                    cmd = `reg delete HKCU\\Environment /f /v ${name}`;
+    
+                    this._log(`Executing ${cmd}`, true, true);
+                    execSync(cmd);
+                    this._log(`Succeeded executing ${cmd}`, true, true);
+                }
             }
 
-            return;
-        }
+        } else {
 
-        await this.addSetEnvVariableCommand(os.homedir() + '/.bashrc', name, value);
+            await this.addSetEnvVariableCommands(os.homedir() + '/.bashrc', variables);
+        }
     }
 
-    private async addSetEnvVariableCommand(filePath: string, name: string, value: string | undefined): Promise<void> {
+    private async addSetEnvVariableCommands(filePath: string, variables: { [n: string] : string | undefined }): Promise<void> {
 
         var fileText = '';
         try {
@@ -489,23 +494,26 @@ export abstract class KeeShepherdBase {
 
             this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
         }
-        
-        fileText = fileText.replace(new RegExp(`(\r)?(\n)?export ${name}=.*`, 'g'), '');
 
-        if (!!value) {
-
-            // Escaping double quotes
-            value = value.replace(/\"/g, `\\"`);
-
-            if (fileText.length > 0 && fileText[fileText.length - 1] != '\n') {
-                fileText += '\n';
-            }
+        for (const name of Object.keys(variables)) {
             
-            fileText += `export ${name}="${value}"`;
+            fileText = fileText.replace(new RegExp(`(\r)?(\n)?export ${name}=.*`, 'g'), '');
+
+            var value = variables[name];
+            if (!!value) {
+    
+                // Escaping double quotes
+                value = value.replace(/\"/g, `\\"`);
+    
+                if (fileText.length > 0 && fileText[fileText.length - 1] != '\n') {
+                    fileText += '\n';
+                }
+                
+                fileText += `export ${name}="${value}"`;
+            }
         }
-
+        
         await fs.promises.writeFile(filePath, Buffer.from(fileText));
-
-        this._log(`${name} and its value were ${!!value ? 'written to' : 'removed from'} ${filePath}`, true, true);
+        this._log(`Secrets ${Object.keys(variables).join(', ')} were ${!!value ? 'written to' : 'removed from'} ${filePath}`, true, true);
     }
 }

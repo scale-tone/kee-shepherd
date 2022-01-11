@@ -830,20 +830,26 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            const secret = treeItem.secret;
-            if (!secret) {
+            if (!treeItem.secret) {
                 return;
             }
 
-            const secretValue = (await this.getSecretValuesAndCheckHashes([secret]))[0].value;
+            const secrets = [treeItem.secret];
+            const secretValues = (await this.getSecretValuesAndCheckHashes(secrets));
 
-            if (!secretValue) {
-                throw new Error(`Failed to get secret value`);
+            const variables: { [n: string]: string } = {};
+            for (const pair of secretValues) {
+
+                if (!pair.value) {
+                    throw new Error(`Failed to get secret value`);
+                }
+    
+                variables[pair.secret.name] = pair.value
             }
 
-            await this.setGlobalEnvVariable(secret.name, secretValue);
+            await this.setGlobalEnvVariables(variables);
 
-            vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was added to global environment variables. Restart your shell to see the effect.`);
+            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were set as global environment variables. Restart your shell to see the effect.`);
             this.treeView.refresh();
 
         }, 'KeeShepherd failed to mount secret as global environment variable');
@@ -853,14 +859,19 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            const secret = treeItem.secret;
-            if (!secret) {
+            if (!treeItem.secret) {
                 return;
             }
 
-            await this.setGlobalEnvVariable(secret.name, undefined);
+            const secrets = [treeItem.secret];
+            const variables: { [n: string]: string } = {};
+            for (const secret of secrets) {
+                variables[secret.name] = '';
+            }
 
-            vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was removed from global environment variables. Restart your shell to see the effect.`);
+            await this.setGlobalEnvVariables(variables);
+
+            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were removed from global environment variables. Restart your shell to see the effect.`);
             this.treeView.refresh();
 
         }, 'KeeShepherd failed to unmount secret from global environment variables');
