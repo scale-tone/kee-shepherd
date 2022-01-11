@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath, toDictionary } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -770,7 +770,11 @@ export class KeeShepherd extends KeeShepherdBase {
             if (userResponse !== 'Yes') {
                 return;
             }
+
+            // Unmounting global env variables, if any
+            await this.setGlobalEnvVariables(toDictionary(secretNames, () => ''));
             
+            // Now removing secrets themselves
             await this._repo.removeSecrets(EnvVariableSpecialPath, secretNames);
 
             this._log(`${secretNames.length} secrets have been removed`, true, true);
@@ -830,11 +834,20 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if (!treeItem.secret) {
+            var secrets: ControlledSecret[];
+
+            if (treeItem.nodeType === NodeTypeEnum.EnvVariables) {
+
+                secrets = (await this._repo.getSecrets(EnvVariableSpecialPath, true));
+                
+            } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
+                
+                secrets = [treeItem.secret];
+
+            } else {
                 return;
             }
 
-            const secrets = [treeItem.secret];
             const secretValues = (await this.getSecretValuesAndCheckHashes(secrets));
 
             const variables: { [n: string]: string } = {};
@@ -859,17 +872,21 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if (!treeItem.secret) {
+            var secrets: ControlledSecret[];
+
+            if (treeItem.nodeType === NodeTypeEnum.EnvVariables) {
+
+                secrets = (await this._repo.getSecrets(EnvVariableSpecialPath, true));
+                
+            } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
+                
+                secrets = [treeItem.secret];
+
+            } else {
                 return;
             }
-
-            const secrets = [treeItem.secret];
-            const variables: { [n: string]: string } = {};
-            for (const secret of secrets) {
-                variables[secret.name] = '';
-            }
-
-            await this.setGlobalEnvVariables(variables);
+            
+            await this.setGlobalEnvVariables(toDictionary(secrets.map(s => s.name), () => ''));
 
             vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were removed from global environment variables. Restart your shell to see the effect.`);
             this.treeView.refresh();

@@ -84,3 +84,14 @@ export function getFullPathThatFits(baseFolderName: string, proposedFolderName: 
  
     return result;
 }
+
+export function toDictionary(values: string[], mapper: (n: string) => string): { [n: string]: string } {
+    
+    const result: { [n: string]: string } = {};
+
+    for (const v of values) {
+        result[v] = mapper(v);
+    }
+
+    return result;
+}
