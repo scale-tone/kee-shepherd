@@ -362,7 +362,7 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-machine-local"
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",

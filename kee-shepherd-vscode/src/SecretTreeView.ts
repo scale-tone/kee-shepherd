@@ -292,17 +292,13 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                     const secrets = await this._getRepo().getSecrets(EnvVariableSpecialPath, true, parent.machineName);
 
-                    const envVarsAreSet: { [name: string] : boolean } = {};
-                    const promises = secrets.map(async s => {
-                        envVarsAreSet[s.name] = await this.getEnvVariableIsSet(s.name);
-                    });
-                    await Promise.all(promises);
+                    const existingEnvVars = await this.areEnvVariablesSet(secrets.map(s => s.name));
 
                     for (const secret of secrets) {
 
                         const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
         
-                        const icon = !envVarsAreSet[secret.name] ?  'secret-stashed.svg' : 'secret-unstashed.svg';
+                        const icon = !existingEnvVars[secret.name] ?  'secret-stashed.svg' : 'secret-unstashed.svg';
 
                         const node = {
                             label: secret.name,
@@ -332,47 +328,54 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
     private _secretNodes: { [id: string]: { iconPath: string } } = {};
 
-    private async getEnvVariableIsSet(name: string): Promise<boolean> {
+    private async areEnvVariablesSet(names: string[]): Promise<{ [n: string]: boolean }> {
+
+        const result: { [n: string]: boolean } = {};
 
         if (process.platform === "win32") {
 
-            // On Windows reading directly from registry
-            return new Promise<boolean>((resolve, reject) => {
+            const promises = names.map(name => new Promise<void>((resolve) => {
 
+                // On Windows reading directly from registry
                 exec(`reg query HKCU\\Environment /v ${name}`, (err, stdout) => {
-    
-                    if (!!err) {
 
-                        resolve(false);
-    
-                    } else {
-    
+                    if (!err) {
+
                         var value = stdout.trim();
-                        if (value === `%${name}%`) {
-                            resolve(false);
-                        } else {
-                            resolve(!!value);
+                        if (value !== `%${name}%`) {
+
+                            result[name] = true;
                         }
                     }
-                });
-            });
-    
+
+                    resolve();
+               });
+
+            }));
+
+            await Promise.all(promises);
+
+        } else {
+
+            // Didn't find any better way to determine the current state of the variable, other than reading ~/.bashrc directly
+            const filePath = os.homedir() + '/.bashrc';
+            var fileText = '';
+            try {
+
+                fileText = Buffer.from(await fs.promises.readFile(filePath)).toString();
+                
+            } catch (err) {
+
+                this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
+            }
+
+            for (const name of names) {
+
+                const regex = new RegExp(`export ${name}=.*`, 'g');
+                result[name] = !!regex.exec(fileText);
+            }
         }
 
-        // Didn't find any better way to determine the current state of the variable, other than reading ~/.bashrc directly
-        const filePath = os.homedir() + '/.bashrc';
-        var fileText = '';
-        try {
-
-            fileText = Buffer.from(await fs.promises.readFile(filePath)).toString();
-            
-        } catch (err) {
-
-            this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
-        }
-
-        const regex = new RegExp(`export ${name}=.*`, 'g');
-
-        return !!regex.exec(fileText);
+        return result;
     }
 }
