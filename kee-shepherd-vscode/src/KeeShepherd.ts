@@ -647,11 +647,11 @@ export class KeeShepherd extends KeeShepherdBase {
         await this.doAndShowError(async () => {
 
             const editor = vscode.window.activeTextEditor;
-            if (!editor || !editor.document) {
+            if (!editor || !editor.document || editor.document.uri.scheme === 'output') {
                 throw new Error(`Couldn't find any open text editor`);
             }
 
-            if (editor.document.isUntitled) {
+            if (!!editor.document.isUntitled) {
                 throw new Error('Cannot put secrets to untitled documents');
             }
 

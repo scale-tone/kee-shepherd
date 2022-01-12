@@ -249,6 +249,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         } : undefined;
 
                         var icon = 'secret.svg';
+                        var tooltip = this.timestampToString(secret.timestamp);
 
                         if (secret.controlType === ControlTypeEnum.Supervised) {
                             
@@ -260,13 +261,24 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             if (!!fileText) {
 
                                 const anchorName = getAnchorName(secret.name);
-                                icon = fileText.includes(anchorName) ? 'secret-stashed.svg' : 'secret-unstashed.svg';
+
+                                if (fileText.includes(anchorName)) {
+                                    
+                                    icon = 'secret-stashed.svg';
+                                    tooltip = 'stashed' + (!tooltip ? '' : ', ') + tooltip;
+
+                                } else {
+
+                                    icon = 'secret-unstashed.svg';
+                                    tooltip = 'unstashed' + (!tooltip ? '' : ', ') + tooltip;
+                                }
                             }
                         }
 
                         const node = {
                             label: secret.name,
                             description,
+                            tooltip,
                             nodeType: NodeTypeEnum.Secret,
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
                             secret,
@@ -298,11 +310,23 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                         const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
         
-                        const icon = !existingEnvVars[secret.name] ?  'secret-stashed.svg' : 'secret-unstashed.svg';
+                        var icon = 'secret.svg';
+                        var tooltip = this.timestampToString(secret.timestamp);
+
+                        if (!existingEnvVars[secret.name]) {
+                            
+                            icon = 'secret-stashed.svg';
+                            
+                        } else {
+
+                            icon = 'secret-unstashed.svg';
+                            tooltip = 'mounted as Global Env Variable' + (!tooltip ? '' : ', ') + tooltip;
+                        }
 
                         const node = {
                             label: secret.name,
                             description,
+                            tooltip,
                             nodeType: NodeTypeEnum.Secret,
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
                             secret,
@@ -377,5 +401,56 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
         }
 
         return result;
+    }
+
+    private timestampToString(ts: Date): string {
+
+        try {
+
+            const milliseconds = (new Date().getTime() - ts.getTime());
+            if (milliseconds <= 0) {
+                return '';
+            }
+    
+            const days = Math.floor(milliseconds / 86400000);
+
+            if (days <= 0) {
+                return 'created today';
+            }
+
+            const years = Math.floor(days / 365);
+
+            if (years > 1) {
+                
+                return `created ${years} years ago`;
+
+            } else if (years === 1) {
+                
+                return `created 1 year ago`;
+            }
+
+            const months = Math.floor(days / 30);
+
+            if (months > 1) {
+                
+                return `created ${months} months ago`;
+
+            } else if (months === 1) {
+                
+                return `created 1 month ago`;
+            }
+
+            if (days === 1) {
+                
+                return `created 1 day ago`;
+
+            } else {
+
+                return `created ${days} days ago`;
+            }
+
+        } catch {
+            return '';
+        }
     }
 }
