@@ -11,11 +11,11 @@
 
 - Dedicated output channel with KeeShepherd's execution logs:
 
-  ![image](https://user-images.githubusercontent.com/5447190/149222393-f3483823-69c0-403b-90d3-47c61807d331.png)
+    <img src="https://user-images.githubusercontent.com/5447190/149222393-f3483823-69c0-403b-90d3-47c61807d331.png" width="600">
 
 - `Copy Secret Value to Clipboard` feature:
 
-  ![image](https://user-images.githubusercontent.com/5447190/149222681-667907d6-ba8e-4455-b732-5723a67ecffd.png)
+    <img src="https://user-images.githubusercontent.com/5447190/149222681-667907d6-ba8e-4455-b732-5723a67ecffd.png" width="400">
 
 - Other UI improvements
 - Minor bugfixes.
