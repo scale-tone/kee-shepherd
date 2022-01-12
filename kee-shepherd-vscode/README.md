@@ -12,9 +12,14 @@ To put a secret under KeeShepherd's control, you can either **insert** it via Ke
 
 <img src="https://user-images.githubusercontent.com/5447190/142854298-f1cf92bd-561d-45ab-a11a-97be5047caf2.png" width="600">
 
-or select an existing secret in the text editor and **add** it to KeeShepherd:
+, select an existing secret in the text editor and **add** it to KeeShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142854551-a3be452e-95e8-407d-90c2-dbdebad33773.png" width="600">
+
+or **register it as an environment variable**:
+
+<img src="https://user-images.githubusercontent.com/5447190/149216698-65302427-e20d-4d95-afd1-18ff7a7dfd14.png" width="400">
+
 
 **Insert** operation lets you pick up a secret from Azure Key Vault or directly from an Azure resource (Azure Storage, Azure Service Bus, Azure Cosmos DB etc.). 
 
@@ -22,7 +27,7 @@ or select an existing secret in the text editor and **add** it to KeeShepherd:
 
 Once a secret is added or inserted, KeeShepherd will remember its exact position and proceed with keeping track of it.
 
-Two types of secrets are supported:
+Three types of secrets are supported:
 * **Supervised**. This is a lightweight form of it, just to remember where you left this secret value and to let you navigate back to it at any moment. Your actual config files are left intact.
 * **Managed** aka stashable. These secrets you can **stash/unstash**:
 
@@ -34,6 +39,8 @@ Two types of secrets are supported:
   KeeShepherd can **automatically stash** all secrets in a workspace when it is closed and **automatically unstash** them when a workspace is opened. Default mode is to automatically stash, but do not automatically unstash. You can configure this via Settings (see below).
   
   When **unstashing**, KeeShepherd will install a [Git Hook](https://www.atlassian.com/git/tutorials/git-hooks), that prevents your secret values from being accidentally committed. When **stashing** back, these hooks will be removed. This allows you to commit your config files with **stashed** secrets in them and not be afraid of accidentally committing their unstashed values.
+  
+* **Environment Variables**. These can be mounted into terminal windows and/or installed as global environment variables. See more details on this below.
 
 It's perfectly fine to mix both **supervised** and **managed** secrets in the same config file. A good strategy could be to mark real secrets (access keys, connection strings etc.) as **managed** (to keep them safe) and leave less important values like user names, application ids etc. as **supervised** (to make it easy to find them later).
 
@@ -49,6 +56,27 @@ On a fresh new devbox you can also quickly restore all your secrets with `Resolv
   <img src="https://user-images.githubusercontent.com/5447190/146411438-d0215ae3-9b81-4313-b6de-125dc9181a94.png" width="400">
 
 It will collect all `@KeeShepherd(secret-name)` anchors in a file and try to match those secrets by name. If a secret with that name exists in the metadata storage, then a copy of it will be created for the current file. Then you can do a normal **unstash** process to get the actual secret values.
+
+### Use secrets as environment variables
+
+To add a secret as an environment variable either use the `KeeShepherd: Register Secret as an Environment Variable` command or use context menu on the 'Environment Variables' tree node:
+
+  <img src="https://user-images.githubusercontent.com/5447190/149216698-65302427-e20d-4d95-afd1-18ff7a7dfd14.png" width="400">
+
+Once you have a list of environment variables configured, you can then:
+
+1. Open a Terminal (console shell) window with those environment variables and their values mounted to it:
+
+    <img src="https://user-images.githubusercontent.com/5447190/149218651-82ec09c5-b8f0-4949-8908-a3495f996420.png" width="400">
+
+2. Mount them as global environment variables:
+
+    <img src="https://user-images.githubusercontent.com/5447190/149219139-8fa87ee1-f944-4cbe-ba09-91b001a0786c.png" width="400">
+
+    On Windows this option adds the secret and its value into `HKEY_CURRENT_USER\Environment` registry key.
+    
+    On other platforms a command for setting that variable value is added into `$HOME/.bashrc` script.
+
 
 ### Configure and use secret metadata storage
 
