@@ -1,5 +1,25 @@
 # Change Log
 
+## Version 1.2
+
+- Now secrets can be registered as environment variables:
+  
+    <img src="https://user-images.githubusercontent.com/5447190/149216698-65302427-e20d-4d95-afd1-18ff7a7dfd14.png" width="400">
+
+  This allows to instantly open a Terminal window with secret values directly mounted to it as environment variables. No more copy/pasting, no more shell initialization scripts.
+  See [more details here](https://github.com/scale-tone/kee-shepherd/blob/main/kee-shepherd-vscode/README.md#use-secrets-as-environment-variables).
+
+- Dedicated output channel with KeeShepherd's execution logs:
+
+  ![image](https://user-images.githubusercontent.com/5447190/149222393-f3483823-69c0-403b-90d3-47c61807d331.png)
+
+- `Copy Secret Value to Clipboard` feature:
+
+  ![image](https://user-images.githubusercontent.com/5447190/149222681-667907d6-ba8e-4455-b732-5723a67ecffd.png)
+
+- Other UI improvements
+- Minor bugfixes.
+
 ## Version 1.1.1
 
 - Many new secret sources:
