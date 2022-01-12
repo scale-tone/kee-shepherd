@@ -40,7 +40,7 @@ Three types of secrets are supported:
   
   When **unstashing**, KeeShepherd will install a [Git Hook](https://www.atlassian.com/git/tutorials/git-hooks), that prevents your secret values from being accidentally committed. When **stashing** back, these hooks will be removed. This allows you to commit your config files with **stashed** secrets in them and not be afraid of accidentally committing their unstashed values.
   
-* **Environment Variables**. These can be mounted into terminal windows and/or installed as global environment variables. See more details on this below.
+* **Environment Variables**. These can be mounted into terminal windows and/or installed as global environment variables. See [more details on this below](https://github.com/scale-tone/kee-shepherd/blob/main/kee-shepherd-vscode/README.md#use-secrets-as-environment-variables).
 
 It's perfectly fine to mix both **supervised** and **managed** secrets in the same config file. A good strategy could be to mark real secrets (access keys, connection strings etc.) as **managed** (to keep them safe) and leave less important values like user names, application ids etc. as **supervised** (to make it easy to find them later).
 
@@ -65,11 +65,11 @@ To add a secret as an environment variable either use the `KeeShepherd: Register
 
 Once you have a list of environment variables configured, you can then:
 
-*. **Open a Terminal** (shell) window with those environment variables and their values mounted to it:
+* **Open a Terminal** (shell) window with those environment variables and their values mounted to it:
 
     <img src="https://user-images.githubusercontent.com/5447190/149218651-82ec09c5-b8f0-4949-8908-a3495f996420.png" width="400">
 
-2. **Mount them as global environment variables**:
+* **Mount them as global environment variables**:
 
     <img src="https://user-images.githubusercontent.com/5447190/149219139-8fa87ee1-f944-4cbe-ba09-91b001a0786c.png" width="400">
 
