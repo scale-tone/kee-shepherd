@@ -65,11 +65,11 @@ To add a secret as an environment variable either use the `KeeShepherd: Register
 
 Once you have a list of environment variables configured, you can then:
 
-1. Open a Terminal (console shell) window with those environment variables and their values mounted to it:
+*. **Open a Terminal** (shell) window with those environment variables and their values mounted to it:
 
     <img src="https://user-images.githubusercontent.com/5447190/149218651-82ec09c5-b8f0-4949-8908-a3495f996420.png" width="400">
 
-2. Mount them as global environment variables:
+2. **Mount them as global environment variables**:
 
     <img src="https://user-images.githubusercontent.com/5447190/149219139-8fa87ee1-f944-4cbe-ba09-91b001a0786c.png" width="400">
 
