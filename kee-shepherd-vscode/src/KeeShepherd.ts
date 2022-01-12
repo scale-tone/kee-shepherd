@@ -156,7 +156,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if (treeItem.nodeType !== NodeTypeEnum.Machine || treeItem.contextValue !== 'tree-machine') {
+            if (treeItem.nodeType !== NodeTypeEnum.Machine) {
                 return;
             }
 
@@ -171,6 +171,11 @@ export class KeeShepherd extends KeeShepherdBase {
             }
             
             await this._repo.removeAllSecrets(machineName);
+
+            // Also cleaning up the key map
+            if (!!treeItem.isLocal) {
+                await this._mapRepo.cleanup();
+            }
 
             this._log(`All secrets on ${machineName} have been forgotten`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: all secrets on ${machineName} have been forgotten`);

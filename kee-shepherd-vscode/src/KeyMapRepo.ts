@@ -86,6 +86,12 @@ export class KeyMapRepo {
         await fs.promises.writeFile(mapFilePath, JSON.stringify(map, null, 3));
     }
 
+    async cleanup(): Promise<void> {
+
+        await fs.promises.rm(this._storageFolder, { recursive: true });
+        await fs.promises.mkdir(this._storageFolder, { recursive: true });
+    }
+
     private getFileNameForSecretMap(filePath: string): string {
 
         return getFullPathThatFits(this._storageFolder, encodePathSegment(path.dirname(filePath)), `${encodePathSegment(path.basename(filePath))}-${getWeakHash(filePath)}.json`);

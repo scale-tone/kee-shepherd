@@ -156,7 +156,15 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     async removeAllSecrets(machineName?: string): Promise<void> {
 
-        throw new Error('Not implemented for local storage');
+        const folders = await KeyMetadataLocalRepo.getSubFolders(this._storageFolder);
+
+        const promises = folders.map(async folderPath => {
+            await fs.promises.rm(folderPath, { recursive: true })
+        });
+
+        await Promise.all(promises);
+
+        this._secrets = [];
     }
 
     private static async readSecretFilesFromFolder(folderPath: string): Promise<ControlledSecret[]> {

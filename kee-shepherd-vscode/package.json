@@ -397,7 +397,7 @@
 
                 {
                     "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-machine"
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-machine || viewItem == tree-machine-local"
                 },
                 
                 {
