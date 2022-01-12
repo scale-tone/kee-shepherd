@@ -881,7 +881,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             if (treeItem.nodeType === NodeTypeEnum.EnvVariables) {
 
-                secrets = (await this._repo.getSecrets(EnvVariableSpecialPath, true));
+                secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
                 
             } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
                 
@@ -897,6 +897,27 @@ export class KeeShepherd extends KeeShepherdBase {
             this.treeView.refresh();
 
         }, 'KeeShepherd failed to unmount secret from global environment variables');
+    }
+
+    async registerEnvVariablesOnLocalMachine(treeItem: KeeShepherdTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            if (treeItem.nodeType !== NodeTypeEnum.EnvVariables || !!treeItem.isLocal) {
+                return;
+            }
+
+            const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true, treeItem.machineName);
+
+            for (const secret of secrets) {
+             
+                await this._repo.addSecret(secret);
+            }
+
+            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were added.`);
+            this.treeView.refresh();
+
+        }, 'KeeShepherd failed to register secrets as environment variables');
     }
 
     private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {

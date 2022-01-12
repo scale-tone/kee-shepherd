@@ -66,6 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.mountAsGlobalEnvVariables', (item) => shepherd.mountAsGlobalEnv(item)),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariables', (item) => shepherd.unmountAsGlobalEnv(item)),
 
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine', (item) => shepherd.registerEnvVariablesOnLocalMachine(item)),
 
         vscode.window.onDidChangeActiveTextEditor((editor) => shepherd.maskSecretsInThisFile(true)),
  

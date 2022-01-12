@@ -186,6 +186,10 @@
             {
                 "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariables",
                 "title": "Unmount all from Global Env Variables"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
+                "title": "Register as Env Variables on local machine"
             }
         ],
         "submenus": [
@@ -296,6 +300,10 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariables",
                     "when": "never"
+                }, 
+                {
+                    "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
+                    "when": "never"
                 }
             ],
 
@@ -393,6 +401,11 @@
                     "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
                     "group": "kee-shepherd-vscode.view-context-group@5"
+                },
+
+                {
+                    "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables"
                 },
 
                 {
