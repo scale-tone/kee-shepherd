@@ -495,6 +495,8 @@ export abstract class KeeShepherdBase {
             this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
         }
 
+        var secretsAdded = false;
+
         for (const name of Object.keys(variables)) {
             
             fileText = fileText.replace(new RegExp(`(\r)?(\n)?export ${name}=.*`, 'g'), '');
@@ -510,10 +512,12 @@ export abstract class KeeShepherdBase {
                 }
                 
                 fileText += `export ${name}="${value}"`;
+                
+                secretsAdded = true;
             }
         }
         
         await fs.promises.writeFile(filePath, Buffer.from(fileText));
-        this._log(`Secrets ${Object.keys(variables).join(', ')} were ${!!value ? 'written to' : 'removed from'} ${filePath}`, true, true);
+        this._log(`Secrets ${Object.keys(variables).join(', ')} were ${!!secretsAdded ? 'written to' : 'removed from'} ${filePath}`, true, true);
     }
 }
