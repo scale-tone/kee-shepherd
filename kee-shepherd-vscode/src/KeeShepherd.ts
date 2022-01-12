@@ -82,7 +82,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             } catch (err2) {
 
-                vscode.window.showErrorMessage(`KeeShepherd still couldn't initialize its metadata storage`);
+                vscode.window.showErrorMessage(`KeeShepherd still couldn't initialize its metadata storage. ${(err2 as any).message ?? err2}`);
 
                 logChannel.appendLine(`${new Date().toISOString()} Failed to initialize metadata storage. ${(err2 as any).message ?? err2}`)
 

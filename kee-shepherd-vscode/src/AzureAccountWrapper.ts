@@ -156,7 +156,7 @@ export class AzureAccountWrapper {
     private async checkSignIn(): Promise<void> {
 
         if (!this._account || !await this._account.waitForFilters()) {
-            throw new Error('You need to be signed in to Azure for this');
+            throw new Error(`You need to be signed in to Azure for this. Execute 'Azure: Sign In' command.`);
         }
     }
 }
