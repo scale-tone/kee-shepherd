@@ -23,3 +23,7 @@ Also check out [this blog post about it](https://scale-tone.github.io/2021/11/26
 2. Open [kee-shepherd-vscode](https://github.com/scale-tone/kee-shepherd/tree/main/kee-shepherd-vscode) folder with VsCode.
 3. Do `npm install`.
 4. Hit F5.
+
+## Contributing
+
+Is very much welcomed.
