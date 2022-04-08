@@ -50,6 +50,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.registerSecretAsEnvVariable', () => shepherd.registerSecretAsEnvVariable()),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.registerSecretAsEnvVariable', () => shepherd.registerSecretAsEnvVariable()),
+        vscode.commands.registerCommand('kee-shepherd-vscode.createEnvVariableFromClipboard', () => shepherd.createEnvVariableFromClipboard()),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createEnvVariableFromClipboard', () => shepherd.createEnvVariableFromClipboard()),
         
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeEnvVariables', (item) => shepherd.removeEnvVariables(item)),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeEnvVariable', (item) => shepherd.removeEnvVariables(item)),

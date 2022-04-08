@@ -550,8 +550,6 @@ export class KeeShepherd extends KeeShepherdBase {
                 throw new Error(`Secret value should not start with ${AnchorPrefix}`);
             }
 
-            const secretHash = this._repo.calculateHash(secretValue);
-
             const secretName = await this.askUserForSecretName();
             if (!secretName) {
                 return;
@@ -572,59 +570,18 @@ export class KeeShepherd extends KeeShepherdBase {
                     type: SecretTypeEnum.Unknown,
                     controlType,
                     filePath: currentFile,
-                    hash: secretHash,
+                    hash: this._repo.calculateHash(secretValue),
                     length: secretValue.length,
                     timestamp: new Date()
                 });
                 
             } else {
 
-                const subscription = await this._account.pickUpSubscription();
-                if (!subscription) {
+                // Adding both to metadata storage and to Key Vault
+
+                if (!await this.addKeyVaultSecret(secretName, secretValue, controlType, currentFile)) {
                     return;
                 }
-                
-                const subscriptionId = subscription.subscription.subscriptionId;
-                const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
-    
-                if (!keyVaultName) {
-                    return;
-                }
-    
-                // First adding the metadata
-    
-                await this._repo.addSecret({
-                    name: secretName,
-                    type: SecretTypeEnum.AzureKeyVault,
-                    controlType,
-                    filePath: currentFile,
-                    hash: secretHash,
-                    length: secretValue.length,
-                    timestamp: new Date(),
-                    properties: {
-                        subscriptionId: subscriptionId,
-                        keyVaultName: keyVaultName,
-                        keyVaultSecretName: secretName
-                    }
-                });
-    
-                // Then adding this secret to KeyVault
-                try {
-    
-                    // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-                    const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
-    
-                    const keyVaultClient = new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
-    
-                    await keyVaultClient.setSecret(secretName, secretValue);
-                    
-                } catch (err) {
-                    
-                    // Dropping the just created secret upon failure
-                    this._repo.removeSecrets(currentFile, [secretName]);
-    
-                    throw err;
-                }    
             }
 
             // Also updating secret map for this file
@@ -750,6 +707,32 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to register secret as env variable');
     }
 
+    async createEnvVariableFromClipboard(): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            const secretValue = await vscode.env.clipboard.readText();
+
+            if (!secretValue) {
+                throw new Error('No text found in Clipboard');
+            }
+
+            const secretName = await this.askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+
+            if (!await this.addKeyVaultSecret(secretName, secretValue, ControlTypeEnum.EnvVariable, '')) {
+                return;
+            }
+
+            this.treeView.refresh();
+
+            vscode.window.showInformationMessage(`KeeShepherd registered ${secretName} as an environment variable.`);
+
+        }, 'KeeShepherd failed to create an env variable');
+    }
+
     async removeEnvVariables(treeItem: KeeShepherdTreeItem): Promise<void>{
 
         await this.doAndShowError(async () => {
@@ -776,8 +759,15 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            // Unmounting global env variables, if any
-            await this.setGlobalEnvVariables(toDictionary(secretNames, () => ''));
+            try {
+                
+                // Unmounting global env variables, if any
+                await this.setGlobalEnvVariables(toDictionary(secretNames, () => ''));
+
+            } catch (err) {
+
+                this._log(`Failed to unmount secrets from global env variables. ${(err as any).message ?? err}`, true, true);
+            }
             
             // Now removing secrets themselves
             await this._repo.removeSecrets(EnvVariableSpecialPath, secretNames);
@@ -862,7 +852,7 @@ export class KeeShepherd extends KeeShepherdBase {
                     throw new Error(`Failed to get secret value`);
                 }
     
-                variables[pair.secret.name] = pair.value
+                variables[pair.secret.name] = pair.value;
             }
 
             await this.setGlobalEnvVariables(variables);
@@ -918,6 +908,58 @@ export class KeeShepherd extends KeeShepherdBase {
             this.treeView.refresh();
 
         }, 'KeeShepherd failed to register secrets as environment variables');
+    }
+
+    private async addKeyVaultSecret(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
+
+        const subscription = await this._account.pickUpSubscription();
+        if (!subscription) {
+            return false;
+        }
+        
+        const subscriptionId = subscription.subscription.subscriptionId;
+        const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+
+        if (!keyVaultName) {
+            return false;
+        }
+
+        // First adding the metadata
+
+        await this._repo.addSecret({
+            name: secretName,
+            type: SecretTypeEnum.AzureKeyVault,
+            controlType,
+            filePath: sourceFileName,
+            hash: this._repo.calculateHash(secretValue),
+            length: secretValue.length,
+            timestamp: new Date(),
+            properties: {
+                subscriptionId: subscriptionId,
+                keyVaultName: keyVaultName,
+                keyVaultSecretName: secretName
+            }
+        });
+
+        // Then adding this secret to KeyVault
+        try {
+
+            // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
+            const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
+
+            const keyVaultClient = new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
+
+            await keyVaultClient.setSecret(secretName, secretValue);
+            
+        } catch (err) {
+            
+            // Dropping the just created secret upon failure
+            this._repo.removeSecrets(controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : sourceFileName, [secretName]);
+
+            throw err;
+        }
+
+        return true;
     }
 
     private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {

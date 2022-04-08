@@ -80,6 +80,10 @@
                 "title": "KeeShepherd: Register Secret as an Environment Variable"
             },
             {
+                "command": "kee-shepherd-vscode.createEnvVariableFromClipboard",
+                "title": "KeeShepherd: Create Environment Variable from Clipboard"
+            },
+            {
                 "command": "kee-shepherd-vscode.openTerminal",
                 "title": "KeeShepherd: Open Terminal with Environment Variables mounted"
             },
@@ -190,6 +194,10 @@
             {
                 "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
                 "title": "Register as Env Variables on local machine"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
+                "title": "Create from Clipboard..."
             }
         ],
         "submenus": [
@@ -304,6 +312,10 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
                     "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
+                    "when": "never"
                 }
             ],
 
@@ -398,11 +410,15 @@
                     "group": "kee-shepherd-vscode.view-context-group@4"
                 },
                 {
-                    "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
+                    "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
                     "group": "kee-shepherd-vscode.view-context-group@5"
                 },
-
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
+                    "group": "kee-shepherd-vscode.view-context-group@6"
+                },
                 {
                     "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables"
