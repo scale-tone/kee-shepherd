@@ -15,3 +15,15 @@ Install it from [VsCode marketplace](https://marketplace.visualstudio.com/items?
 See details in the [extension's readme](https://github.com/scale-tone/key-shepherd/blob/main/kee-shepherd-vscode/README.md).
 
 Also check out [this blog post about it](https://scale-tone.github.io/2021/11/26/introducing-keeshepherd).
+
+## How to compile and run
+
+**KeeShepherd** is a typical [VsCode extension](https://code.visualstudio.com/api/get-started/your-first-extension), so to run these sources you need to:
+1. Clone this repo.
+2. Open [kee-shepherd-vscode](https://github.com/scale-tone/kee-shepherd/tree/main/kee-shepherd-vscode) folder with VsCode.
+3. Do `npm install`.
+4. Hit F5.
+
+## Contributing
+
+Is very much welcomed.
