@@ -26,7 +26,8 @@ export enum SecretTypeEnum {
     AzureRedisCache,
     AzureAppInsights,
     AzureEventGrid,
-    AzureMaps
+    AzureMaps,
+    AzureCognitiveServices
 }
 
 export enum ControlTypeEnum {
