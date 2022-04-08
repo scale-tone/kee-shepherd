@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as Crypto from 'crypto';
 
-export const EnvVariableSpecialPath = '|KeeShepherdEnvironmentVariables'
+export const EnvVariableSpecialPath = '|KeeShepherdEnvironmentVariables';
 
 export const AnchorPrefix = '@KeeShepherd';
 
@@ -25,7 +25,8 @@ export enum SecretTypeEnum {
     AzureCosmosDb,
     AzureRedisCache,
     AzureAppInsights,
-    AzureEventGrid
+    AzureEventGrid,
+    AzureMaps
 }
 
 export enum ControlTypeEnum {
@@ -44,7 +45,7 @@ export type ControlledSecret = {
     length: number;
     timestamp: Date;
     properties?: any;
-}
+};
 
 export const MinSecretLength = 5;
 
