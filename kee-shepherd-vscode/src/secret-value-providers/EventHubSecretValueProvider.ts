@@ -44,16 +44,18 @@ export class EventHubSecretValueProvider implements ISecretValueProvider {
         // Obtaining default token
         const token = await tokenCredentials.getToken();
 
-        const authRules: string[] = [];
+        const promise = Promise.all([
+            this.getRootAuthRules(namespace.id, token.accessToken),
+            this.getHubAuthRules (namespace.id, token.accessToken)
+        ]);
 
-        authRules.push(... (await this.getRootAuthRules(namespace.id, token.accessToken)));
-        authRules.push(... (await this.getHubAuthRules (namespace.id, token.accessToken)));
+        const authRules = (await promise).flat();
 
         if (authRules.length < 0) {
             return;
         }
 
-        const authRule = await vscode.window.showQuickPick(authRules, { title: 'Select Authorization Rule to use' });
+        const authRule = await vscode.window.showQuickPick(authRules, { title: `Select ${namespace.name} Authorization Rule to use` });
         if (!authRule) {
             return;
         }
