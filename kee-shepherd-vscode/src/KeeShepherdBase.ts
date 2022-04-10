@@ -48,6 +48,7 @@ export abstract class KeeShepherdBase {
 
     dispose(): void {
         this._hiddenTextDecoration.dispose();
+        this._blueTextDecoration.dispose();
     }
 
     protected readonly _hiddenTextDecoration = vscode.window.createTextEditorDecorationType({
@@ -55,9 +56,14 @@ export abstract class KeeShepherdBase {
         backgroundColor: 'grey'
     });
 
+    protected readonly _blueTextDecoration = vscode.window.createTextEditorDecorationType({
+        color: new vscode.ThemeColor('focusBorder')
+    });
+
     protected async internalMaskSecrets(editor: vscode.TextEditor, secretsMap: SecretMapEntry[]): Promise<string[]> {
         
-        const decorations: vscode.Range[] = [];
+        const maskDecorations: vscode.Range[] = [];
+        const stashedDecorations: vscode.Range[] = [];
         const missingSecrets: string[] = [];
 
         // Need to sort the map by positions
@@ -81,7 +87,13 @@ export abstract class KeeShepherdBase {
                     editor.document.positionAt(secretPos.pos + posShift + anchorName.length)
                 )
             )) {
-                // If this secret is stashed, then keeping it as it is and adjusting posShift
+                // If this secret is stashed, then marking it and adjusting posShift
+
+                stashedDecorations.push(new vscode.Range(
+                    editor.document.positionAt(secretPos.pos + posShift),
+                    editor.document.positionAt(secretPos.pos + posShift + anchorName.length)
+                ));
+
                 posShift += anchorName.length - secretPos.length;
 
             } else if (this._repo.calculateHash(secretText) !== secretPos.hash) {
@@ -91,16 +103,17 @@ export abstract class KeeShepherdBase {
             } else {
 
                 // Masking this secret
-                decorations.push(new vscode.Range(
+                maskDecorations.push(new vscode.Range(
                     editor.document.positionAt(secretPos.pos + posShift),
                     editor.document.positionAt(secretPos.pos + secretPos.length + posShift)
                 ));
             }
         }
 
-        editor.setDecorations(this._hiddenTextDecoration, decorations);
+        editor.setDecorations(this._hiddenTextDecoration, maskDecorations);
+        editor.setDecorations(this._blueTextDecoration, stashedDecorations);
 
-        this._log(`Masked ${decorations.length} secrets`, false, true);
+        this._log(`Masked ${maskDecorations.length} secrets, marked ${stashedDecorations.length} stashed secrets`, false, true);
         if (!!missingSecrets.length) {
             this._log(`, ${missingSecrets.length} secrets are missing`, false, false);
         }
@@ -351,7 +364,7 @@ export abstract class KeeShepherdBase {
             return Object.keys(managedSecretValues).length;
             
         } catch (err) {
-            vscode.window.showErrorMessage(`KeeShepherd failed to unstash secrets in ${filePath}. ${(err as any).message ?? err}`);
+            vscode.window.showErrorMessage(`KeeShepherd failed to ${!stash ? 'unstash' : 'stash'} secrets in ${filePath}. ${(err as any).message ?? err}`);
             return 0;
         }
     }
