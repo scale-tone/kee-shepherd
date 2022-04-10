@@ -2,6 +2,22 @@
 
 ## Version 1.2
 
+- `Create from Clipboard` feature for environment variables:
+
+    <img src="https://user-images.githubusercontent.com/5447190/162624045-d8406e1a-bf21-409d-ba3e-bcae48b250ad.png" width="300">
+
+  Takes whatever text is currently stored in Clipboard, creates an environment variable out of it and also puts it as a secret into Key Vault. Useful for quickly creating secrets with password generators.
+  
+- More secret sources:
+    * Azure Maps
+    * Azure Cognitive Services
+    * Azure Search
+    
+- Other UI improvements
+- Minor bugfixes.
+
+## Version 1.2
+
 - Now secrets can be registered as environment variables:
   
     <img src="https://user-images.githubusercontent.com/5447190/149216698-65302427-e20d-4d95-afd1-18ff7a7dfd14.png" width="400">
