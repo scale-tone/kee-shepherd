@@ -1,6 +1,6 @@
 # Change Log
 
-## Version 1.2
+## Version 1.3
 
 - `Create from Clipboard` feature for environment variables:
 
