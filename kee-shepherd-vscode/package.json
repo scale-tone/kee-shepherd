@@ -210,6 +210,10 @@
                 "title": "Copy Value to Clipboard"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
+                "title": "Remove from Key Vault"
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
                 "title": "Refresh",
                 "icon": {
@@ -337,6 +341,10 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
                     "when": "never"
                 },
                 {
@@ -482,6 +490,10 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
                     "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
                 }
             ]

@@ -947,6 +947,43 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to copy secret value');
     }
 
+    async removeSecretFromKeyVault(treeItem: KeyVaultTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.keyVaultName) {
+                return;
+            }
+
+            const userResponse = await vscode.window.showWarningMessage(
+                `Secret ${treeItem.label} will be removed ("soft-deleted") from Key Vault. Do you want to proceed?`,
+                'Yes', 'No');
+   
+            if (userResponse !== 'Yes') {
+                return;
+            }
+
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+            const progressOptions = {
+                location: vscode.ProgressLocation.Notification,
+                title: `Removing secret from Key Vault...`
+            };
+    
+            await vscode.window.withProgress(progressOptions, async () => { 
+
+                const poller = await keyVaultClient.beginDeleteSecret(treeItem.label as string);
+                await poller.pollUntilDone();
+            });
+
+            this.keyVaultTreeView.refresh();
+
+            vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.label} was removed from Key Vault`);
+
+        }, 'KeeShepherd failed to remove secret from Key Vault');
+    }
+
     private async addKeyVaultSecret(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
 
         const subscription = await this._account.pickUpSubscription();
