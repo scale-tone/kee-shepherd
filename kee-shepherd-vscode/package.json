@@ -214,6 +214,10 @@
                 "title": "Remove from Key Vault"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.createKeyVaultSecret",
+                "title": "Create new Secret"
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
                 "title": "Refresh",
                 "icon": {
@@ -349,6 +353,10 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createKeyVaultSecret",
                     "when": "never"
                 }
             ],
@@ -495,6 +503,10 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
                     "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createKeyVaultSecret",
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault"
                 }
             ]
         },

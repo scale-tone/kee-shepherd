@@ -85,6 +85,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                                 label: vault.name,
                                 keyVaultName: vault.name,
                                 nodeType: KeyVaultNodeTypeEnum.KeyVault,
+                                contextValue: 'key-vault',
                                 subscriptionId: parent.subscriptionId,
                                 collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
                                 iconPath: {

@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { SecretClient } from '@azure/keyvault-secrets';
+import { KeyVaultSecret, SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
 import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath, toDictionary } from './KeyMetadataHelpers';
@@ -947,11 +947,71 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to copy secret value');
     }
 
+    async createKeyVaultSecret(treeItem: KeyVaultTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.KeyVault || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+                return;
+            }
+
+            const secretName = await this.askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+
+            const secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
+
+            if (!secretValue) {
+                return;
+            }
+
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+            let existingSecret = undefined;
+            try {
+
+                existingSecret = await keyVaultClient.getSecret(secretName);
+
+                const userResponse = await vscode.window.showWarningMessage(
+                    `A secret named ${secretName} already exists in this Key Vault. This operation will add a new version of that secret. Do you want to proceed?`,
+                    'Yes', 'No');
+       
+                if (userResponse !== 'Yes') {
+                    return;
+                }
+                
+            } catch (err) {
+                console.log(err);
+            }
+
+            await keyVaultClient.setSecret(secretName, secretValue);
+
+            this.keyVaultTreeView.refresh();
+
+            if (!existingSecret) {
+                
+                this._log(`Created ${secretName} in ${treeItem.keyVaultName} Key Vault`, true, true);
+                vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`);
+
+            } else {
+
+                this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
+                vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
+            }
+
+        }, 'KeeShepherd failed to add secret to Key Vault');
+    }
+
     async removeSecretFromKeyVault(treeItem: KeyVaultTreeItem): Promise<void> {
 
         await this.doAndShowError(async () => {
 
-            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.keyVaultName) {
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
                 return;
             }
 
@@ -974,7 +1034,9 @@ export class KeeShepherd extends KeeShepherdBase {
             await vscode.window.withProgress(progressOptions, async () => { 
 
                 const poller = await keyVaultClient.beginDeleteSecret(treeItem.label as string);
-                await poller.pollUntilDone();
+                const removedSecret = await poller.pollUntilDone();
+
+                this._log(`Removed ${removedSecret.name} from ${treeItem.keyVaultName} Key Vault`, true, true);
             });
 
             this.keyVaultTreeView.refresh();
@@ -1018,10 +1080,8 @@ export class KeeShepherd extends KeeShepherdBase {
         // Then adding this secret to KeyVault
         try {
 
-            // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-            const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
-
-            const keyVaultClient = new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
 
             await keyVaultClient.setSecret(secretName, secretValue);
             
