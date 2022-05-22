@@ -8,6 +8,7 @@ import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
 import { SecretTreeView } from './SecretTreeView';
+import { KeyVaultTreeView } from './KeyVaultTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { execSync } from 'child_process';
@@ -43,6 +44,7 @@ export abstract class KeeShepherdBase {
         protected _repo: IKeyMetadataRepo,
         protected readonly _mapRepo: KeyMapRepo,
         public readonly treeView: SecretTreeView,
+        public readonly keyVaultTreeView: KeyVaultTreeView,
         protected _log: (s: string, withEof: boolean, withTimestamp: boolean) => void
     ) { }
 

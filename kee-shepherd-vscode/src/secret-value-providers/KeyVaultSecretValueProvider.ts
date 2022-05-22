@@ -11,12 +11,18 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getKeyVaultClient(subscriptionId: string, keyVaultName: string): Promise<SecretClient> {
 
         // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId, 'https://vault.azure.net');
+        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
         
-        const keyVaultClient = new SecretClient(`https://${secret.properties.keyVaultName}.vault.azure.net`, tokenCredentials as any);
+        return new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
+    }
+
+    async getSecretValue(secret: ControlledSecret): Promise<string> {
+
+        const keyVaultClient = await this.getKeyVaultClient(secret.properties.subscriptionId, secret.properties.keyVaultName);
+
         const keyVaultSecret = await keyVaultClient.getSecret(secret.properties.keyVaultSecretName);
         return keyVaultSecret.value ?? '';
     }
@@ -35,11 +41,8 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
             return;
         }
         
-        // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
-
-        const keyVaultClient = new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
-
+        const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
+        
         const secretNames = [];
         for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
             secretNames.push(secretProps.name);
@@ -69,7 +72,19 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
                 keyVaultName,
                 keyVaultSecretName: secretName
             }
+        };
+    }
+
+    async getSecretNames(subscriptionId: string, keyVaultName: string): Promise<string[]> {
+
+        const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
+        
+        const secretNames = [];
+        for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
+            secretNames.push(secretProps.name);
         }
+
+        return secretNames;
     }
 
     static pickUpKeyVault(subscription: AzureSubscription): Promise<string> {

@@ -40,6 +40,12 @@
                     "id": "kee-shepherd-tree-view",
                     "name": "Secrets"
                 }
+            ],
+            "azure": [
+                {
+                    "id": "kee-shepherd-key-vault-tree-view",
+                    "name": "Key Vault (via KeeShepherd)"
+                }
             ]
         },
         "commands": [
@@ -198,6 +204,18 @@
             {
                 "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
                 "title": "Create from Clipboard..."
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
+                "title": "Copy Value to Clipboard"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
+                "title": "Refresh",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
             }
         ],
         "submenus": [
@@ -316,6 +334,14 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
                     "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
+                    "when": "never"
                 }
             ],
 
@@ -368,6 +394,11 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.refresh",
                     "when": "view == kee-shepherd-tree-view",
+                    "group": "navigation"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
+                    "when": "view == kee-shepherd-key-vault-tree-view",
                     "group": "navigation"
                 }
             ],
@@ -448,6 +479,10 @@
                     "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local",
                     "group": "kee-shepherd-vscode.view-context-group@4"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
                 }
             ]
         },

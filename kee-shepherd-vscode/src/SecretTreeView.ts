@@ -8,7 +8,7 @@ import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName, EnvVa
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeeShepherdBase } from './KeeShepherdBase';
 
-export enum NodeTypeEnum {
+export enum KeeShepherdNodeTypeEnum {
     Machine = 1,
     Folder,
     File,
@@ -19,7 +19,7 @@ export enum NodeTypeEnum {
 
 export type KeeShepherdTreeItem = vscode.TreeItem & {
     
-    nodeType: NodeTypeEnum,
+    nodeType: KeeShepherdNodeTypeEnum,
     isLocal: boolean,
     filePath?: string,
     machineName?: string,
@@ -47,7 +47,10 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
         const node = this._secretNodes[filePath + secretName];
         if (!!node) {
 
-            node.iconPath = path.join(this._resourcesFolder, !!stashed ? 'secret-stashed.svg' : 'secret-unstashed.svg');
+            node.iconPath = {
+                light: path.join(this._resourcesFolder, 'light', !!stashed ? 'secret-stashed.svg' : 'secret-unstashed.svg'),
+                dark: path.join(this._resourcesFolder, 'dark', !!stashed ? 'secret-stashed.svg' : 'secret-unstashed.svg')
+            };
 
             this._onDidChangeTreeData.fire(node);
         }
@@ -75,11 +78,11 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         
                         const isLocal = machineName.toLowerCase() === os.hostname().toLowerCase();
         
-                        const collapsibleState = isLocal ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed
+                        const collapsibleState = isLocal ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
         
                         const node = {
                             label: machineName,
-                            nodeType: NodeTypeEnum.Machine,
+                            nodeType: KeeShepherdNodeTypeEnum.Machine,
                             collapsibleState,
                             isLocal,
                             contextValue: !!isLocal ? 'tree-machine-local' : 'tree-machine',
@@ -88,7 +91,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                                 light: path.join(this._resourcesFolder, 'light', 'machine.svg'),
                                 dark: path.join(this._resourcesFolder, 'dark', 'machine.svg')
                             }
-                        }
+                        };
 
                         // Sorting by name on the fly, but placing local machine on top
                         const index = result.findIndex(n =>
@@ -99,7 +102,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                     }
                 }
                 break;
-                case NodeTypeEnum.Machine: {
+                case KeeShepherdNodeTypeEnum.Machine: {
 
                     const workspaceFolders = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders?.map(f => f.uri.toString()) : [];
                     const machineName = parent.label as string;
@@ -108,7 +111,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                     for (const folderUri of folderUris) {
                         
-                        var nodeType = NodeTypeEnum.Folder;
+                        var nodeType = KeeShepherdNodeTypeEnum.Folder;
                         var icon = 'folder.svg';
                         var contextValue = 'tree-folder';
 
@@ -117,7 +120,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         if (folderUri === EnvVariableSpecialPath) {
 
                             label = 'Environment Variables';
-                            nodeType = NodeTypeEnum.EnvVariables;
+                            nodeType = KeeShepherdNodeTypeEnum.EnvVariables;
                             icon = 'env-var.svg';
                             contextValue = 'tree-env-variables';
                             
@@ -140,12 +143,12 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                                 light: path.join(this._resourcesFolder, 'light', icon),
                                 dark: path.join(this._resourcesFolder, 'dark', icon)
                             }
-                        }
+                        };
 
                         // Sorting by name on the fly, but keeping Env Variables node on top
                         const index = result.findIndex(n =>
-                            (n.nodeType != NodeTypeEnum.EnvVariables && n.label! > node.label) ||
-                            node.nodeType == NodeTypeEnum.EnvVariables);
+                            (n.nodeType !== KeeShepherdNodeTypeEnum.EnvVariables && n.label! > node.label) ||
+                            node.nodeType === KeeShepherdNodeTypeEnum.EnvVariables);
 
                         result.splice(index < 0 ? result.length : index, 0, node);
                     }
@@ -155,7 +158,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         // Some initial nodes for a quick start
                         result.push({
                             label: 'Register Secret as an Environment Variable...',
-                            nodeType: NodeTypeEnum.InitialCommand,
+                            nodeType: KeeShepherdNodeTypeEnum.InitialCommand,
                             isLocal: true,
                             command: {
                                 title: 'Register Secret as an Environment Variable...',
@@ -167,7 +170,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         result.push({
                             label: 'Insert a Supervised Secret...',
                             tooltip: 'Insert a Supervised Secret at current cursor position in the text editor',
-                            nodeType: NodeTypeEnum.InitialCommand,
+                            nodeType: KeeShepherdNodeTypeEnum.InitialCommand,
                             isLocal: true,
                             command: {
                                 title: 'Insert a Supervised Secret...',
@@ -179,7 +182,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         result.push({
                             label: 'Insert a Managed Secret...',
                             tooltip: 'Insert a Managed Secret at current cursor position in the text editor',
-                            nodeType: NodeTypeEnum.InitialCommand,
+                            nodeType: KeeShepherdNodeTypeEnum.InitialCommand,
                             isLocal: true,
                             command: {
                                 title: 'Insert a Managed Secret...',
@@ -190,7 +193,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                     }
                 }
                 break;
-                case NodeTypeEnum.Folder: {
+                case KeeShepherdNodeTypeEnum.Folder: {
 
                     const folderUri = parent.folderUri!;
                     const secrets = await this._getRepo().getSecrets(folderUri, false, parent.machineName);
@@ -212,7 +215,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             label: filePaths[filePath],
                             filePath,
                             machineName: parent.machineName,
-                            nodeType: NodeTypeEnum.File,
+                            nodeType: KeeShepherdNodeTypeEnum.File,
                             collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
                             isLocal: parent.isLocal,
                             contextValue: !!parent.isLocal ? 'tree-file-local' : 'tree-file',
@@ -228,7 +231,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                     }
                 }
                 break;
-                case NodeTypeEnum.File: {
+                case KeeShepherdNodeTypeEnum.File: {
 
                     // Obtaining the file text in parallel
                     const fileTextPromise = !parent.isLocal ?
@@ -279,14 +282,17 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             label: secret.name,
                             description,
                             tooltip,
-                            nodeType: NodeTypeEnum.Secret,
+                            nodeType: KeeShepherdNodeTypeEnum.Secret,
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
                             secret,
                             command,
                             isLocal: parent.isLocal,
                             contextValue: !!parent.isLocal ? 'tree-secret-local' : 'tree-secret',
-                            iconPath: path.join(this._resourcesFolder, icon)
-                        }
+                            iconPath: {
+                                light: path.join(this._resourcesFolder, 'light', icon),
+                                dark: path.join(this._resourcesFolder, 'dark', icon)
+                            }
+                        };
 
                         if (!!parent.isLocal) {
 
@@ -300,7 +306,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                     }
                 }
                 break;
-                case NodeTypeEnum.EnvVariables: {
+                case KeeShepherdNodeTypeEnum.EnvVariables: {
 
                     const secrets = await this._getRepo().getSecrets(EnvVariableSpecialPath, true, parent.machineName);
 
@@ -327,13 +333,16 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             label: secret.name,
                             description,
                             tooltip,
-                            nodeType: NodeTypeEnum.Secret,
+                            nodeType: KeeShepherdNodeTypeEnum.Secret,
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
                             secret,
                             isLocal: parent.isLocal,
                             contextValue: parent.isLocal ? 'tree-env-variable-local' : 'tree-env-variable',
-                            iconPath: path.join(this._resourcesFolder, icon)
-                        }
+                            iconPath: {
+                                light: path.join(this._resourcesFolder, 'light', icon),
+                                dark: path.join(this._resourcesFolder, 'dark', icon),
+                            }
+                        };
 
                         // Sorting by name on the fly
                         const index = result.findIndex(n => n.label! > node.label);
@@ -350,7 +359,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
         return result;
     }
 
-    private _secretNodes: { [id: string]: { iconPath: string } } = {};
+    private _secretNodes: { [id: string]: { iconPath: { light: string, dark: string } } } = {};
 
     private async areEnvVariablesSet(names: string[]): Promise<{ [n: string]: boolean }> {
 

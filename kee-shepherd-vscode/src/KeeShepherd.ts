@@ -11,7 +11,8 @@ import { KeyMapRepo } from './KeyMapRepo';
 import { KeeShepherdBase } from './KeeShepherdBase';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { KeyMetadataTableRepo } from './KeyMetadataTableRepo';
-import { SecretTreeView, KeeShepherdTreeItem, NodeTypeEnum } from './SecretTreeView';
+import { SecretTreeView, KeeShepherdTreeItem, KeeShepherdNodeTypeEnum } from './SecretTreeView';
+import { KeyVaultNodeTypeEnum, KeyVaultTreeItem, KeyVaultTreeView } from './KeyVaultTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
@@ -22,13 +23,28 @@ const SettingNames = {
     ResourceGroupName: 'KeeShepherdTableStorageResourceGroupName',
     StorageAccountName: 'KeeShepherdTableStorageAccountName',
     TableName: 'KeeShepherdTableName'
-}
+};
 
 // Main functionality lies here
 export class KeeShepherd extends KeeShepherdBase {
 
-    private constructor(private _context: vscode.ExtensionContext, private _account: AzureAccountWrapper, repo: IKeyMetadataRepo, mapRepo: KeyMapRepo, resourcesFolder: string, protected log: (s: string, withEof: boolean, withTimestamp: boolean) => void) {
-        super(new SecretValuesProvider(_account), repo, mapRepo, new SecretTreeView(() => this._repo, resourcesFolder, log), log);
+    private constructor (
+        private _context: vscode.ExtensionContext,
+        private _account: AzureAccountWrapper,
+        repo: IKeyMetadataRepo,
+        mapRepo: KeyMapRepo,
+        resourcesFolder: string,
+        protected log: (s: string, withEof: boolean, withTimestamp: boolean) => void
+    ) {
+
+        super (
+            new SecretValuesProvider(_account),
+            repo,
+            mapRepo,
+            new SecretTreeView(() => this._repo, resourcesFolder, log),
+            new KeyVaultTreeView(_account, resourcesFolder, log),
+            log
+        );
     }
 
     static async create(context: vscode.ExtensionContext): Promise<KeeShepherd> {
@@ -94,7 +110,8 @@ export class KeeShepherd extends KeeShepherdBase {
 
         return new KeeShepherd(
             context,
-            account, metadataRepo,
+            account,
+            metadataRepo,
             await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
             resourcesFolderPath,
             log
@@ -121,12 +138,12 @@ export class KeeShepherd extends KeeShepherdBase {
             var secrets: ControlledSecret[] = [];
             var filePath = '';
 
-            if (treeItem.nodeType === NodeTypeEnum.File && !!treeItem.isLocal && !!treeItem.filePath) {
+            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.File && !!treeItem.isLocal && !!treeItem.filePath) {
                 
                 filePath = treeItem.filePath;
                 secrets = await this._repo.getSecrets(filePath, true);
 
-            } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.command) {
+            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.command) {
                 
                 secrets = treeItem.command.arguments;
                 filePath = secrets[0].filePath;
@@ -156,7 +173,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if (treeItem.nodeType !== NodeTypeEnum.Machine) {
+            if (treeItem.nodeType !== KeeShepherdNodeTypeEnum.Machine) {
                 return;
             }
 
@@ -465,7 +482,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if ((treeItem.nodeType !== NodeTypeEnum.Folder ) || !treeItem.isLocal || !treeItem.folderUri) {
+            if ((treeItem.nodeType !== KeeShepherdNodeTypeEnum.Folder ) || !treeItem.isLocal || !treeItem.folderUri) {
                 return;
             }
 
@@ -739,11 +756,11 @@ export class KeeShepherd extends KeeShepherdBase {
 
             var secretNames: string[] = [];
 
-            if (treeItem.nodeType === NodeTypeEnum.EnvVariables) {
+            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
 
                 secretNames = (await this._repo.getSecrets(EnvVariableSpecialPath, true)).map(s => s.name);
                 
-            } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && treeItem.contextValue?.startsWith('tree-env-variable')) {
+            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && treeItem.contextValue?.startsWith('tree-env-variable')) {
                 
                 secretNames = [treeItem.label as string];
 
@@ -831,11 +848,11 @@ export class KeeShepherd extends KeeShepherdBase {
 
             var secrets: ControlledSecret[];
 
-            if (treeItem.nodeType === NodeTypeEnum.EnvVariables) {
+            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
 
                 secrets = (await this._repo.getSecrets(EnvVariableSpecialPath, true));
                 
-            } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
+            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
                 
                 secrets = [treeItem.secret];
 
@@ -869,11 +886,11 @@ export class KeeShepherd extends KeeShepherdBase {
 
             var secrets: ControlledSecret[];
 
-            if (treeItem.nodeType === NodeTypeEnum.EnvVariables) {
+            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
 
                 secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
                 
-            } else if (treeItem.nodeType === NodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
+            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
                 
                 secrets = [treeItem.secret];
 
@@ -893,7 +910,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if (treeItem.nodeType !== NodeTypeEnum.EnvVariables || !!treeItem.isLocal) {
+            if (treeItem.nodeType !== KeeShepherdNodeTypeEnum.EnvVariables || !!treeItem.isLocal) {
                 return;
             }
 
@@ -908,6 +925,26 @@ export class KeeShepherd extends KeeShepherdBase {
             this.treeView.refresh();
 
         }, 'KeeShepherd failed to register secrets as environment variables');
+    }
+
+    async copyKeyVaultSecretValue(treeItem: KeyVaultTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.keyVaultName) {
+                return;
+            }
+
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+            const secret = await keyVaultClient.getSecret(treeItem.label as string);
+
+            vscode.env.clipboard.writeText(secret.value as string);
+
+            vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
+
+        }, 'KeeShepherd failed to copy secret value');
     }
 
     private async addKeyVaultSecret(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
