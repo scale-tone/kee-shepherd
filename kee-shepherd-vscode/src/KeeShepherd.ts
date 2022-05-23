@@ -931,7 +931,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.keyVaultName) {
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
                 return;
             }
 
@@ -1044,6 +1044,77 @@ export class KeeShepherd extends KeeShepherdBase {
             vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.label} was removed from Key Vault`);
 
         }, 'KeeShepherd failed to remove secret from Key Vault');
+    }
+
+    async insertKeyVaultSecretAsManaged(treeItem: KeyVaultTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+                return;
+            }
+
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !editor.document || editor.document.uri.scheme === 'output') {
+                throw new Error(`Input cursor is not on an editable text file`);
+            }
+
+            if (!!editor.document.isUntitled) {
+                throw new Error('Cannot put secrets to untitled documents');
+            }
+
+            const currentFile = editor.document.uri.toString();
+            if (!currentFile) {
+                return;
+            }
+
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+            const secret = await keyVaultClient.getSecret(treeItem.label as string);
+
+            // Pasting secret value at current cursor position
+            var success = await editor.edit(edit => {
+                edit.replace(editor.selection, secret.value!);
+            });
+
+            if (!success) {
+                return;
+            }
+
+            // Adding metadata to the repo
+            const secretHash = this._repo.calculateHash(secret.value!);
+
+            await this._repo.addSecret({
+                name: secret.name,
+                type: SecretTypeEnum.AzureKeyVault,
+                controlType: ControlTypeEnum.Managed,
+                filePath: currentFile,
+                hash: secretHash,
+                length: secret.value!.length,
+                timestamp: new Date(),
+                properties: {
+                    subscriptionId: treeItem.subscriptionId,
+                    keyVaultName: treeItem.keyVaultName,
+                    keyVaultSecretName: secret.name
+                }
+            });
+    
+            // Also updating secret map for this file
+            await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
+
+            // Immediately masking secrets in this file
+            await this.internalMaskSecrets(editor, await this._mapRepo.getSecretMapForFile(currentFile));
+
+            await editor.document.save();
+            this.treeView.refresh();
+
+            // Also updating git hooks for this file, since it is a Managed secret
+            await updateGitHooksForFile(editor.document.uri, true, true);
+
+            vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was added successfully.`);
+
+        }, 'KeeShepherd failed');
     }
 
     private async addKeyVaultSecret(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
