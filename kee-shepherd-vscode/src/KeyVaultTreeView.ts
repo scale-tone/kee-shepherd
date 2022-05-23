@@ -5,18 +5,20 @@ import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
+import { timestampToString } from './helpers';
 
 export enum KeyVaultNodeTypeEnum {
     Subscription = 1,
     KeyVault,
     Secret,
+    ErrorNode
 }
 
 export type KeyVaultTreeItem = vscode.TreeItem & {
     
     nodeType: KeyVaultNodeTypeEnum,
     credentials?: DeviceTokenCredentials,
-    subscriptionId: string,
+    subscriptionId?: string,
     keyVaultName?: string
 };
 
@@ -58,6 +60,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                             nodeType: KeyVaultNodeTypeEnum.Subscription,
                             credentials: subscription.session.credentials2,
                             subscriptionId: subscription.subscription.subscriptionId,
+                            tooltip: subscription.subscription.subscriptionId,
                             collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
                             iconPath: path.join(this._resourcesFolder, 'azureSubscription.svg')
                         };
@@ -73,7 +76,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                     const resourceGraphClient = new ResourceGraphClient(parent.credentials!);
     
                     const response = await resourceGraphClient.resources({
-                        subscriptions: [parent.subscriptionId],
+                        subscriptions: [parent.subscriptionId as string],
                         query: 'resources | where type == "microsoft.keyvault/vaults"'
                     });
 
@@ -83,6 +86,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                             
                             const node = {
                                 label: vault.name,
+                                tooltip: !!vault.resourceGroup ? `resource group: ${vault.resourceGroup}` : ``,
                                 keyVaultName: vault.name,
                                 nodeType: KeyVaultNodeTypeEnum.KeyVault,
                                 contextValue: 'key-vault',
@@ -103,28 +107,39 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                 break;
                 case KeyVaultNodeTypeEnum.KeyVault: {
 
-                    const secretProvider = new KeyVaultSecretValueProvider(this._account);
-                    const secretNames = await secretProvider.getSecretNames(parent.subscriptionId, parent.label as string);
+                    try {
+                     
+                        const secretProvider = new KeyVaultSecretValueProvider(this._account);
+                        const secrets = await secretProvider.getSecretProps(parent.subscriptionId as string, parent.label as string);
+    
+                        for (const secret of secrets) {
+                            
+                            const node = {
+                                label: secret.name,
+                                tooltip: timestampToString(secret.createdOn as Date),
+                                nodeType: KeyVaultNodeTypeEnum.Secret,
+                                contextValue: 'key-vault-secret',
+                                subscriptionId: parent.subscriptionId,
+                                keyVaultName: parent.keyVaultName,
+                                collapsibleState: vscode.TreeItemCollapsibleState.None,
+    
+                                iconPath: {
+                                    light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
+                                    dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                                }
+                            };
+    
+                            // Sorting by name on the fly
+                            const index = result.findIndex(n => n.label! > node.label);
+                            result.splice(index < 0 ? result.length : index, 0, node);    
+                        }                            
 
-                    for (const secretName of secretNames) {
-                        
-                        const node = {
-                            label: secretName,
-                            nodeType: KeyVaultNodeTypeEnum.Secret,
-                            contextValue: 'key-vault-secret',
-                            subscriptionId: parent.subscriptionId,
-                            keyVaultName: parent.keyVaultName,
-                            collapsibleState: vscode.TreeItemCollapsibleState.None,
+                    } catch (err) {
 
-                            iconPath: {
-                                light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
-                                dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
-                            }
-                        };
-
-                        // Sorting by name on the fly
-                        const index = result.findIndex(n => n.label! > node.label);
-                        result.splice(index < 0 ? result.length : index, 0, node);    
+                        result.push({
+                            label: `Failed to load secrets. ${(err as any).message ?? err}`,
+                            nodeType: KeyVaultNodeTypeEnum.ErrorNode,
+                        });
                     }
                 }
                 break;

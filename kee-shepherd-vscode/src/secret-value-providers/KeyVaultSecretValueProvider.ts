@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SecretClient } from "@azure/keyvault-secrets";
+import { SecretClient, SecretProperties } from "@azure/keyvault-secrets";
 
 import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
@@ -75,16 +75,16 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         };
     }
 
-    async getSecretNames(subscriptionId: string, keyVaultName: string): Promise<string[]> {
+    async getSecretProps(subscriptionId: string, keyVaultName: string): Promise<SecretProperties[]> {
 
         const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
         
-        const secretNames = [];
+        const result = [];
         for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
-            secretNames.push(secretProps.name);
+            result.push(secretProps);
         }
 
-        return secretNames;
+        return result;
     }
 
     static pickUpKeyVault(subscription: AzureSubscription): Promise<string> {

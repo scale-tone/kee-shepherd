@@ -7,6 +7,7 @@ import { exec } from 'child_process';
 import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName, EnvVariableSpecialPath } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeeShepherdBase } from './KeeShepherdBase';
+import { timestampToString } from './helpers';
 
 export enum KeeShepherdNodeTypeEnum {
     Machine = 1,
@@ -252,7 +253,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         } : undefined;
 
                         var icon = 'secret.svg';
-                        var tooltip = this.timestampToString(secret.timestamp);
+                        var tooltip = timestampToString(secret.timestamp);
 
                         if (secret.controlType === ControlTypeEnum.Supervised) {
                             
@@ -317,7 +318,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                         const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
         
                         var icon = 'secret.svg';
-                        var tooltip = this.timestampToString(secret.timestamp);
+                        var tooltip = timestampToString(secret.timestamp);
 
                         if (!existingEnvVars[secret.name]) {
                             
@@ -410,56 +411,5 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
         }
 
         return result;
-    }
-
-    private timestampToString(ts: Date): string {
-
-        try {
-
-            const milliseconds = (new Date().getTime() - ts.getTime());
-            if (milliseconds <= 0) {
-                return '';
-            }
-    
-            const days = Math.floor(milliseconds / 86400000);
-
-            if (days <= 0) {
-                return 'created today';
-            }
-
-            const years = Math.floor(days / 365);
-
-            if (years > 1) {
-                
-                return `created ${years} years ago`;
-
-            } else if (years === 1) {
-                
-                return `created 1 year ago`;
-            }
-
-            const months = Math.floor(days / 30);
-
-            if (months > 1) {
-                
-                return `created ${months} months ago`;
-
-            } else if (months === 1) {
-                
-                return `created 1 month ago`;
-            }
-
-            if (days === 1) {
-                
-                return `created 1 day ago`;
-
-            } else {
-
-                return `created ${days} days ago`;
-            }
-
-        } catch {
-            return '';
-        }
     }
 }
