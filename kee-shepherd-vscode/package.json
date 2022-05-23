@@ -513,19 +513,23 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
-                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret",
+                    "group": "kee-shepherd-vscode.view-context-group@1"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretUri",
-                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
-                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret",
+                    "group": "kee-shepherd-vscode.view-context-group@2"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.insertKeyVaultSecretAsManaged",
-                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret",
+                    "group": "kee-shepherd-vscode.view-context-group@3"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret",
+                    "group": "kee-shepherd-vscode.view-context-group@4"
                 }
             ]
         },
