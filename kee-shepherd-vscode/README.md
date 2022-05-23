@@ -1,6 +1,8 @@
 # KeeShepherd
 
-Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es). Gives you centralized access to them. Also hides (masks) them whenever possible.
+Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es). Gives you centralized access to them. Hides (masks) them whenever possible.
+
+Now also omes with a simple UI for Azure Key Vault secrets.
 
 <img src="https://user-images.githubusercontent.com/5447190/142853710-85ef42f6-2e30-46f2-a1ed-7f56fde13ccb.png" width="900">
 
@@ -97,6 +99,18 @@ You can always change the storage type later on with `Switch to Another Metadata
 You can see, navigate to and manage all your secrets via `SECRETS` view that appears on the `EXPLORER` tab:
 
 <img src="https://user-images.githubusercontent.com/5447190/142772847-a38158cc-01d0-4d44-9961-5199c2736d7d.png" width="400">
+
+
+### View, get, create, delete and use Azure Key Vault secrets
+
+Once signed in into Azure, a `KEY VAULT (VIA KEESHEPHERD)` view should appear on the `AZURE` tab:
+
+![image](https://user-images.githubusercontent.com/5447190/169872192-67d368a6-1a7b-4afd-a5e8-086253008f79.png)
+
+, which shows all accessible secrets in all accessible Key Vaults in all visible subscriptions. 
+
+You can add and remove ("soft-delete") secrets, and for each secret you can get its value or insert it as **Managed** to the current text cursor position.
+
 
 ## Requirements
 
