@@ -1,5 +1,18 @@
 # Change Log
 
+## Version 1.4
+
+- Implemented a UI for Azure Key Vault secrets:
+
+    ![image](https://user-images.githubusercontent.com/5447190/169872192-67d368a6-1a7b-4afd-a5e8-086253008f79.png)
+
+    Once signed in into Azure, a `KEY VAULT (VIA KEESHEPHERD)` view should appear on the `AZURE` tab. It shows all accessible secrets in all accessible Key Vaults in all visible subscription. 
+    
+    You can add and remove ("soft-delete") secrets, and for each secret you can get its value or insert it as **Managed** to the current text cursor position.
+    
+- Other UI improvements
+- Minor bugfixes.
+
 ## Version 1.3
 
 - `Create from Clipboard` feature for environment variables:
