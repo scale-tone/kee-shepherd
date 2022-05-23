@@ -101,7 +101,7 @@ You can see, navigate to and manage all your secrets via `SECRETS` view that app
 <img src="https://user-images.githubusercontent.com/5447190/142772847-a38158cc-01d0-4d44-9961-5199c2736d7d.png" width="400">
 
 
-### View, get, create, delete and use Azure Key Vault secrets
+### View, create, remove and use Azure Key Vault secrets
 
 Once signed in into Azure, a `KEY VAULT (VIA KEESHEPHERD)` view should appear on the `AZURE` tab:
 
