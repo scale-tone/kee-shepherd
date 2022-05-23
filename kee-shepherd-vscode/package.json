@@ -210,6 +210,10 @@
                 "title": "Copy Value to Clipboard"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretUri",
+                "title": "Copy URI to Clipboard"
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
                 "title": "Remove from Key Vault"
             },
@@ -345,6 +349,10 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretUri",
                     "when": "never"
                 },
                 {
@@ -498,6 +506,10 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretUri",
                     "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret"
                 },
                 {

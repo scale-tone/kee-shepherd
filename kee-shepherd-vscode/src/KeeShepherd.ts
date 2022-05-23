@@ -927,7 +927,7 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to register secrets as environment variables');
     }
 
-    async copyKeyVaultSecretValue(treeItem: KeyVaultTreeItem): Promise<void> {
+    async copyKeyVaultSecretValueOrUri(treeItem: KeyVaultTreeItem, copyUri: boolean): Promise<void> {
 
         await this.doAndShowError(async () => {
 
@@ -940,9 +940,9 @@ export class KeeShepherd extends KeeShepherdBase {
 
             const secret = await keyVaultClient.getSecret(treeItem.label as string);
 
-            vscode.env.clipboard.writeText(secret.value as string);
+            vscode.env.clipboard.writeText(copyUri ? `${secret.properties.vaultUrl}/secrets/${secret.name}` : secret.value as string);
 
-            vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
+            vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${secret.name} was copied to Clipboard`);
 
         }, 'KeeShepherd failed to copy secret value');
     }
