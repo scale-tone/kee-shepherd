@@ -1,8 +1,8 @@
 {
     "name": "kee-shepherd-vscode",
     "displayName": "KeeShepherd",
-    "description": "Keeps an eye on credentials, that are spread across numerous config files on your devboxes",
-    "version": "1.3.0",
+    "description": "Keeps an eye on credentials, that are spread across numerous config files on your devboxes. Also comes with UI for Azure Key Vault secrets.",
+    "version": "1.4.0",
     "engines": {
         "vscode": "^1.62.0"
     },
