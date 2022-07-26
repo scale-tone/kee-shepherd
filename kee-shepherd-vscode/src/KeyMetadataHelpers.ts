@@ -28,7 +28,8 @@ export enum SecretTypeEnum {
     AzureEventGrid,
     AzureMaps,
     AzureCognitiveServices,
-    AzureSearch
+    AzureSearch,
+    AzureSignalR
 }
 
 export enum ControlTypeEnum {

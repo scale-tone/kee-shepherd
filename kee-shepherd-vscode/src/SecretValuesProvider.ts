@@ -15,6 +15,7 @@ import { EventGridSecretValueProvider } from './secret-value-providers/EventGrid
 import { AzureMapsSecretValueProvider } from './secret-value-providers/AzureMapsSecretValueProvider';
 import { AzureCognitiveServicesSecretValueProvider } from './secret-value-providers/AzureCognitiveServicesSecretValueProvider';
 import { AzureSearchSecretValueProvider } from './secret-value-providers/AzureSearchSecretValueProvider';
+import { AzureSignalRSecretValueProvider } from './secret-value-providers/AzureSignalRSecretValueProvider';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
@@ -34,6 +35,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureMaps] = new AzureMapsSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureCognitiveServices] = new AzureCognitiveServicesSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureSearch] = new AzureSearchSecretValueProvider(this._account);
+        this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(this._account);
     }
 
@@ -58,6 +60,7 @@ export class SecretValuesProvider {
                 { label: 'Azure Maps', type: SecretTypeEnum.AzureMaps },
                 { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
                 { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
+                { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
                 { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
             ], 
             { title: 'Select where to take the secret from' }
