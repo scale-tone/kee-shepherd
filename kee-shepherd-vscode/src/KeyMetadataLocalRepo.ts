@@ -112,9 +112,9 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
         // Allowing secrets with same name and hash, but disallowing secrets with same name and different hash
         const secretsWithSameName = this._secrets.filter(s => s.filePath === secret.filePath && s.name === secret.name);
-        if (!!secretsWithSameName.find(s => s.hash != secret.hash)) {
+        if (!!secretsWithSameName.find(s => s.hash !== secret.hash)) {
             
-            throw new Error('A secret with same name but different hash already exists in this file');
+            throw new Error('A secret with same name but different hash already exists');
         }
 
         const secretFilePath = getFullPathThatFits(this._storageFolder,

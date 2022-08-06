@@ -191,7 +191,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
             if (existingHash !== secret.hash) {
                 
-                throw new Error('A secret with same name but different hash already exists in this file');
+                throw new Error('A secret with same name but different hash already exists');
             }
             
         } catch (err) {
