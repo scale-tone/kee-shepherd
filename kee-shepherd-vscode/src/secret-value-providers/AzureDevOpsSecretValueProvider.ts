@@ -175,11 +175,15 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
         let keyVaultClient;
         let keyVaultName;
-        if (controlType === ControlTypeEnum.Managed || ControlTypeEnum.EnvVariable) {
+        if (controlType === ControlTypeEnum.Managed || controlType === ControlTypeEnum.EnvVariable) {
             
             // Need to immediately put managed PATs to KeyVault, because there's no way to retrieve a PAT after it was created.
             // So asking user for a KeyVault name.
             keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+
+            if (!keyVaultName) {
+                return;
+            }
 
             const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
             keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
