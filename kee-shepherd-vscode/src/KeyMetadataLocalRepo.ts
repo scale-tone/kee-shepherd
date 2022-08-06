@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as Crypto from 'crypto';
-import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, EnvVariableSpecialPath, ControlTypeEnum } from './KeyMetadataHelpers';
+import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, EnvVariableSpecialPath, ControlTypeEnum, SecretNameConflictError } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 
 // Stores secret metadata locally in JSON files
@@ -114,7 +114,7 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         const secretsWithSameName = this._secrets.filter(s => s.filePath === secret.filePath && s.name === secret.name);
         if (!!secretsWithSameName.find(s => s.hash !== secret.hash)) {
             
-            throw new Error('A secret with same name but different hash already exists');
+            throw new SecretNameConflictError('A secret with same name but different hash already exists');
         }
 
         const secretFilePath = getFullPathThatFits(this._storageFolder,

@@ -51,6 +51,14 @@ export type ControlledSecret = {
     properties?: any;
 };
 
+export class SecretNameConflictError extends Error {
+
+    constructor(message: string) {
+        super(message);
+        Object.setPrototypeOf(this, SecretNameConflictError.prototype);
+    }
+}
+
 export const MinSecretLength = 5;
 
 export function getSha256Hash(str: string): string {

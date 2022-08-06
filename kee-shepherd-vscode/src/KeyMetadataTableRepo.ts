@@ -4,13 +4,13 @@ import * as Crypto from 'crypto';
 
 import { TableServiceClient, TableClient, TableEntity } from '@azure/data-tables';
 
-import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength, EnvVariableSpecialPath } from './KeyMetadataHelpers';
+import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength, EnvVariableSpecialPath, SecretNameConflictError } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
 
-const SaltKey = '|KeeShepherdSalt|'
+const SaltKey = '|KeeShepherdSalt|';
 
 // Stores secret metadata in an Azure Table
 export class KeyMetadataTableRepo implements IKeyMetadataRepo {
@@ -191,7 +191,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
             if (existingHash !== secret.hash) {
                 
-                throw new Error('A secret with same name but different hash already exists');
+                throw new SecretNameConflictError('A secret with same name but different hash already exists');
             }
             
         } catch (err) {
@@ -308,6 +308,6 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             hash: entity.hash as string,
             length: entity.length as number,
             properties: !!entity.properties ? JSON.parse(entity.properties as string) : undefined
-        }
+        };
     }
 }

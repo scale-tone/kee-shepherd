@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { KeyVaultSecret, SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath, toDictionary } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath, toDictionary, SecretNameConflictError } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -649,7 +649,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            const localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
+            let localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
             if (!localSecretName) {
                 return;
             }
@@ -657,16 +657,37 @@ export class KeeShepherd extends KeeShepherdBase {
             // Adding metadata to the repo
             const secretHash = this._repo.calculateHash(secret.value);
 
-            await this._repo.addSecret({
-                name: localSecretName,
-                type: secret.type,
-                controlType,
-                filePath: currentFile,
-                hash: secretHash,
-                length: secret.value.length,
-                timestamp: new Date(),
-                properties: secret.properties
-            });
+            while (true) {
+
+                try {
+
+                    // Trying to add the secret
+                    await this._repo.addSecret({
+                        name: localSecretName,
+                        type: secret.type,
+                        controlType,
+                        filePath: currentFile,
+                        hash: secretHash,
+                        length: secret.value.length,
+                        timestamp: new Date(),
+                        properties: secret.properties
+                    });
+                    
+                    break;
+
+                } catch (err) {
+
+                    // This indicates that a secret with same name but different hash already exists
+                    if (err instanceof SecretNameConflictError) {
+
+                        // Demanding another name and trying again
+                        localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
+                        
+                    } else {
+                        throw err;
+                    }
+                }
+            }
     
             // Also updating secret map for this file
             await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
@@ -698,7 +719,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
             
-            const localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
+            let localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
             if (!localSecretName) {
                 return;
             }
@@ -706,16 +727,36 @@ export class KeeShepherd extends KeeShepherdBase {
             // Adding metadata to the repo
             const secretHash = this._repo.calculateHash(secret.value);
 
-            await this._repo.addSecret({
-                name: localSecretName,
-                type: secret.type,
-                controlType: ControlTypeEnum.EnvVariable,
-                filePath: '',
-                hash: secretHash,
-                length: secret.value.length,
-                timestamp: new Date(),
-                properties: secret.properties
-            });
+            while (true) {
+
+                try {
+
+                    await this._repo.addSecret({
+                        name: localSecretName,
+                        type: secret.type,
+                        controlType: ControlTypeEnum.EnvVariable,
+                        filePath: '',
+                        hash: secretHash,
+                        length: secret.value.length,
+                        timestamp: new Date(),
+                        properties: secret.properties
+                    });
+                 
+                    break;
+                    
+                } catch (err) {
+
+                    // This indicates that a secret with same name but different hash already exists
+                    if (err instanceof SecretNameConflictError) {
+
+                        // Demanding another name and trying again
+                        localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
+                        
+                    } else {
+                        throw err;
+                    }
+                }
+            }
     
             this.treeView.refresh();
 

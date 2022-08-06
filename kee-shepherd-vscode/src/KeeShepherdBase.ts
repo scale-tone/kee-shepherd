@@ -128,14 +128,57 @@ export abstract class KeeShepherdBase {
 
         const secretName = await vscode.window.showInputBox({
             value: defaultSecretName ?? `${vscode.workspace.name}-secret${new Date().getMilliseconds()}`,
-            prompt: 'Give your secret a name'
+            prompt: 'Give your secret a name',
+
+            validateInput: (n: string) => {
+
+                if (!n) {
+                    return 'Provide a non-empty secret name';
+                }
+
+                if (n.startsWith(AnchorPrefix)) {
+                    return `Secret name should not start with ${AnchorPrefix}`;
+                }
+
+                return null;
+            }
         });
 
-        if (!!secretName && secretName.startsWith(AnchorPrefix)) {
-            throw new Error(`Secret name should not start with ${AnchorPrefix}`);
-        }
-
         return secretName;
+    }
+
+    protected async askUserForDifferentNonEmptySecretName(defaultSecretName: string): Promise<string> {
+
+        while (true) {
+
+            const secretName = await vscode.window.showInputBox({
+                value: defaultSecretName,
+                prompt: `Secret named ${defaultSecretName} already exists. Provide a different name.`,
+    
+                ignoreFocusOut: true,
+                validateInput: (n: string) => {
+    
+                    if (!n) {
+                        return 'Provide a non-empty secret name';
+                    }
+    
+                    if (n.startsWith(AnchorPrefix)) {
+                        return `Secret name should not start with ${AnchorPrefix}`;
+                    }
+    
+                    if (n === defaultSecretName) {
+                        return 'Secret with that name already exists. Provide a different name.';
+                    }
+    
+                    return null;
+                }
+            });
+
+            if (!!secretName) {
+                
+                return secretName;
+            }                
+        }
     }
     
     protected async getSecretValuesAndCheckHashes(secrets: ControlledSecret[]): Promise<{ secret: ControlledSecret, value: string }[]> {
