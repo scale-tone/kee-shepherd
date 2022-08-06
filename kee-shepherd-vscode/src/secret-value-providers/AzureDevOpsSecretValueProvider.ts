@@ -39,24 +39,41 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
             { headers: { 'Authorization': `Bearer ${accessToken}` } });
 
         const accounts = accountsResponse?.data?.value as { accountId: string, accountName: string }[];
-        if (!accounts || accounts.length <= 0) {
+        if (!accounts || !accounts.length) {
             return;
         }
 
-        const selectedAccount = await vscode.window.showQuickPick(accounts.map(acc => {
-                return {
+        const allOrgsOption = { label: '[All organizations accessible by you]' };
+
+        const accountOptions = [
+            allOrgsOption,
+            ...accounts.map(acc => { return {
                     label: acc.accountName,
                     description: `(${acc.accountId})`
-                };
-            }),
+            }; })
+        ];
+
+        const selectedAccountOption = await vscode.window.showQuickPick(accountOptions,
             {
                 matchOnDescription: true,
                 matchOnDetail: true,
-                title: 'Select your Azure DevOps organization'
+                title: 'Select Azure DevOps organization to create PAT for'
             }
         );
 
-        const azDoOrg = selectedAccount?.label;
+        const allAzDoOrgs = selectedAccountOption === allOrgsOption;
+
+        let azDoOrg;
+        if (!!allAzDoOrgs) {
+
+            // Using the very first org name. Looks like it doesn't matter which one to use.
+            azDoOrg = accounts[0].accountName;
+            
+        } else {
+
+            azDoOrg = selectedAccountOption?.label;
+        }
+
         if (!azDoOrg) {
             return;
         }
@@ -70,7 +87,7 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
         const fullScopedOption = {
             label: 'Full access',
-            detail: 'A full-scoped token (might be forbidden in your org)',
+            detail: 'A full-scoped token (might be not allowed in your org)',
             description: '',
             alwaysShow: true
         };
@@ -178,7 +195,7 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
             displayName: secretName,
             scope: scopes,
             validTo: validTo.toISOString(),
-            allOrgs: false
+            allOrgs: allAzDoOrgs
         };
 
         const createTokenResponse = await axios.post(patsEndpointUri, requestBody,
@@ -232,7 +249,7 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
             const tokensBatch = getTokensResponse?.data?.patTokens as { displayName: string }[];
 
             if (!!tokensBatch && !!tokensBatch.length && tokensBatch.some(t => t.displayName.toLowerCase() === name.toLowerCase())) {
-                throw new Error(`An active Personal Access Token named '${name}' already exists in this Azure DevOps org. Select a different name.`);
+                throw new Error(`An active Personal Access Token named '${name}' already exists. Select a different name.`);
             }
 
             continuationToken = getTokensResponse?.data?.continuationToken;
