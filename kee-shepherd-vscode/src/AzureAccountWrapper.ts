@@ -4,10 +4,26 @@ import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { Environment } from "@azure/ms-rest-azure-env";
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
-import { TokenResponse } from "adal-node";
+import { PublicClientApplication } from "@azure/msal-node";
 
 // Full typings for this can be found here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
 export type AzureSubscription = { session: { credentials2: any }, subscription: { subscriptionId: string, displayName: string } };
+
+export interface TokenResponse {
+    tokenType: string;
+    expiresIn: number;
+    expiresOn: Date | string;
+    resource: string;
+    accessToken: string;
+    refreshToken?: string;
+}
+
+// Well-known resourceId (clientId) of Azure DevOps
+const azDoResourceId = '499b84ac-1321-427f-aa17-267ca6975798';
+
+// well-known ClientID of VsCode AAD app
+const vsCodeClientId = 'aebc6443-996d-45c2-90f0-388ff96faa56';
+
 
 class SequentialDeviceTokenCredentials extends DeviceTokenCredentials {
 
@@ -42,6 +58,13 @@ export class AzureAccountWrapper {
 
         // Typings for azureAccount are here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
         this._account = !!azureAccountExtension ? azureAccountExtension.exports : undefined;
+
+        // an instance of PublicClientApplication, for obtaining tokens via msal-node
+        this._msalApp = new PublicClientApplication({
+            auth: {
+                clientId: vsCodeClientId
+            }
+        });
     }
 
     async picUpStorageAccount(storageManagementClient: StorageManagementClient): Promise<StorageAccount | undefined> {
@@ -66,7 +89,7 @@ export class AzureAccountWrapper {
                     label: account.name!,
                     detail: `(${account.kind}, ${account.location})`,
                     account
-                }
+                };
             }), 
             { title: 'Select Storage Account' }
         );
@@ -81,7 +104,6 @@ export class AzureAccountWrapper {
     async pickUpSubscription(): Promise<AzureSubscription | undefined> {
         
         // Picking up a subscription
-
         const subscriptions = await this.getSubscriptions();
 
         if (subscriptions.length <= 0) {
@@ -151,7 +173,92 @@ export class AzureAccountWrapper {
         );
     }
 
+    // Uses vscode-azure-account extension and msal-node package to obtain an accessToken for AzDO resourceId
+    async getAzDoTokenViaMsal(subscriptionId: string) {
+
+        const subscription = (await this.getSubscriptions()).find(s => s.subscription.subscriptionId === subscriptionId);
+
+        if (!subscription) {
+            throw new Error(`Invalid subscriptionId '${subscriptionId}'`);
+        }
+
+        const cachedToken = this._azDoCachedTokens[subscriptionId];
+        if (!!cachedToken) {
+
+            const diff = (cachedToken.expiresOn.getTime() - new Date().getTime());
+            if (diff > 60000) {
+                
+                return cachedToken.accessToken;
+            }
+        }
+
+        const api = this._account.getApi('1.0.0');
+        const loginHelper = api.loginHelper;
+        
+        /* We're going to reuse vscode-azure-account's internal logic.
+        *  And even replace one of its internal methods with our own.
+        *  This is truly unsafe, but there seem to be no other options today.
+        *  All other ways of obtaining tokens via msal-node do not work.
+        *     When using ADAL, the token is produced with incorrect aud claim (not accepted by AzDO), and that logic takes effect on AAD side, so no way to fix that on the client. 
+        *     Using msalAuthProvider and calling its login() method results in a weird JSON deserialization exception (probably at token cache level).
+        *     Handcrafting login() method requires a lot of work (because internally it starts a local HTTP server even).
+        * 
+        *  LoginHelper object is defined here: https://github.com/microsoft/vscode-azure-account/blob/main/src/login/AzureAccountLoginHelper.ts
+        */
+
+        let authProvider = loginHelper.authProvider;
+        if (!authProvider || !authProvider.loginWithAuthCode) {
+            authProvider = loginHelper.msalAuthProvider;
+        }
+
+        const oldLoginWithAuthCode = (authProvider as any).loginWithAuthCode;
+        (authProvider as any).loginWithAuthCode = async (code: string, redirectUrl: string) => {
+
+            const tokenResult = await this._msalApp.acquireTokenByCode({
+                scopes: [azDoResourceId + '/user_impersonation'],
+                code,
+                redirectUri: redirectUrl
+            });
+
+            this._azDoCachedTokens[subscriptionId] = {
+                accessToken: tokenResult?.accessToken!,
+                expiresOn: tokenResult?.expiresOn!
+            };
+
+            return tokenResult?.accessToken;
+        };
+
+        try {
+
+            const tokenCredential = subscription.session.credentials2 as DeviceTokenCredentials;
+            const environment = tokenCredential.environment;
+            
+            const accessToken = await authProvider.login (
+                {},
+                vsCodeClientId,
+                environment,
+                false,
+                tokenCredential.domain,
+
+                (uri: string) => vscode.env.openExternal(vscode.Uri.parse(uri)),
+                () => Promise.resolve(),
+                {
+                    onCancellationRequested: () => {}
+                }
+            );
+    
+            return accessToken;
+
+        } finally {
+
+            (authProvider as any).loginWithAuthCode = oldLoginWithAuthCode;
+        }
+    }
+
     private readonly _account: any;
+    private readonly _msalApp: PublicClientApplication;
+
+    private readonly _azDoCachedTokens: { [s: string]: { accessToken : string, expiresOn: Date } } = {};
 
     private async checkSignIn(): Promise<void> {
 

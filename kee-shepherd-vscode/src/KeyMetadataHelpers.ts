@@ -29,7 +29,8 @@ export enum SecretTypeEnum {
     AzureMaps,
     AzureCognitiveServices,
     AzureSearch,
-    AzureSignalR
+    AzureSignalR,
+    AzureDevOpsPats
 }
 
 export enum ControlTypeEnum {

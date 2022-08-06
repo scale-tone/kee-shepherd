@@ -634,7 +634,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            const secret = await this._valuesProvider.pickUpSecret();
+            const secret = await this._valuesProvider.pickUpSecret(controlType);
 
             if (!secret) {
                 return;
@@ -649,7 +649,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            const localSecretName = await this.askUserForSecretName(secret.name);
+            const localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
             if (!localSecretName) {
                 return;
             }
@@ -692,13 +692,13 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            const secret = await this._valuesProvider.pickUpSecret();
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.EnvVariable);
 
             if (!secret) {
                 return;
             }
             
-            const localSecretName = await this.askUserForSecretName(secret.name);
+            const localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
             if (!localSecretName) {
                 return;
             }
@@ -972,28 +972,16 @@ export class KeeShepherd extends KeeShepherdBase {
             const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
             const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
 
-            let existingSecret = undefined;
-            try {
-
-                existingSecret = await keyVaultClient.getSecret(secretName);
-
-                const userResponse = await vscode.window.showWarningMessage(
-                    `A secret named ${secretName} already exists in this Key Vault. This operation will add a new version of that secret. Do you want to proceed?`,
-                    'Yes', 'No');
-       
-                if (userResponse !== 'Yes') {
-                    return;
-                }
-                
-            } catch (err) {
-                console.log(err);
+            const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
+            if (checkResult === 'not-ok-to-overwrite') {
+                return;
             }
-
+            
             await keyVaultClient.setSecret(secretName, secretValue);
 
             this.keyVaultTreeView.refresh();
 
-            if (!existingSecret) {
+            if (checkResult === 'does-not-exist') {
                 
                 this._log(`Created ${secretName} in ${treeItem.keyVaultName} Key Vault`, true, true);
                 vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`);

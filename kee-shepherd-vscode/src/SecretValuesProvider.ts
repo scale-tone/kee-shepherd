@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "./AzureAccountWrapper";
-import { AnchorPrefix, ControlledSecret, SecretTypeEnum } from "./KeyMetadataHelpers";
+import { AnchorPrefix, ControlledSecret, SecretTypeEnum, ControlTypeEnum } from "./KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from './secret-value-providers/ISecretValueProvider';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 import { StorageSecretValueProvider } from './secret-value-providers/StorageSecretValueProvider';
@@ -16,6 +16,7 @@ import { AzureMapsSecretValueProvider } from './secret-value-providers/AzureMaps
 import { AzureCognitiveServicesSecretValueProvider } from './secret-value-providers/AzureCognitiveServicesSecretValueProvider';
 import { AzureSearchSecretValueProvider } from './secret-value-providers/AzureSearchSecretValueProvider';
 import { AzureSignalRSecretValueProvider } from './secret-value-providers/AzureSignalRSecretValueProvider';
+import { AzureDevOpsSecretValueProvider } from './secret-value-providers/AzureDevOpsSecretValueProvider';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
@@ -37,6 +38,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureSearch] = new AzureSearchSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(this._account);
+        this._providers[SecretTypeEnum.AzureDevOpsPats] = new AzureDevOpsSecretValueProvider(this._account);
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
@@ -45,7 +47,7 @@ export class SecretValuesProvider {
         return !provider ? '' : provider.getSecretValue(secret);
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum): Promise<SelectedSecretType | undefined> {
 
         const secretType = await vscode.window.showQuickPick(
             [
@@ -61,6 +63,7 @@ export class SecretValuesProvider {
                 { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
                 { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
                 { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
+                { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPats },
                 { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
             ], 
             { title: 'Select where to take the secret from' }
@@ -75,7 +78,7 @@ export class SecretValuesProvider {
             return undefined;
         }
 
-        const secret = await provider.pickUpSecret();
+        const secret = await provider.pickUpSecret(controlType);
 
         if (!!secret && secret.value.startsWith(AnchorPrefix)) {
             throw new Error(`Secret value should not start with ${AnchorPrefix}`);

@@ -19,6 +19,29 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         return new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
     }
 
+    static async checkIfSecretExists(keyVaultClient: SecretClient, secretName: string): Promise<'does-not-exist' | 'ok-to-overwrite' | 'not-ok-to-overwrite'> {
+
+        try {
+
+            await keyVaultClient.getSecret(secretName);
+
+            const userResponse = await vscode.window.showWarningMessage(
+                `A secret named ${secretName} already exists in this Key Vault. This operation will add a new version of that secret. Do you want to proceed?`,
+                'Yes', 'No');
+   
+            if (userResponse !== 'Yes') {
+                return 'not-ok-to-overwrite';
+            }
+
+            return 'ok-to-overwrite';
+            
+        } catch (err) {
+            
+            console.log(err);
+            return 'does-not-exist';
+        }
+    }
+
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
         const keyVaultClient = await this.getKeyVaultClient(secret.properties.subscriptionId, secret.properties.keyVaultName);
