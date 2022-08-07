@@ -41,7 +41,7 @@ export class KeeShepherd extends KeeShepherdBase {
             new SecretValuesProvider(_account),
             repo,
             mapRepo,
-            new SecretTreeView(() => this._repo, resourcesFolder, log),
+            new SecretTreeView(_account, () => this._repo, resourcesFolder, log),
             new KeyVaultTreeView(_account, resourcesFolder, log),
             log
         );

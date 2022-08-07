@@ -8,6 +8,7 @@ import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName, EnvVa
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeeShepherdBase } from './KeeShepherdBase';
 import { timestampToString } from './helpers';
+import { AzureAccountWrapper } from './AzureAccountWrapper';
 
 export enum KeeShepherdNodeTypeEnum {
     Machine = 1,
@@ -34,7 +35,11 @@ export type KeeShepherdTreeItem = vscode.TreeItem & {
 // Renders the 'Secrets' TreeView
 export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(private _getRepo: () => IKeyMetadataRepo, private _resourcesFolder: string, private _log: (s: string, withEof: boolean, withTimestamp: boolean) => void) {}
+    constructor(private _account: AzureAccountWrapper,
+        private _getRepo: () => IKeyMetadataRepo,
+        private _resourcesFolder: string,
+        private _log: (s: string, withEof: boolean, withTimestamp: boolean) => void
+    ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -191,6 +196,33 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                                 arguments: []
                             }
                         });
+
+                        result.push({
+                            label: 'Create from Clipboard...',
+                            tooltip: 'Put current text from Clipboard to Key Vault and register it as an Environment Variable',
+                            nodeType: KeeShepherdNodeTypeEnum.InitialCommand,
+                            isLocal: true,
+                            command: {
+                                title: 'Create from Clipboard...',
+                                command: 'kee-shepherd-vscode.view-context.createEnvVariableFromClipboard',
+                                arguments: []
+                            }
+                        });
+
+                        const isSignedIn = await this._account.isSignedIn();
+                        if (!isSignedIn) {
+
+                            result.push({
+                                label: 'Sign in to Azure...',
+                                nodeType: KeeShepherdNodeTypeEnum.InitialCommand,
+                                isLocal: true,
+                                command: {
+                                    title: 'Sign in to Azure...',
+                                    command: 'azure-account.login',
+                                    arguments: []
+                                }
+                            });
+                        }
                     }
                 }
                 break;

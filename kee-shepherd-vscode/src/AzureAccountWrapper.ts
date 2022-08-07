@@ -255,6 +255,11 @@ export class AzureAccountWrapper {
         }
     }
 
+    async isSignedIn(): Promise<boolean> {
+
+        return !!this._account && !!(await this._account.waitForFilters());
+    }
+
     private readonly _account: any;
     private readonly _msalApp: PublicClientApplication;
 
@@ -262,7 +267,7 @@ export class AzureAccountWrapper {
 
     private async checkSignIn(): Promise<void> {
 
-        if (!this._account || !await this._account.waitForFilters()) {
+        if (!(await this.isSignedIn())) {
             throw new Error(`You need to be signed in to Azure for this. Execute 'Azure: Sign In' command.`);
         }
     }
