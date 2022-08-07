@@ -30,7 +30,7 @@ export enum SecretTypeEnum {
     AzureCognitiveServices,
     AzureSearch,
     AzureSignalR,
-    AzureDevOpsPats
+    AzureDevOpsPAT
 }
 
 export enum ControlTypeEnum {

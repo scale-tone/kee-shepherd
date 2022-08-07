@@ -214,6 +214,15 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
             throw new Error(`Failed to create PAT. ${createTokenResponse?.data?.patTokenError}`);
         }
 
+        // Storing properties for later use
+        const tokenProperties = {
+            orgName: azDoOrg,
+            validTo: createTokenResponse?.data?.patToken?.validTo,
+            scope: createTokenResponse?.data?.patToken?.scope,
+            targetAccounts: createTokenResponse?.data?.patToken?.targetAccounts,
+            authorizationId: createTokenResponse?.data?.patToken?.authorizationId
+        };
+
         if (!!keyVaultClient) {
 
             // Storing this PAT in the selected KeyVault
@@ -227,17 +236,18 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
                 properties: {
                     subscriptionId: subscriptionId,
                     keyVaultName,
-                    keyVaultSecretName: secretName
+                    keyVaultSecretName: secretName,
+                    azDoPatProperties: tokenProperties
                 },
                 alreadyAskedForName: true
             };
         }
 
         return {
-            type: SecretTypeEnum.AzureDevOpsPats,
+            type: SecretTypeEnum.AzureDevOpsPAT,
             name: secretName,
             value: token,
-            properties: {},
+            properties: tokenProperties,
             alreadyAskedForName: true
         };
     }

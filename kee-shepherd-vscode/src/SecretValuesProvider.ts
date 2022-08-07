@@ -38,7 +38,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureSearch] = new AzureSearchSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureDevOpsPats] = new AzureDevOpsSecretValueProvider(this._account);
+        this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(this._account);
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
@@ -63,7 +63,7 @@ export class SecretValuesProvider {
                 { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
                 { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
                 { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
-                { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPats },
+                { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },
                 { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
             ], 
             { title: 'Select where to take the secret from' }
