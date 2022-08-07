@@ -988,7 +988,7 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to copy secret value');
     }
 
-    async createKeyVaultSecret(treeItem: KeyVaultTreeItem): Promise<void> {
+    async createKeyVaultSecret(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
 
         await this.doAndShowError(async () => {
 
@@ -996,15 +996,33 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            const secretName = await this.askUserForSecretName();
+            let secretName;
+            let secretValue;
+
+            if (!!pickUpSecretValue) {
+
+                const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+                if (!secret) {
+                    return;
+                }
+
+                secretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
+                
+                secretValue = secret.value;
+                
+            } else {
+
+                secretName = await this.askUserForSecretName();
+
+                secretValue = await vscode.window.showInputBox({
+                    prompt: 'Enter secret value',
+                    password: true
+                });
+            }
+
             if (!secretName) {
                 return;
             }
-
-            const secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
 
             if (!secretValue) {
                 return;

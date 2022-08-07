@@ -222,6 +222,10 @@
                 "title": "Create new Secret"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.createKeyVaultSecretFrom",
+                "title": "Create new Secret From..."
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.insertKeyVaultSecretAsManaged",
                 "title": "Insert as Managed Secret"
             },
@@ -371,6 +375,10 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createKeyVaultSecretFrom",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.insertKeyVaultSecretAsManaged",
                     "when": "never"
                 }
@@ -509,6 +517,10 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.createKeyVaultSecret",
+                    "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createKeyVaultSecretFrom",
                     "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault"
                 },
                 {
