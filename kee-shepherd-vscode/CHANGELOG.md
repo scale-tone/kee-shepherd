@@ -20,6 +20,16 @@
     
     <img src="https://user-images.githubusercontent.com/5447190/183302497-9d7a7e1f-f9d0-469d-aff7-29f84ab94568.png" width="500">
 
+    NOTE: PAT's value is only retrievable at the moment of creation. So it is recommended to put it straight into Key Vault. That's what KeeShepherd does automatically when you create a PAT as a **managed** secret. When you create it as a **supervised** secret, the value is placed into your currently open text file, but *only into there*.
+
+- `Create new Secret From...` command for Key Vault secrets:
+
+    <img src="https://user-images.githubusercontent.com/5447190/183302871-b87ea4aa-b6a9-433d-847f-e97909b082da.png" width="300">
+
+    Lets you quickly pick up a secret from any of the supported sources and put it straight into your Key Vault (bypassing Clipboard or any other temporary buffers).
+    
+- [Azure SignalR Services](https://docs.microsoft.com/en-us/azure/azure-signalr/signalr-overview) as yet another secret source.
+- Minor bugfixes.
 
 
 ## Version 1.4
