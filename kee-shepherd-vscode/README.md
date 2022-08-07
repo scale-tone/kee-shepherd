@@ -112,6 +112,23 @@ Once signed in into Azure, a `KEY VAULT (VIA KEESHEPHERD)` view should appear on
 You can add and remove ("soft-delete") secrets, and for each secret you can get its value or insert it as **Managed** to the current text cursor position.
 
 
+## Supported Secret Sources
+
+* [Azure Key Vault](https://docs.microsoft.com/en-us/azure/key-vault/general/about-keys-secrets-certificates#object-types)
+* [Azure Storage](https://docs.microsoft.com/en-us/rest/api/storagerp/storage-accounts/list-keys)
+* [Azure Service Bus](https://docs.microsoft.com/en-us/rest/api/servicebus/stable/queues-authorization-rules/list-keys)
+* [Azure Event Hubs](https://docs.microsoft.com/en-us/rest/api/eventhub/stable/authorization-rules-event-hubs/list-keys)
+* [Azure Event Grid](https://docs.microsoft.com/en-us/rest/api/eventgrid/controlplane-version2022-06-15/topics/list-shared-access-keys)
+* [Azure Cosmos DB](https://docs.microsoft.com/en-us/rest/api/cosmos-db-resource-provider/2021-10-15/database-accounts/list-keys)
+* [Azure Redis Cache](https://docs.microsoft.com/en-us/rest/api/redis/redis/list-keys)
+* [Azure Application Insights](https://docs.microsoft.com/en-us/rest/api/application-insights/components)
+* [Azure Maps](https://docs.microsoft.com/en-us/rest/api/maps-management/accounts/list-keys)
+* [Azure Cognitive Services](https://docs.microsoft.com/en-us/rest/api/cognitiveservices/accountmanagement/accounts/list-keys)
+* [Azure Search](https://docs.microsoft.com/en-us/rest/api/searchmanagement/2020-08-01/admin-keys/get)
+* [Azure SignalR Services](https://docs.microsoft.com/en-us/rest/api/signalr/signalr/list-keys)
+* [Azure DevOps Personal Access Tokens](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate)
+* [Custom (Azure Resource Manager REST API)](https://docs.microsoft.com/en-us/rest/api/azure/)
+
 ## Requirements
 
 For most features to work you need to have [Azure Account](https://marketplace.visualstudio.com/items?itemName=ms-vscode.azure-account) extension installed and be signed in into Azure.
