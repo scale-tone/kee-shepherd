@@ -15,7 +15,8 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        throw new Error(`Cannot get the value of ${secret.name}. No way to retrieve an Azure DevOps PAT once it was created.`);
+        // No way to retrieve an AzDO PAT after it was created, so just returning an empty string.
+        return '';
     }
 
     async pickUpSecret(controlType: ControlTypeEnum): Promise<SelectedSecretType | undefined> {

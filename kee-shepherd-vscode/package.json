@@ -171,7 +171,7 @@
             },
             {
                 "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
-                "title": "Register another Secret as an Env Variable..."
+                "title": "Register Secret as an Env Variable..."
             },
             {
                 "command": "kee-shepherd-vscode.view-context.copySecretValue",
@@ -466,7 +466,7 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
+                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local || viewItem == tree-machine-local",
                     "group": "kee-shepherd-vscode.view-context-group@4"
                 },
                 {
