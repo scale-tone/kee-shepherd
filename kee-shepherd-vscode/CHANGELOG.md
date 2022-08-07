@@ -1,5 +1,27 @@
 # Change Log
 
+## Version 1.5
+
+- Very useful new secret source - [Azure DevOps PATs (Personal Access Tokens)](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate). You can now create new PATs: 
+
+    <img src="https://user-images.githubusercontent.com/5447190/183301759-dfee9078-3663-47c0-a07e-073c24ad138e.png" width="400">
+    <br>
+    <img src="https://user-images.githubusercontent.com/5447190/183301845-4281a7c0-65dc-4f3c-897d-d17d519c5284.png" width="600">
+    <br>
+    <img src="https://user-images.githubusercontent.com/5447190/183301931-a53f0b2c-19c4-4057-b7b2-c1a3c7e76aca.png" width="400">
+
+    and then immediately put them into your Key Vault:
+    
+    <img src="https://user-images.githubusercontent.com/5447190/183302056-0e4f65c8-65af-451b-9f9d-00ee492809ab.png" width="400">
+    <br>
+    <img src="https://user-images.githubusercontent.com/5447190/183302176-90c50f29-2344-4253-b686-7a5afe04d733.png" width="300">
+
+    PAT scopes selection dialog is easily searchable. Or else you can manually type the list of required scopes as a space-separated string:
+    
+    <img src="https://user-images.githubusercontent.com/5447190/183302497-9d7a7e1f-f9d0-469d-aff7-29f84ab94568.png" width="500">
+
+
+
 ## Version 1.4
 
 - Implemented a UI for Azure Key Vault secrets:
