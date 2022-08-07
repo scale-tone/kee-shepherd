@@ -6,6 +6,14 @@ Now also omes with a simple UI for Azure Key Vault secrets.
 
 <img src="https://user-images.githubusercontent.com/5447190/142853710-85ef42f6-2e30-46f2-a1ed-7f56fde13ccb.png" width="900">
 
+## TL;DR
+
+* Quickly get secrets from various supported sources ([see below](#supported-secret-sources)).
+* Remember where you left them.
+* Mask/unmask and stash/unstash them.
+* Mount them as Environment Variables.
+* Manage your Azure Key Vault secrets from within VsCode.
+
 ## Features
 
 ### Insert/add, stash/unstash, mask/unmask, resolve
