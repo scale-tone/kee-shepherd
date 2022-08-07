@@ -26,7 +26,7 @@
 
     <img src="https://user-images.githubusercontent.com/5447190/183302871-b87ea4aa-b6a9-433d-847f-e97909b082da.png" width="300">
 
-    Lets you quickly pick up a secret from any of the supported sources and put it straight into your Key Vault (bypassing Clipboard or any other temporary buffers).
+    Lets you quickly pick up a secret from any of the supported sources and put it straight into your Key Vault as a single operation (bypassing Clipboard or any other temporary buffers).
     
 - [Azure SignalR Services](https://docs.microsoft.com/en-us/azure/azure-signalr/signalr-overview) as yet another secret source.
 - Minor bugfixes.
