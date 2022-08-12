@@ -2,7 +2,7 @@
 
 Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es). Gives you centralized access to them. Hides (masks) them whenever possible.
 
-Now also omes with a simple UI for Azure Key Vault secrets.
+Now also comes with a simple UI for Azure Key Vault secrets.
 
 <img src="https://user-images.githubusercontent.com/5447190/142853710-85ef42f6-2e30-46f2-a1ed-7f56fde13ccb.png" width="900">
 
