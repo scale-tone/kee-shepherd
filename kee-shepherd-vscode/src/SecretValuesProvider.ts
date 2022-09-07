@@ -17,6 +17,7 @@ import { AzureCognitiveServicesSecretValueProvider } from './secret-value-provid
 import { AzureSearchSecretValueProvider } from './secret-value-providers/AzureSearchSecretValueProvider';
 import { AzureSignalRSecretValueProvider } from './secret-value-providers/AzureSignalRSecretValueProvider';
 import { AzureDevOpsSecretValueProvider } from './secret-value-providers/AzureDevOpsSecretValueProvider';
+import { CodespaceSecretValueProvider } from './secret-value-providers/CodespaceSecretValueProvider';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
@@ -39,6 +40,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(this._account);
         this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(this._account);
+        this._providers[SecretTypeEnum.CodespaceSecret] = new CodespaceSecretValueProvider(this._account);
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
@@ -47,25 +49,33 @@ export class SecretValuesProvider {
         return !provider ? '' : provider.getSecretValue(secret);
     }
 
-    async pickUpSecret(controlType: ControlTypeEnum): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, excludedSecretTypes?: SecretTypeEnum[]): Promise<SelectedSecretType | undefined> {
+
+        let secretTypes = [
+            { label: 'Azure Key Vault', type: SecretTypeEnum.AzureKeyVault },
+            { label: 'Azure Storage', type: SecretTypeEnum.AzureStorage },
+            { label: 'Azure Service Bus', type: SecretTypeEnum.AzureServiceBus },
+            { label: 'Azure Event Hubs', type: SecretTypeEnum.AzureEventHubs },
+            { label: 'Azure Event Grid', type: SecretTypeEnum.AzureEventGrid },
+            { label: 'Azure Cosmos DB', type: SecretTypeEnum.AzureCosmosDb },
+            { label: 'Azure Redis Cache', type: SecretTypeEnum.AzureRedisCache },
+            { label: 'Azure Application Insights', type: SecretTypeEnum.AzureAppInsights },
+            { label: 'Azure Maps', type: SecretTypeEnum.AzureMaps },
+            { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
+            { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
+            { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
+            { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },
+            { label: 'GitHub Codespaces Secret', type: SecretTypeEnum.CodespaceSecret },
+            { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
+        ];
+
+        if (!!excludedSecretTypes) {
+            
+            secretTypes = secretTypes.filter(t => !excludedSecretTypes.includes(t.type));
+        }
 
         const secretType = await vscode.window.showQuickPick(
-            [
-                { label: 'Azure Key Vault', type: SecretTypeEnum.AzureKeyVault },
-                { label: 'Azure Storage', type: SecretTypeEnum.AzureStorage },
-                { label: 'Azure Service Bus', type: SecretTypeEnum.AzureServiceBus },
-                { label: 'Azure Event Hubs', type: SecretTypeEnum.AzureEventHubs },
-                { label: 'Azure Event Grid', type: SecretTypeEnum.AzureEventGrid },
-                { label: 'Azure Cosmos DB', type: SecretTypeEnum.AzureCosmosDb },
-                { label: 'Azure Redis Cache', type: SecretTypeEnum.AzureRedisCache },
-                { label: 'Azure Application Insights', type: SecretTypeEnum.AzureAppInsights },
-                { label: 'Azure Maps', type: SecretTypeEnum.AzureMaps },
-                { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
-                { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
-                { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
-                { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },
-                { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
-            ], 
+            secretTypes, 
             { title: 'Select where to take the secret from' }
         );
 

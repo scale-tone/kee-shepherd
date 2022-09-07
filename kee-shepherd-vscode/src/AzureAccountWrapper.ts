@@ -174,7 +174,7 @@ export class AzureAccountWrapper {
     }
 
     // Uses vscode-azure-account extension and msal-node package to obtain an accessToken for AzDO resourceId
-    async getAzDoTokenViaMsal(subscriptionId: string) {
+    async getAzDoTokenViaMsal(subscriptionId: string): Promise<string> {
 
         const subscription = (await this.getSubscriptions()).find(s => s.subscription.subscriptionId === subscriptionId);
 

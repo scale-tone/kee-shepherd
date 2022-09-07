@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { KeyVaultSecret, SecretClient } from '@azure/keyvault-secrets';
 import { StorageManagementClient } from '@azure/arm-storage';
 
 import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath, toDictionary, SecretNameConflictError } from './KeyMetadataHelpers';
@@ -713,7 +712,10 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.EnvVariable);
+            // Disallowing to register an env variable as an env variable
+            const secretTypesToExclude = [SecretTypeEnum.CodespaceSecret];
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.EnvVariable, secretTypesToExclude);
 
             if (!secret) {
                 return;
