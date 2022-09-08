@@ -288,6 +288,7 @@ export class KeeShepherd extends KeeShepherdBase {
             }
     
             editor.setDecorations(this._hiddenTextDecoration, []);
+            editor.setDecorations(this._tempHiddenTextDecoration, []);
 
             this._log(`Unmasked secrets in ${editor.document.uri}`, true, true);
 
@@ -639,6 +640,9 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
             
+            // Pre-masking the secret with a temporary mask
+            editor.setDecorations(this._tempHiddenTextDecoration, [editor.selection]);
+    
             // Pasting secret value at current cursor position
             var success = await editor.edit(edit => {
                 edit.replace(editor.selection, secret!.value);

@@ -62,6 +62,11 @@ export abstract class KeeShepherdBase {
         color: new vscode.ThemeColor('focusBorder')
     });
 
+    protected readonly _tempHiddenTextDecoration = vscode.window.createTextEditorDecorationType({
+        opacity: '0',
+        backgroundColor: 'grey'
+    });
+
     protected async internalMaskSecrets(editor: vscode.TextEditor, secretsMap: SecretMapEntry[]): Promise<string[]> {
         
         const maskDecorations: vscode.Range[] = [];
@@ -114,6 +119,9 @@ export abstract class KeeShepherdBase {
 
         editor.setDecorations(this._hiddenTextDecoration, maskDecorations);
         editor.setDecorations(this._blueTextDecoration, stashedDecorations);
+
+        // Also removing temporary masks
+        editor.setDecorations(this._tempHiddenTextDecoration, []);
 
         this._log(`Masked ${maskDecorations.length} secrets, marked ${stashedDecorations.length} stashed secrets`, false, true);
         if (!!missingSecrets.length) {

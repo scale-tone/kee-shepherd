@@ -44,7 +44,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         const options = secrets.map(secret => { 
             return {
                 label : secret.name,
-                detail: `created ${secret.created_at.slice(0, 10)}`
+                detail: `created ${secret.created_at.slice(0, 19)}`
             };
         });
 

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import { ControlTypeEnum } from './KeyMetadataHelpers';
 import { KeeShepherd } from './KeeShepherd';
+import { AnchorCompletionProvider, MenuCommandCompletionProvider } from './CompletionProviders';
 
 var shepherd: KeeShepherd;
 
@@ -12,7 +13,14 @@ export async function activate(context: vscode.ExtensionContext) {
     await shepherd.stashPendingFolders();
     await shepherd.maskSecretsInThisFile(false);
 
+    const anchorCompletionProvider = new AnchorCompletionProvider();
+    const menuCompletionProvider = new MenuCommandCompletionProvider(shepherd);
+
     context.subscriptions.push(
+
+        vscode.languages.registerCompletionItemProvider('*', anchorCompletionProvider, '@'),
+        vscode.languages.registerCompletionItemProvider('*', menuCompletionProvider, '('),
+        vscode.commands.registerCommand(MenuCommandCompletionProvider.insertSecretCommandId, (controlType: ControlTypeEnum, position: vscode.Position)  => menuCompletionProvider.handleInsertSecret(controlType, position)),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.changeStorageType', () => shepherd.changeStorageType(context)),
 
