@@ -5,20 +5,14 @@ import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 
-type CodespaceSecretMeta = { name: string, created_at: string, updated_at: string, visibility: string };
+export type CodespaceSecretMeta = { name: string, created_at: string, updated_at: string, visibility: string };
 
 // Implements picking and retrieving secret values from GitHub Codespace Secrets
 export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
-
-        // Codespace Secrets appear as env variables, so we just take the value from there
-        return process.env[secret.name] as string;
-    }
-
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    static async getCodespacesSecrets(): Promise<CodespaceSecretMeta[]> {
 
         const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets'], { createIfNone: true } );
 
@@ -40,6 +34,19 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
             secrets.push(...nextBatch);
         }
+
+        return secrets;
+    }
+
+    async getSecretValue(secret: ControlledSecret): Promise<string> {
+
+        // Codespace Secrets appear as env variables, so we just take the value from there
+        return process.env[secret.name] as string;
+    }
+
+    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+
+        const secrets = await CodespaceSecretValueProvider.getCodespacesSecrets();
 
         const options = secrets.map(secret => { 
             return {

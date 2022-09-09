@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { ControlTypeEnum } from './KeyMetadataHelpers';
+import { ControlTypeEnum, SecretTypeEnum } from './KeyMetadataHelpers';
 import { KeeShepherd } from './KeeShepherd';
 import { AnchorCompletionProvider, MenuCommandCompletionProvider } from './CompletionProviders';
 
@@ -20,7 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.languages.registerCompletionItemProvider('*', anchorCompletionProvider, '@'),
         vscode.languages.registerCompletionItemProvider('*', menuCompletionProvider, '('),
-        vscode.commands.registerCommand(MenuCommandCompletionProvider.insertSecretCommandId, (controlType: ControlTypeEnum, position: vscode.Position)  => menuCompletionProvider.handleInsertSecret(controlType, position)),
+        vscode.commands.registerCommand(MenuCommandCompletionProvider.insertSecretCommandId, (controlType: ControlTypeEnum, position: vscode.Position, secretType?: SecretTypeEnum)  => menuCompletionProvider.handleInsertSecret(controlType, position, secretType)),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.changeStorageType', () => shepherd.changeStorageType(context)),
 

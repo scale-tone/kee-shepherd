@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { ControlTypeEnum, AnchorPrefix } from './KeyMetadataHelpers';
+import { ControlTypeEnum, AnchorPrefix, SecretTypeEnum } from './KeyMetadataHelpers';
 import { KeeShepherd } from './KeeShepherd';
 
 // Completion provider that responds to '@KeeShepherd(' anchor and drops a list of further suggestions for it
@@ -43,7 +43,8 @@ export class MenuCommandCompletionProvider implements vscode.CompletionItemProvi
             return;
         }
 
-        const insertSupervisedSecretItem = new vscode.CompletionItem('[Insert a Supervised Secret Here...]');
+        const insertSupervisedSecretItem = new vscode.CompletionItem('[Supervised Secret...]');
+        insertSupervisedSecretItem.sortText = `!${AnchorPrefix}1`;
         insertSupervisedSecretItem.insertText = '';
         insertSupervisedSecretItem.command = {
             title: 'Insert a Supervised Secret Here...',
@@ -51,8 +52,8 @@ export class MenuCommandCompletionProvider implements vscode.CompletionItemProvi
             arguments: [ ControlTypeEnum.Supervised, position ]
         };
 
-
-        const insertManagedSecretItem = new vscode.CompletionItem('[Insert a Managed Secret Here...]');
+        const insertManagedSecretItem = new vscode.CompletionItem('[Managed Secret...]');
+        insertManagedSecretItem.sortText = `!${AnchorPrefix}2`;
         insertManagedSecretItem.insertText = '';
         insertManagedSecretItem.command = {
             title: 'Insert a Managed Secret Here...',
@@ -60,14 +61,34 @@ export class MenuCommandCompletionProvider implements vscode.CompletionItemProvi
             arguments: [ ControlTypeEnum.Managed, position ]
         };
 
+        const insertCodespacesSecretItem = new vscode.CompletionItem('[Codespaces Secret...]');
+        insertCodespacesSecretItem.sortText = `!${AnchorPrefix}3`;
+        insertCodespacesSecretItem.insertText = '';
+        insertCodespacesSecretItem.command = {
+            title: 'Insert a Codespaces Secret Here...',
+            command: MenuCommandCompletionProvider.insertSecretCommandId,
+            arguments: [ ControlTypeEnum.Managed, position, SecretTypeEnum.CodespaceSecret ]
+        };
+
+        const insertKeyVaultSecretItem = new vscode.CompletionItem('[Azure Key Vault Secret...]');
+        insertKeyVaultSecretItem.sortText = `!${AnchorPrefix}4`;
+        insertKeyVaultSecretItem.insertText = '';
+        insertKeyVaultSecretItem.command = {
+            title: 'Insert an Azure Key Vault Secret Here...',
+            command: MenuCommandCompletionProvider.insertSecretCommandId,
+            arguments: [ ControlTypeEnum.Managed, position, SecretTypeEnum.AzureKeyVault ]
+        };
+
         return [
             insertSupervisedSecretItem,
-            insertManagedSecretItem
+            insertManagedSecretItem,
+            insertCodespacesSecretItem,
+            insertKeyVaultSecretItem
         ];
     }
 
     // Handles the insert secret command
-    handleInsertSecret(controlType: ControlTypeEnum, position: vscode.Position): void {
+    handleInsertSecret(controlType: ControlTypeEnum, position: vscode.Position, secretType?: SecretTypeEnum): void {
 
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -95,6 +116,6 @@ export class MenuCommandCompletionProvider implements vscode.CompletionItemProvi
         editor.revealRange(anchorSelection);
 
         // Now replacing the anchor with the secret
-        this._shepherd.insertSecret(controlType);
+        this._shepherd.insertSecret(controlType, secretType);
     }
 }

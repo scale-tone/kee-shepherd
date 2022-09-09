@@ -49,41 +49,46 @@ export class SecretValuesProvider {
         return !provider ? '' : provider.getSecretValue(secret);
     }
 
-    async pickUpSecret(controlType: ControlTypeEnum, excludedSecretTypes?: SecretTypeEnum[]): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, excludedSecretTypes?: SecretTypeEnum[], selectedSecretType?: SecretTypeEnum): Promise<SelectedSecretType | undefined> {
 
-        let secretTypes = [
-            { label: 'Azure Key Vault', type: SecretTypeEnum.AzureKeyVault },
-            { label: 'Azure Storage', type: SecretTypeEnum.AzureStorage },
-            { label: 'Azure Service Bus', type: SecretTypeEnum.AzureServiceBus },
-            { label: 'Azure Event Hubs', type: SecretTypeEnum.AzureEventHubs },
-            { label: 'Azure Event Grid', type: SecretTypeEnum.AzureEventGrid },
-            { label: 'Azure Cosmos DB', type: SecretTypeEnum.AzureCosmosDb },
-            { label: 'Azure Redis Cache', type: SecretTypeEnum.AzureRedisCache },
-            { label: 'Azure Application Insights', type: SecretTypeEnum.AzureAppInsights },
-            { label: 'Azure Maps', type: SecretTypeEnum.AzureMaps },
-            { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
-            { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
-            { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
-            { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },
-            { label: 'GitHub Codespaces Secret', type: SecretTypeEnum.CodespaceSecret },
-            { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
-        ];
+        if (!selectedSecretType) {
 
-        if (!!excludedSecretTypes) {
+            let secretTypes = [
+                { label: 'Azure Key Vault', type: SecretTypeEnum.AzureKeyVault },
+                { label: 'Azure Storage', type: SecretTypeEnum.AzureStorage },
+                { label: 'Azure Service Bus', type: SecretTypeEnum.AzureServiceBus },
+                { label: 'Azure Event Hubs', type: SecretTypeEnum.AzureEventHubs },
+                { label: 'Azure Event Grid', type: SecretTypeEnum.AzureEventGrid },
+                { label: 'Azure Cosmos DB', type: SecretTypeEnum.AzureCosmosDb },
+                { label: 'Azure Redis Cache', type: SecretTypeEnum.AzureRedisCache },
+                { label: 'Azure Application Insights', type: SecretTypeEnum.AzureAppInsights },
+                { label: 'Azure Maps', type: SecretTypeEnum.AzureMaps },
+                { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
+                { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
+                { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
+                { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },
+                { label: 'GitHub Codespaces Secret', type: SecretTypeEnum.CodespaceSecret },
+                { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
+            ];
+    
+            if (!!excludedSecretTypes) {
+                
+                secretTypes = secretTypes.filter(t => !excludedSecretTypes.includes(t.type));
+            }
+    
+            const userChoice = await vscode.window.showQuickPick(
+                secretTypes, 
+                { title: 'Select where to take the secret from' }
+            );
             
-            secretTypes = secretTypes.filter(t => !excludedSecretTypes.includes(t.type));
+            if (!userChoice){
+                return;
+            }
+
+            selectedSecretType = userChoice.type;
         }
-
-        const secretType = await vscode.window.showQuickPick(
-            secretTypes, 
-            { title: 'Select where to take the secret from' }
-        );
-
-        if (!secretType) {
-            return;
-        }
-
-        const provider = this._providers[secretType.type];
+        
+        const provider = this._providers[selectedSecretType];
         if (!provider) {
             return undefined;
         }

@@ -616,7 +616,7 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to add a secret');
     }
 
-    async insertSecret(controlType: ControlTypeEnum): Promise<void> {
+    async insertSecret(controlType: ControlTypeEnum, secretType?: SecretTypeEnum): Promise<void> {
 
         await this.doAndShowError(async () => {
 
@@ -634,7 +634,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            const secret = await this._valuesProvider.pickUpSecret(controlType);
+            const secret = await this._valuesProvider.pickUpSecret(controlType, undefined, secretType);
 
             if (!secret) {
                 return;
