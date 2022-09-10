@@ -1,26 +1,48 @@
 import * as vscode from 'vscode';
 
-import { ControlTypeEnum, SecretTypeEnum } from './KeyMetadataHelpers';
+import { ControlledSecret, ControlTypeEnum, SecretTypeEnum } from './KeyMetadataHelpers';
 import { KeeShepherd } from './KeeShepherd';
-import { AnchorCompletionProvider, MenuCommandCompletionProvider } from './CompletionProviders';
+import { AnchorCompletionProvider, MenuCommandCompletionProvider, ExistingSecretsCompletionProvider } from './CompletionProviders';
 
 var shepherd: KeeShepherd;
 
 export async function activate(context: vscode.ExtensionContext) {
 
-    shepherd = await KeeShepherd.create(context);
+    const logChannel = vscode.window.createOutputChannel('KeeShepherd');
+    context.subscriptions.push(logChannel);
+    logChannel.appendLine(`${new Date().toISOString()} KeeShepherd started`);
+
+    const log = (s: string, withEof: boolean, withTimestamp: boolean) => {
+        try {
+            const timestamp = !!withTimestamp ? `${new Date().toISOString()} ` : '';
+
+            if (!!withEof) {
+                logChannel.appendLine(timestamp + s);
+            } else {
+                logChannel.append(timestamp + s);
+            }
+            
+        } catch (err) {
+            // Output channels are unreliable during shutdown, so need to wrap them with this try-catch
+        }
+    };
+
+    shepherd = await KeeShepherd.create(context, log);
 
     await shepherd.stashPendingFolders();
     await shepherd.maskSecretsInThisFile(false);
 
-    const anchorCompletionProvider = new AnchorCompletionProvider();
+    const anchorCompletionProvider = new AnchorCompletionProvider(shepherd);
     const menuCompletionProvider = new MenuCommandCompletionProvider(shepherd);
+    const existingSecretsCompletionProvider = new ExistingSecretsCompletionProvider(shepherd, log);
 
     context.subscriptions.push(
 
         vscode.languages.registerCompletionItemProvider('*', anchorCompletionProvider, '@'),
         vscode.languages.registerCompletionItemProvider('*', menuCompletionProvider, '('),
         vscode.commands.registerCommand(MenuCommandCompletionProvider.insertSecretCommandId, (controlType: ControlTypeEnum, position: vscode.Position, secretType?: SecretTypeEnum)  => menuCompletionProvider.handleInsertSecret(controlType, position, secretType)),
+        vscode.languages.registerCompletionItemProvider('*', existingSecretsCompletionProvider, '('),
+        vscode.commands.registerCommand(ExistingSecretsCompletionProvider.cloneSecretCommandId, (position: vscode.Position, secret: ControlledSecret)  => existingSecretsCompletionProvider.handleCloneSecret(position, secret)),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.changeStorageType', () => shepherd.changeStorageType(context)),
 

@@ -165,6 +165,8 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
             await this._tableClient.updateEntity(this.toTableEntity(secret, entity.partitionKey!, entity.rowKey!));
         }
+
+        this._cachedSecretsPromise = undefined;
     }
 
     async addSecret(secret: ControlledSecret): Promise<void> {
@@ -202,6 +204,8 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         }
 
         await this._tableClient.upsertEntity(this.toTableEntity(secret, partitionKey, rowKey));
+
+        this._cachedSecretsPromise = undefined;
     }
 
     async getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]> {
@@ -252,6 +256,8 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         });
 
         await Promise.all(promises);
+
+        this._cachedSecretsPromise = undefined;
     }
 
     async removeAllSecrets(machineName?: string): Promise<void> {
@@ -281,6 +287,38 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         }
 
         await Promise.all(promises);
+
+        this._cachedSecretsPromise = undefined;
+    }
+
+    async getAllCachedSecrets(): Promise<ControlledSecret[]> {
+
+        if (!this._cachedSecretsPromise) {
+
+            this._cachedSecretsPromise = this.loadAllSecrets();
+        }
+
+        return await this._cachedSecretsPromise;
+    }
+
+    refreshCache(): void {
+        this._cachedSecretsPromise = this.loadAllSecrets();
+    }
+
+    // All known secrets, cached for instant access (but cache can be stale)
+    private _cachedSecretsPromise?: Promise<ControlledSecret[]> = undefined;
+
+    private async loadAllSecrets(): Promise<ControlledSecret[]> {
+
+        const response = await this._tableClient.listEntities();
+
+        const result: ControlledSecret[] = [];
+        for await (const entity of response) {
+
+            result.push(this.fromTableEntity(entity as any));
+        }
+
+        return result;
     }
 
     private toTableEntity(secret: ControlledSecret, partitionKey: string, rowKey: string): TableEntity {

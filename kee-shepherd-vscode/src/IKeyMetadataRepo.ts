@@ -9,6 +9,10 @@ export interface IKeyMetadataRepo {
 
     getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]>;
 
+    getAllCachedSecrets(): Promise<ControlledSecret[]>;
+
+    refreshCache(): void;
+
     addSecret(secret: ControlledSecret): Promise<void>;
 
     removeSecrets(filePath: string, names: string[], machineName?: string): Promise<void>;

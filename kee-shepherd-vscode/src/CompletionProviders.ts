@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 
-import { ControlTypeEnum, AnchorPrefix, SecretTypeEnum } from './KeyMetadataHelpers';
+import { ControlTypeEnum, AnchorPrefix, SecretTypeEnum, ControlledSecret } from './KeyMetadataHelpers';
 import { KeeShepherd } from './KeeShepherd';
 
 // Completion provider that responds to '@KeeShepherd(' anchor and drops a list of further suggestions for it
 export class AnchorCompletionProvider implements vscode.CompletionItemProvider {
+
+    constructor(private _shepherd: KeeShepherd) { }
 
     provideCompletionItems(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.CompletionItem[]> {
 
@@ -16,6 +18,10 @@ export class AnchorCompletionProvider implements vscode.CompletionItemProvider {
                 return;
             }
         }
+
+        // Preloading secret cache, in anticipation for next completion (which will use that cache).
+        // .refreshCache() should never throw
+        this._shepherd.metadataRepo.refreshCache();
 
         const item = new vscode.CompletionItem('@KeeShepherd()');
         item.insertText = 'KeeShepherd(';
@@ -117,5 +123,99 @@ export class MenuCommandCompletionProvider implements vscode.CompletionItemProvi
 
         // Now replacing the anchor with the secret
         this._shepherd.insertSecret(controlType, secretType);
+    }
+}
+
+// Completion provider that allows to re-insert an existing KeeShepherd secret
+export class ExistingSecretsCompletionProvider implements vscode.CompletionItemProvider {
+
+    static readonly cloneSecretCommandId = 'kee-shepherd-vscode.code-completion.cloneSecret';
+
+    constructor(private _shepherd: KeeShepherd, private  log: (s: string, withEof: boolean, withTimestamp: boolean) => void) { }
+
+    async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.CompletionItem[] | undefined> {
+
+        if (position.character <= AnchorPrefix.length) {
+            return;
+        }
+
+        const anchorRange = new vscode.Range(position.translate(undefined, -(AnchorPrefix.length + 1)), position);
+        if (`${AnchorPrefix}(` !== document.getText(anchorRange)) {
+            return;
+        }
+
+        let secrets: ControlledSecret[] = [];
+        try {
+
+            secrets = await this._shepherd.metadataRepo.getAllCachedSecrets()
+
+        } catch (err) {
+
+            this.log(`Failed to get secrets from cache. ${(err as Error).message ?? err}`, true, true);
+            return;
+        }
+
+        return secrets.map(secret => {
+
+            const item = new vscode.CompletionItem(secret.name);
+
+            item.detail = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
+            item.insertText = '';
+            item.command = {
+                title: 'Clone a Secret Here...',
+                command: ExistingSecretsCompletionProvider.cloneSecretCommandId,
+                arguments: [ position, secret ]
+            };
+
+            return item;
+        });
+    }
+
+    // Handles the insert secret command
+    async handleCloneSecret(position: vscode.Position, secret: ControlledSecret): Promise<void> {
+
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+
+        if (position.character <= AnchorPrefix.length) {
+            return;
+        }
+
+        // Selecting the anchor (which was supposed to be typed)
+
+        const nextCharacter = editor.document.getText(new vscode.Range(position, position.translate(undefined, 1)));
+
+        const anchorSelection = new vscode.Selection(
+            position.translate(undefined, -(AnchorPrefix.length + 1)), 
+            nextCharacter === ')' ? position.translate(undefined, 1) : position
+        );
+
+        if (!editor.document.getText(anchorSelection).startsWith(`${AnchorPrefix}(`)) {
+            return;
+        }
+
+        editor.selection = anchorSelection;
+        editor.revealRange(anchorSelection);
+
+        let secretValue: string;
+        try {
+            
+            secretValue = await this._shepherd.valuesProvider.getSecretValue(secret);
+
+        } catch(err) {
+
+            this.log(`Failed to get secret value. ${(err as Error).message ?? err}`, true, true);
+            return;
+        }
+
+        this._shepherd.insertSecret(ControlTypeEnum.Managed, undefined, {
+            type: secret.type,
+            name: secret.name,
+            value: secretValue,
+            properties: secret.properties,
+            alreadyAskedForName: true
+        });
     }
 }

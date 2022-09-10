@@ -167,6 +167,15 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         this._secrets = [];
     }
 
+    async getAllCachedSecrets(): Promise<ControlledSecret[]> {
+
+        return this._secrets;
+    }
+
+    refreshCache(): void {
+        // Do nothing, because all secrets are kept in memory anyway
+    }
+
     private static async readSecretFilesFromFolder(folderPath: string): Promise<ControlledSecret[]> {
 
         const jsonFileNames = (await fs.promises.readdir(folderPath)).filter(name => path.extname(name).toLowerCase() === '.json');

@@ -15,6 +15,7 @@ import { KeyVaultNodeTypeEnum, KeyVaultTreeItem, KeyVaultTreeView } from './KeyV
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
+import { ISecretValueProvider, SelectedSecretType } from './secret-value-providers/ISecretValueProvider';
 
 const SettingNames = {
     StorageType: 'KeeShepherdStorageType',
@@ -46,27 +47,7 @@ export class KeeShepherd extends KeeShepherdBase {
         );
     }
 
-    static async create(context: vscode.ExtensionContext): Promise<KeeShepherd> {
-
-        const logChannel = vscode.window.createOutputChannel('KeeShepherd');
-        context.subscriptions.push(logChannel);
-        logChannel.appendLine(`${new Date().toISOString()} KeeShepherd started`);
-
-        const log = (s: string, withEof: boolean, withTimestamp: boolean) => {
-            try {
-
-                const timestamp = !!withTimestamp ? `${new Date().toISOString()} ` : '';
-
-                if (!!withEof) {
-                    logChannel.appendLine(timestamp + s);
-                } else {
-                    logChannel.append(timestamp + s);
-                }
-                
-            } catch (err) {
-                // Output channels are unreliable during shutdown, so need to wrap them with this try-catch
-            }
-        };
+    static async create(context: vscode.ExtensionContext, log: (s: string, withEof: boolean, withTimestamp: boolean) => void): Promise<KeeShepherd> {
 
         const account = new AzureAccountWrapper();
         var metadataRepo: IKeyMetadataRepo;
@@ -83,7 +64,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             if ((await vscode.window.showWarningMessage(msg, option1, option2)) !== option1) {
 
-                logChannel.appendLine(`${new Date().toISOString()} Failed to initialize metadata storage. ${(err as any).message ?? err}`)
+                log(`Failed to initialize metadata storage. ${(err as any).message ?? err}`, true, true);
 
                 throw err;
             }
@@ -99,7 +80,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
                 vscode.window.showErrorMessage(`KeeShepherd still couldn't initialize its metadata storage. ${(err2 as any).message ?? err2}`);
 
-                logChannel.appendLine(`${new Date().toISOString()} Failed to initialize metadata storage. ${(err2 as any).message ?? err2}`)
+                log(`Failed to initialize metadata storage. ${(err2 as any).message ?? err2}`, true, true);
 
                 throw err2;
             }
@@ -115,6 +96,14 @@ export class KeeShepherd extends KeeShepherdBase {
             resourcesFolderPath,
             log
         );
+    }
+
+    get metadataRepo(): IKeyMetadataRepo {
+        return this._repo;
+    }
+
+    get valuesProvider(): ISecretValueProvider {
+        return this._valuesProvider;
     }
 
     async changeStorageType(context: vscode.ExtensionContext): Promise<void> {
@@ -616,7 +605,7 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to add a secret');
     }
 
-    async insertSecret(controlType: ControlTypeEnum, secretType?: SecretTypeEnum): Promise<void> {
+    async insertSecret(controlType: ControlTypeEnum, secretType?: SecretTypeEnum, secret?: SelectedSecretType): Promise<void> {
 
         await this.doAndShowError(async () => {
 
@@ -634,10 +623,13 @@ export class KeeShepherd extends KeeShepherdBase {
                 return;
             }
 
-            const secret = await this._valuesProvider.pickUpSecret(controlType, undefined, secretType);
-
             if (!secret) {
-                return;
+
+                secret = await this._valuesProvider.pickUpSecret(controlType, undefined, secretType);
+
+                if (!secret) {
+                    return;
+                }
             }
             
             // Pre-masking the secret with a temporary mask
@@ -1125,6 +1117,9 @@ export class KeeShepherd extends KeeShepherdBase {
             const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
 
             const secret = await keyVaultClient.getSecret(treeItem.label as string);
+
+            // Pre-masking the secret with a temporary mask
+            editor.setDecorations(this._tempHiddenTextDecoration, [editor.selection]);
 
             // Pasting secret value at current cursor position
             var success = await editor.edit(edit => {
