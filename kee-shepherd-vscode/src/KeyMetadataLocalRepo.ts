@@ -5,6 +5,7 @@ import * as Crypto from 'crypto';
 import * as vscode from 'vscode';
 import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, EnvVariableSpecialPath, ControlTypeEnum, SecretNameConflictError } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { SaltKey } from './KeyMetadataTableRepo';
 
 // Stores secret metadata locally in JSON files
 export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
@@ -196,7 +197,10 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     private static async getSalt(context: vscode.ExtensionContext, storageFolder: string): Promise<string> {
 
-        let salt = await context.secrets.get('salt');
+        await context.secrets.delete(SaltKey);
+
+
+        let salt = await context.secrets.get(SaltKey);
         
         if (!!salt) {
             return salt;
@@ -210,20 +214,41 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
             salt = await fs.promises.readFile(saltFileName, 'utf8');
 
-            await context.secrets.store('salt', salt);
+            await context.secrets.store(SaltKey, salt);
 
             await fs.promises.rm(saltFileName, { force: true });
 
             return salt;
         }
 
-        // TODO: add a critical section around the below code (by exclusively creating an empty salt.dat file)
+        // Using an exclusively created file to make up a critical section
+        const lockFileName = path.join(storageFolder, 'lock.dat');
+        try {
 
-        salt = Crypto.randomBytes(128).toString('hex');
+            await fs.promises.writeFile(lockFileName, ' ', { flag: 'wx' });
+            
+            // Doing double-check
+            salt = await context.secrets.get(SaltKey);
+        
+            if (!!salt) {
+                return salt;
+            }
 
-        // Just storing the salt in SecretStorage
-        await context.secrets.store('salt', salt);
+            salt = Crypto.randomBytes(128).toString('hex');
 
-        return salt;
+            // Storing the salt in SecretStorage
+            await context.secrets.store(SaltKey, salt);
+
+            return salt;
+    
+        } catch (err) {
+
+            // This can happen in a very-very rare case. In which case it would be better to throw than to end up with two different salts
+            throw new Error('Failed to initialize salt');
+        
+        } finally {
+
+            await fs.promises.rm(lockFileName, { force: true });
+        }
     }
 }

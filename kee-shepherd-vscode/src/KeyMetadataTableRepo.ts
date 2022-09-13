@@ -12,7 +12,7 @@ import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 
-const SaltKey = '|KeeShepherdSalt|';
+export const SaltKey = '|KeeShepherdSalt|';
 
 // Stores secret metadata in an Azure Table
 export class KeyMetadataTableRepo implements IKeyMetadataRepo {
