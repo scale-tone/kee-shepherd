@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
 import * as Crypto from 'crypto';
@@ -9,6 +10,7 @@ import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
+import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 
 const SaltKey = '|KeeShepherdSalt|';
 
@@ -54,18 +56,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             
         const tableClient = new TableClient(storageUrl, tableName, storageCredential);
 
-        // Reading or creating salt
-        var salt = Crypto.randomBytes(128).toString('hex');
-        try {
-
-            await tableClient.createEntity({ partitionKey: SaltKey, rowKey: SaltKey, value: salt });            
-            
-        } catch (err) {
-
-            const result = await tableClient.getEntity(SaltKey, SaltKey);
-
-            salt = result.value as string;
-        }
+        const salt = await KeyMetadataTableRepo.getSalt(account, tableClient);
 
         return new KeyMetadataTableRepo(tableClient, salt);
     }
@@ -319,6 +310,123 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         }
 
         return result;
+    }
+
+    private static async getSalt(account: AzureAccountWrapper, tableClient: TableClient): Promise<string> {
+
+        let saltEntity: any = undefined;
+
+        try {
+
+            saltEntity = await tableClient.getEntity(SaltKey, SaltKey);
+
+        } catch(err: any) {
+
+            if (err.statusCode !== 404) {
+                throw err;
+            }
+        }
+
+        const keyVaultProvider = new KeyVaultSecretValueProvider(account);
+
+        if (!!saltEntity && saltEntity.keyVaultSecretName) {
+
+            // Reading salt from Key Vault
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(saltEntity.subscriptionId, saltEntity.keyVaultName);
+            const saltSecret = await keyVaultClient.getSecret(saltEntity.keyVaultSecretName);
+
+            return saltSecret.value!;
+        }
+
+        if (!!saltEntity?.alreadyAsked) {
+
+            return saltEntity.value;
+        }
+
+        // Asking user if they want to store their salt in Key Vault
+
+        const userResponse = await vscode.window.showWarningMessage(
+            `KeeShepherd stores salted hashes of your secrets in its Metadata Storage. For even stronger security, it is recommended to store the salt value in a separate, safe place. Would you like to store your salt as an Azure Key Vault secret (instead of storing it in an Azure Table)?`,
+            `Yes`, `No, and don't ask again`
+        );
+
+        if (userResponse !== 'Yes') {
+
+            if (!saltEntity) {
+
+                saltEntity = { 
+                    value: Crypto.randomBytes(128).toString('hex'), 
+                    alreadyAsked: true,
+                    partitionKey: SaltKey, 
+                    rowKey: SaltKey 
+                };
+
+                await tableClient.createEntity(saltEntity);
+
+            } else {
+
+                saltEntity.alreadyAsked = true;
+
+                await tableClient.updateEntity(saltEntity);
+            }
+
+            return saltEntity.value;
+        }
+
+        // Moving salt from Table to Key Vault
+
+        const subscription = await account.pickUpSubscription();
+        if (!!subscription) {
+
+            const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+            if (!!keyVaultName) {
+
+                const saltSecretName = await vscode.window.showInputBox({
+                    value: `KeeShepherdSalt`,
+                    prompt: 'Give your salt secret a name'
+                });
+        
+                if (!!saltSecretName) {
+
+                    const saltValue = saltEntity?.value ?? Crypto.randomBytes(128).toString('hex');
+
+                    const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscription.subscription.subscriptionId, keyVaultName);
+                    
+                    await keyVaultClient.setSecret(saltSecretName, saltValue);
+            
+                    if (!saltEntity) {
+
+                        saltEntity = { 
+                            partitionKey: SaltKey, 
+                            rowKey: SaltKey,
+                            subscriptionId: subscription.subscription.subscriptionId,
+                            keyVaultName: keyVaultName,
+                            keyVaultSecretName: saltSecretName
+                        };
+        
+                        await tableClient.createEntity(saltEntity);
+
+                    } else {
+
+                        saltEntity.value = '';
+                        saltEntity.subscriptionId = subscription.subscription.subscriptionId;
+                        saltEntity.keyVaultName = keyVaultName;
+                        saltEntity.keyVaultSecretName = saltSecretName;
+                        
+                        await tableClient.updateEntity(saltEntity, 'Replace');
+                    }
+
+                    return saltValue;
+                }        
+            }
+        }
+
+        if (!saltEntity?.value) {
+
+            throw new Error('Failed to initialize salt');
+        }
+
+        return saltEntity.value;
     }
 
     private toTableEntity(secret: ControlledSecret, partitionKey: string, rowKey: string): TableEntity {

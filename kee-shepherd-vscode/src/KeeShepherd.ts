@@ -1255,7 +1255,7 @@ export class KeeShepherd extends KeeShepherdBase {
         
         if (storageType === StorageTypeEnum.Local) {
 
-            result = await KeyMetadataLocalRepo.create(path.join(storageFolder, 'key-metadata'));
+            result = await KeyMetadataLocalRepo.create(context, path.join(storageFolder, 'key-metadata'));
 
             log(`Metadata storage: local (${storageFolder})`, true, true);
 

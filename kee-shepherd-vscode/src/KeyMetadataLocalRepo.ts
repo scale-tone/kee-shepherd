@@ -2,36 +2,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as Crypto from 'crypto';
+import * as vscode from 'vscode';
 import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, EnvVariableSpecialPath, ControlTypeEnum, SecretNameConflictError } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 
 // Stores secret metadata locally in JSON files
 export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
-
-    private _salt: string = '';
-
-    private get salt(): string {
-
-        if (!!this._salt) {
-            return this._salt;
-        }
-
-        const saltFileName = path.join(this._storageFolder, 'salt.dat');
-
-        try {
-           
-            const newSalt = Crypto.randomBytes(128).toString('hex');
-
-            // Making sure the file is being created exclusively
-            fs.writeFileSync(saltFileName, newSalt, { flag: 'wx' });
-            
-        } catch (err) {
-        }
-
-        this._salt = fs.readFileSync(saltFileName, 'utf8');
-
-        return this._salt;
-    }
 
     async findBySecretName(name: string): Promise<ControlledSecret[]> {
 
@@ -72,12 +48,14 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     calculateHash(str: string): string {
 
-        return getSha256Hash(str + this.salt);
+        return getSha256Hash(str + this._salt);
     }
 
-    private constructor(private _storageFolder: string, private _secrets: ControlledSecret[]) { }
+    private constructor(private _storageFolder: string, 
+        private _secrets: ControlledSecret[],
+        private _salt: string) { }
 
-    static async create(storageFolder: string): Promise<KeyMetadataLocalRepo> {
+    static async create(context: vscode.ExtensionContext, storageFolder: string): Promise<KeyMetadataLocalRepo> {
 
         if (!fs.existsSync(storageFolder)) {
             await fs.promises.mkdir(storageFolder, {recursive: true});
@@ -88,8 +66,10 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
         // Reading all secrets from those folders
         const secrets = await Promise.all(folders.map(KeyMetadataLocalRepo.readSecretFilesFromFolder));
+
+        const salt = await KeyMetadataLocalRepo.getSalt(context, storageFolder);
         
-        return new KeyMetadataLocalRepo(storageFolder, secrets.flat());
+        return new KeyMetadataLocalRepo(storageFolder, secrets.flat(), salt);
     }
 
     async getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]> {
@@ -212,5 +192,38 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         });
 
         await Promise.all(promises);
+    }
+
+    private static async getSalt(context: vscode.ExtensionContext, storageFolder: string): Promise<string> {
+
+        let salt = await context.secrets.get('salt');
+        
+        if (!!salt) {
+            return salt;
+        }
+
+        const saltFileName = path.join(storageFolder, 'salt.dat');
+
+        if (fs.existsSync(saltFileName)) {
+
+            // Moving salt from file into vscode's SecretStorage
+
+            salt = await fs.promises.readFile(saltFileName, 'utf8');
+
+            await context.secrets.store('salt', salt);
+
+            await fs.promises.rm(saltFileName, { force: true });
+
+            return salt;
+        }
+
+        // TODO: add a critical section around the below code (by exclusively creating an empty salt.dat file)
+
+        salt = Crypto.randomBytes(128).toString('hex');
+
+        // Just storing the salt in SecretStorage
+        await context.secrets.store('salt', salt);
+
+        return salt;
     }
 }
