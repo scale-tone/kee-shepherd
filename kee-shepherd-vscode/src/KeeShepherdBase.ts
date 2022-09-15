@@ -16,7 +16,7 @@ import { execSync } from 'child_process';
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
 
-    static async readFile(fileUri: vscode.Uri): Promise<string> {
+    static async readFile(fileUri: vscode.Uri): Promise<{ text: string, byteOrderMark?: Uint8Array }> {
 
         // Trying with vscode and falling back to fs (because vscode will fail during unload)
         var fileBytes: Uint8Array;
@@ -25,14 +25,42 @@ export abstract class KeeShepherdBase {
         } catch (err) {
             fileBytes = await fs.promises.readFile(fileUri.fsPath);
         }
+
+        let textArray = Buffer.from(fileBytes);
+        let byteOrderMark = undefined;
+
+        // Handling BOMs, if any
+        if ((fileBytes[0] === 0xEF) && (fileBytes[1] === 0xBB)) {
+
+            textArray = textArray.slice(3);
+            byteOrderMark = new Uint8Array([0xEF, 0xBB, 0xBF]);
+
+        } else if ((fileBytes[0] === 0xFE) && (fileBytes[1] === 0xFF)) {
+
+            textArray = textArray.slice(2);
+            byteOrderMark = new Uint8Array([0xFE, 0xFF]);
+
+        } else if ((fileBytes[0] === 0xFF) && (fileBytes[1] === 0xFE)) { 
+
+            textArray = textArray.slice(2);
+            byteOrderMark = new Uint8Array([0xFF, 0xFE]);
+        }
+
+        const text = textArray.toString();
     
-        return Buffer.from(fileBytes).toString();
+        return { text, byteOrderMark };
     }
     
-    static async writeFile(fileUri: vscode.Uri, text: string): Promise<void> {
+    static async writeFile(fileUri: vscode.Uri, text: string, byteOrderMark?: Uint8Array): Promise<void> {
     
         // Trying with vscode and falling back to fs (because vscode will fail during unload)
-        const outputFileBytes = Buffer.from(text);
+        let outputFileBytes = Buffer.from(text);
+
+        if (!!byteOrderMark) {
+            
+            outputFileBytes = Buffer.concat([byteOrderMark, outputFileBytes]);
+        }
+
         try {
             await vscode.workspace.fs.writeFile(fileUri, outputFileBytes);
         } catch (err) {
@@ -378,14 +406,14 @@ export abstract class KeeShepherdBase {
             const fileUri = vscode.Uri.parse(filePath);
 
             // Reading current file contents.
-            var fileText = await KeeShepherdBase.readFile(fileUri);
+            let { text, byteOrderMark } = await KeeShepherdBase.readFile(fileUri);
             
             // Replacing @KeeShepherd() links with secret values
-            const outputFileText = await this.internalStashUnstashSecrets(filePath, fileText, managedSecretValues, stash);
+            const outputFileText = await this.internalStashUnstashSecrets(filePath, text, managedSecretValues, stash);
 
             // Temporarily hiding everything. This seems to be the only way to prevent secret values from flashing.
             // Only doing this if the text has actually changed, because otherwise onDidChangeTextDocument event won't be triggered.
-            if (!!currentEditor && (outputFileText !== fileText)) {
+            if (!!currentEditor && (outputFileText !== text)) {
 
                 this.maskAllText(currentEditor);
             }
@@ -406,7 +434,7 @@ export abstract class KeeShepherdBase {
             }
 
             // Saving file contents back
-            await KeeShepherdBase.writeFile(fileUri, outputFileText);
+            await KeeShepherdBase.writeFile(fileUri, outputFileText, byteOrderMark);
 
             // Refreshing secret tree view
             for (const secretName in managedSecretValues) {

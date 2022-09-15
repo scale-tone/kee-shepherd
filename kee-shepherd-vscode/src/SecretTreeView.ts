@@ -269,7 +269,9 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                     // Obtaining the file text in parallel
                     const fileTextPromise = !parent.isLocal ?
                         Promise.resolve('') :
-                        KeeShepherdBase.readFile(vscode.Uri.parse(parent.filePath!)).catch(() => '');
+                        KeeShepherdBase.readFile(vscode.Uri.parse(parent.filePath!))
+                            .then(r => r.text)
+                            .catch(() => '');
 
                     const secrets = await this._getRepo().getSecrets(parent.filePath!, true, parent.machineName);
 

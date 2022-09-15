@@ -201,7 +201,7 @@ export class KeeShepherd extends KeeShepherdBase {
             const editor = await vscode.window.showTextDocument(fileUri);
 
             // Reading file contents through vscode.workspace.fs.readFile() seems more reliable than using editor.getText()
-            const text = await KeeShepherdBase.readFile(fileUri);
+            const { text } = await KeeShepherdBase.readFile(fileUri);
 
             // Searching for this secret in a brute-force way. Deliberately not using secret map here (as it might be outdated).
             var secretPos = -1, secretLength = 0;
@@ -387,13 +387,13 @@ export class KeeShepherd extends KeeShepherdBase {
             const existingSecrets = await this._repo.getSecrets(currentFileUri.toString(), true);
 
             // Reading current file contents
-            var fileText = await KeeShepherdBase.readFile(currentFileUri);
+            let { text } = await KeeShepherdBase.readFile(currentFileUri);
 
             const resolvedSecretNames: string[] = [];
 
             const regex = new RegExp(`${AnchorPrefix}\\((.+?)\\)`, 'g');
-            var match: RegExpExecArray | null;
-            while (match = regex.exec(fileText)) {
+            let match: RegExpExecArray | null;
+            while (match = regex.exec(text)) {
 
                 const secretName = match[1];
 
