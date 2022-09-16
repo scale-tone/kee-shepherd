@@ -98,12 +98,24 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         };
     }
 
-    async getSecretProps(subscriptionId: string, keyVaultName: string): Promise<SecretProperties[]> {
+    async getSecrets(subscriptionId: string, keyVaultName: string): Promise<SecretProperties[]> {
 
         const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
         
         const result = [];
         for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
+            result.push(secretProps);
+        }
+
+        return result;
+    }
+
+    async getSecretVersions(subscriptionId: string, keyVaultName: string, secretName: string): Promise<SecretProperties[]> {
+
+        const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
+        
+        const result = [];
+        for await (const secretProps of keyVaultClient.listPropertiesOfSecretVersions(secretName)) {
             result.push(secretProps);
         }
 

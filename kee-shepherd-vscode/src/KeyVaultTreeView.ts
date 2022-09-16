@@ -11,6 +11,7 @@ export enum KeyVaultNodeTypeEnum {
     Subscription = 1,
     KeyVault,
     Secret,
+    SecretVersion,
     ErrorNode
 }
 
@@ -19,7 +20,9 @@ export type KeyVaultTreeItem = vscode.TreeItem & {
     nodeType: KeyVaultNodeTypeEnum,
     credentials?: DeviceTokenCredentials,
     subscriptionId?: string,
-    keyVaultName?: string
+    keyVaultName?: string,
+    secretId?: string,
+    updatedOn?: Date
 };
 
 // Renders the 'Key Vault' TreeView
@@ -110,7 +113,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                     try {
                      
                         const secretProvider = new KeyVaultSecretValueProvider(this._account);
-                        const secrets = await secretProvider.getSecretProps(parent.subscriptionId as string, parent.label as string);
+                        const secrets = await secretProvider.getSecrets(parent.subscriptionId as string, parent.label as string);
     
                         for (const secret of secrets) {
                             
@@ -120,8 +123,9 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                                 nodeType: KeyVaultNodeTypeEnum.Secret,
                                 contextValue: 'key-vault-secret',
                                 subscriptionId: parent.subscriptionId,
+                                secretId: secret.name,
                                 keyVaultName: parent.keyVaultName,
-                                collapsibleState: vscode.TreeItemCollapsibleState.None,
+                                collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
     
                                 iconPath: {
                                     light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
@@ -134,10 +138,51 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                             result.splice(index < 0 ? result.length : index, 0, node);    
                         }                            
 
-                    } catch (err) {
+                    } catch (err: any) {
 
                         result.push({
-                            label: `Failed to load secrets. ${(err as any).message ?? err}`,
+                            label: `Failed to load secrets. ${err.message ?? err}`,
+                            nodeType: KeyVaultNodeTypeEnum.ErrorNode,
+                        });
+                    }
+                }
+                break;
+                case KeyVaultNodeTypeEnum.Secret: {
+
+                    try {
+                     
+                        const secretProvider = new KeyVaultSecretValueProvider(this._account);
+
+                        const secretVersions = await secretProvider.getSecretVersions(parent.subscriptionId as string, parent.keyVaultName!, parent.label as string);
+    
+                        for (const secretVersion of secretVersions) {
+                            
+                            const node = {
+                                label: secretVersion.version,
+                                updatedOn: secretVersion.updatedOn,
+                                tooltip: timestampToString(secretVersion.createdOn as Date),
+                                nodeType: KeyVaultNodeTypeEnum.SecretVersion,
+                                contextValue: 'key-vault-secret-version',
+                                subscriptionId: parent.subscriptionId,
+                                secretId: `${secretVersion.name}/${secretVersion.version}`,
+                                keyVaultName: parent.keyVaultName,
+                                collapsibleState: vscode.TreeItemCollapsibleState.None,
+    
+                                iconPath: {
+                                    light: path.join(this._resourcesFolder, 'light', 'secret-version.svg'),
+                                    dark: path.join(this._resourcesFolder, 'dark', 'secret-version.svg')
+                                }
+                            };
+ 
+                            // Sorting by updatedOn on the fly
+                            const index = result.findIndex(n => n.updatedOn! < node.updatedOn!);
+                            result.splice(index < 0 ? result.length : index, 0, node);
+                        }                            
+
+                    } catch (err: any) {
+
+                        result.push({
+                            label: `Failed to load secret versions. ${err.message ?? err}`,
                             nodeType: KeyVaultNodeTypeEnum.ErrorNode,
                         });
                     }

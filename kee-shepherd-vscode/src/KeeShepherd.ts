@@ -970,20 +970,34 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await this.doAndShowError(async () => {
 
-            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            if ((treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret && treeItem.nodeType !== KeyVaultNodeTypeEnum.SecretVersion) ||
+                !treeItem.subscriptionId ||
+                !treeItem.keyVaultName ||
+                !treeItem.secretId) {
                 return;
             }
 
             const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
             const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
 
-            const secret = await keyVaultClient.getSecret(treeItem.label as string);
+            const secret = await keyVaultClient.getSecret(treeItem.secretId);
 
-            vscode.env.clipboard.writeText(copyUri ? `${secret.properties.vaultUrl}/secrets/${secret.name}` : secret.value as string);
+            if (!!copyUri) {
 
-            vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${secret.name} was copied to Clipboard`);
+                vscode.env.clipboard.writeText(
+                    treeItem.nodeType === KeyVaultNodeTypeEnum.Secret ? 
+                    `${secret.properties.vaultUrl}/secrets/${secret.name}` :
+                    secret.properties.id!
+                );
 
-        }, 'KeeShepherd failed to copy secret value');
+            } else {
+
+                vscode.env.clipboard.writeText(secret.value as string);
+            }
+
+            vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${treeItem.secretId} was copied to Clipboard`);
+
+        }, 'KeeShepherd failed to get the secret');
     }
 
     async createKeyVaultSecret(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
@@ -1050,6 +1064,52 @@ export class KeeShepherd extends KeeShepherdBase {
             }
 
         }, 'KeeShepherd failed to add secret to Key Vault');
+    }
+
+    async setKeyVaultSecretValue(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
+
+        await this.doAndShowError(async () => {
+
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+                return;
+            }
+
+            const secretName = treeItem.label as string;
+            let secretValue;
+
+            if (!!pickUpSecretValue) {
+
+                const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+                if (!secret) {
+                    return;
+                }
+
+                secretValue = secret.value;
+                
+            } else {
+
+                secretValue = await vscode.window.showInputBox({
+                    prompt: 'Enter secret value',
+                    password: true
+                });
+            }
+
+            if (!secretValue) {
+                return;
+            }
+
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+            await keyVaultClient.setSecret(secretName, secretValue);
+
+            this.keyVaultTreeView.refresh();
+
+
+            this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
+
+        }, 'KeeShepherd failed to set secret value');
     }
 
     async removeSecretFromKeyVault(treeItem: KeyVaultTreeItem): Promise<void> {
