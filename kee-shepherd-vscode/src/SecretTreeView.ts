@@ -7,7 +7,7 @@ import { exec } from 'child_process';
 import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName, EnvVariableSpecialPath } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { KeeShepherdBase } from './KeeShepherdBase';
-import { timestampToString } from './helpers';
+import { Log, timestampToString } from './helpers';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 
 export enum KeeShepherdNodeTypeEnum {
@@ -38,7 +38,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
     constructor(private _account: AzureAccountWrapper,
         private _getRepo: () => IKeyMetadataRepo,
         private _resourcesFolder: string,
-        private _log: (s: string, withEof: boolean, withTimestamp: boolean) => void
+        private _log: Log
     ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();

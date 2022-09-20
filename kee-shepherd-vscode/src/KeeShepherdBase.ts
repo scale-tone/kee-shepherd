@@ -12,6 +12,7 @@ import { KeyVaultTreeView } from './KeyVaultTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { execSync } from 'child_process';
+import { Log } from './helpers';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
@@ -73,7 +74,7 @@ export abstract class KeeShepherdBase {
         protected readonly _mapRepo: KeyMapRepo,
         public readonly treeView: SecretTreeView,
         public readonly keyVaultTreeView: KeyVaultTreeView,
-        protected _log: (s: string, withEof: boolean, withTimestamp: boolean) => void
+        protected _log: Log
     ) { }
 
     dispose(): void {

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import { ControlTypeEnum, AnchorPrefix, SecretTypeEnum, ControlledSecret } from './KeyMetadataHelpers';
 import { KeeShepherd } from './KeeShepherd';
+import { Log } from './helpers';
 
 // Completion provider that responds to '@KeeShepherd(' anchor and drops a list of further suggestions for it
 export class AnchorCompletionProvider implements vscode.CompletionItemProvider {
@@ -131,7 +132,7 @@ export class ExistingSecretsCompletionProvider implements vscode.CompletionItemP
 
     static readonly cloneSecretCommandId = 'kee-shepherd-vscode.code-completion.cloneSecret';
 
-    constructor(private _shepherd: KeeShepherd, private  log: (s: string, withEof: boolean, withTimestamp: boolean) => void) { }
+    constructor(private _shepherd: KeeShepherd, private  log: Log) { }
 
     async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.CompletionItem[] | undefined> {
 

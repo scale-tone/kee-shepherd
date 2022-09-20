@@ -4,38 +4,48 @@ import axios from "axios";
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
+import { Log } from '../helpers';
 
 export type CodespaceSecretMeta = { name: string, created_at: string, updated_at: string, visibility: string };
 
 // Implements picking and retrieving secret values from GitHub Codespace Secrets
 export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
-    constructor(protected _account: AzureAccountWrapper) { }
+    constructor(protected _account: AzureAccountWrapper, private _log: Log) { }
 
-    static async getCodespacesSecrets(): Promise<CodespaceSecretMeta[]> {
+    private async getPersonalCodespacesSecrets(): Promise<CodespaceSecretMeta[]> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets'], { createIfNone: true } );
+        try {
 
-        const secrets: CodespaceSecretMeta[] = [];
+            const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets'], { createIfNone: true } );
 
-        const secretsUri = `https://api.github.com/user/codespaces/secrets?per_page=100`;
-        let pageNr = 0;
-        
-        while (true) {
-
-            // Yes, page numbers start from _1_ there, not from 0
-            pageNr++;
-            const secretsResponse = await axios.get(`${secretsUri}&page=${pageNr}`, { headers: { 'Authorization': `Bearer ${githubSession.accessToken}`, 'Accept': 'application/vnd.github+json' }});
-
-            const nextBatch: CodespaceSecretMeta[] = secretsResponse.data?.secrets;
-            if (!nextBatch?.length) {
-                break;
+            const secrets: CodespaceSecretMeta[] = [];
+    
+            const secretsUri = `https://api.github.com/user/codespaces/secrets?per_page=100`;
+            let pageNr = 0;
+            
+            while (true) {
+    
+                // Yes, page numbers start from _1_ there, not from 0
+                pageNr++;
+                const secretsResponse = await axios.get(`${secretsUri}&page=${pageNr}`, { headers: { 'Authorization': `Bearer ${githubSession.accessToken}`, 'Accept': 'application/vnd.github+json' }});
+    
+                const nextBatch: CodespaceSecretMeta[] = secretsResponse.data?.secrets;
+                if (!nextBatch?.length) {
+                    break;
+                }
+    
+                secrets.push(...nextBatch);
             }
+    
+            return secrets;
 
-            secrets.push(...nextBatch);
+        } catch (err: any) {
+
+            this._log(`Failed to load personal Codespaces secrets. ${err.message ?? err}`, true, true);
+
+            return [];
         }
-
-        return secrets;
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
@@ -46,7 +56,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     async pickUpSecret(): Promise<SelectedSecretType | undefined> {
 
-        const secrets = await CodespaceSecretValueProvider.getCodespacesSecrets();
+        const secrets = await this.getPersonalCodespacesSecrets();
 
         const options = secrets.map(secret => { 
             return {

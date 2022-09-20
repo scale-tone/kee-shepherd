@@ -18,29 +18,30 @@ import { AzureSearchSecretValueProvider } from './secret-value-providers/AzureSe
 import { AzureSignalRSecretValueProvider } from './secret-value-providers/AzureSignalRSecretValueProvider';
 import { AzureDevOpsSecretValueProvider } from './secret-value-providers/AzureDevOpsSecretValueProvider';
 import { CodespaceSecretValueProvider } from './secret-value-providers/CodespaceSecretValueProvider';
+import { Log } from './helpers';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
 
     private _providers: { [secretType: number]: ISecretValueProvider } = {};
 
-    constructor(protected _account: AzureAccountWrapper) {
+    constructor(account: AzureAccountWrapper, log: Log) {
         
-        this._providers[SecretTypeEnum.AzureKeyVault] = new KeyVaultSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureStorage] = new StorageSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureServiceBus] = new ServiceBusSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureEventHubs] = new EventHubSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureCosmosDb] = new CosmosDbSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureRedisCache] = new AzureRedisSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureAppInsights] = new AppInsightsSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureEventGrid] = new EventGridSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureMaps] = new AzureMapsSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureCognitiveServices] = new AzureCognitiveServicesSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureSearch] = new AzureSearchSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(this._account);
-        this._providers[SecretTypeEnum.CodespaceSecret] = new CodespaceSecretValueProvider(this._account);
+        this._providers[SecretTypeEnum.AzureKeyVault] = new KeyVaultSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureStorage] = new StorageSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureServiceBus] = new ServiceBusSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureEventHubs] = new EventHubSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureCosmosDb] = new CosmosDbSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureRedisCache] = new AzureRedisSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureAppInsights] = new AppInsightsSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureEventGrid] = new EventGridSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureMaps] = new AzureMapsSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureCognitiveServices] = new AzureCognitiveServicesSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureSearch] = new AzureSearchSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(account);
+        this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(account);
+        this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(account);
+        this._providers[SecretTypeEnum.CodespaceSecret] = new CodespaceSecretValueProvider(account, log);
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {

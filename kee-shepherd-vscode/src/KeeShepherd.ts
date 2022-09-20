@@ -16,6 +16,7 @@ import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 import { ISecretValueProvider, SelectedSecretType } from './secret-value-providers/ISecretValueProvider';
+import { Log } from './helpers';
 
 const SettingNames = {
     StorageType: 'KeeShepherdStorageType',
@@ -34,11 +35,11 @@ export class KeeShepherd extends KeeShepherdBase {
         repo: IKeyMetadataRepo,
         mapRepo: KeyMapRepo,
         resourcesFolder: string,
-        protected log: (s: string, withEof: boolean, withTimestamp: boolean) => void
+        log: Log
     ) {
 
         super (
-            new SecretValuesProvider(_account),
+            new SecretValuesProvider(_account, log),
             repo,
             mapRepo,
             new SecretTreeView(_account, () => this._repo, resourcesFolder, log),
@@ -47,7 +48,7 @@ export class KeeShepherd extends KeeShepherdBase {
         );
     }
 
-    static async create(context: vscode.ExtensionContext, log: (s: string, withEof: boolean, withTimestamp: boolean) => void): Promise<KeeShepherd> {
+    static async create(context: vscode.ExtensionContext, log: Log): Promise<KeeShepherd> {
 
         const account = new AzureAccountWrapper();
         var metadataRepo: IKeyMetadataRepo;
@@ -1285,7 +1286,7 @@ export class KeeShepherd extends KeeShepherdBase {
         await context.globalState.update(SettingNames.ResourceGroupName, undefined);
     }
 
-    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper, log: (s: string, withEof: boolean, withTimestamp: boolean) => void): Promise<IKeyMetadataRepo> {
+    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper, log: Log): Promise<IKeyMetadataRepo> {
 
         const storageFolder = context.globalStorageUri.fsPath;
 

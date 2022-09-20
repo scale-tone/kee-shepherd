@@ -5,7 +5,7 @@ import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
-import { timestampToString } from './helpers';
+import { Log, timestampToString } from './helpers';
 
 export enum KeyVaultNodeTypeEnum {
     Subscription = 1,
@@ -31,7 +31,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
     constructor(
         private _account: AzureAccountWrapper,
         private _resourcesFolder: string,
-        private _log: (s: string, withEof: boolean, withTimestamp: boolean) => void
+        private _log: Log
     ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();

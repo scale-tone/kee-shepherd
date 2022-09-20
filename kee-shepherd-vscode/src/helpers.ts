@@ -1,4 +1,6 @@
 
+export type Log = (s: string, withEof: boolean, withTimestamp: boolean) => void;
+
 export function timestampToString(ts: Date): string {
 
     try {
