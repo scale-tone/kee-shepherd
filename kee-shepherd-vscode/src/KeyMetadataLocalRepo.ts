@@ -197,9 +197,6 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     private static async getSalt(context: vscode.ExtensionContext, storageFolder: string): Promise<string> {
 
-        await context.secrets.delete(SaltKey);
-
-
         let salt = await context.secrets.get(SaltKey);
         
         if (!!salt) {
