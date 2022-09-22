@@ -23,8 +23,6 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        this._log(`>> ${secret.name}:${process.env[secret.name]} <<<`, true, true);
-
         // Codespace Secrets appear as env variables, so we just take the value from there
         return process.env[secret.name] as string;
     }
