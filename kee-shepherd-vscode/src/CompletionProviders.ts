@@ -74,7 +74,7 @@ export class MenuCommandCompletionProvider implements vscode.CompletionItemProvi
         insertCodespacesSecretItem.command = {
             title: 'Insert a Codespaces Secret Here...',
             command: MenuCommandCompletionProvider.insertSecretCommandId,
-            arguments: [ ControlTypeEnum.Managed, position, SecretTypeEnum.CodespaceSecret ]
+            arguments: [ ControlTypeEnum.Managed, position, SecretTypeEnum.Codespaces ]
         };
 
         const insertKeyVaultSecretItem = new vscode.CompletionItem('[Azure Key Vault Secret...]');

@@ -710,7 +710,7 @@ export class KeeShepherd extends KeeShepherdBase {
         await this.doAndShowError(async () => {
 
             // Disallowing to register an env variable as an env variable
-            const secretTypesToExclude = [SecretTypeEnum.CodespaceSecret];
+            const secretTypesToExclude = [SecretTypeEnum.Codespaces];
 
             const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.EnvVariable, secretTypesToExclude);
 

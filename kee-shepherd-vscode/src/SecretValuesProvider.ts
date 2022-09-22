@@ -41,7 +41,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(account);
         this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(account);
-        this._providers[SecretTypeEnum.CodespaceSecret] = new CodespaceSecretValueProvider(account, log);
+        this._providers[SecretTypeEnum.Codespaces] = new CodespaceSecretValueProvider(account, log);
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
@@ -68,8 +68,8 @@ export class SecretValuesProvider {
                 { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
                 { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
                 { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },
-                { label: 'GitHub Codespaces Secret', type: SecretTypeEnum.CodespaceSecret },
                 { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
+                { label: 'GitHub Codespaces Secret', type: SecretTypeEnum.Codespaces },
             ];
     
             if (!!excludedSecretTypes) {

@@ -92,7 +92,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         }
 
         return {
-            type: SecretTypeEnum.CodespaceSecret,
+            type: SecretTypeEnum.Codespaces,
             name: secretName,
             value: secretValue!,
             properties: {
