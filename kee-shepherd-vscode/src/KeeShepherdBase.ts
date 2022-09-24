@@ -537,7 +537,7 @@ export abstract class KeeShepherdBase {
     
     protected async askUserAboutMissingSecrets(filePath: string, missingSecrets: string[]): Promise<void> {
 
-        const userResponse = await vscode.window.showWarningMessage(
+        const userResponse = await vscode.window.showErrorMessage(
             `The following secrets: ${missingSecrets.join(', ')} were not found in ${path.basename(filePath)}. Do you want to forget them?`,
             'Yes', 'No');
         

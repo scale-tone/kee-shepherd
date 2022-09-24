@@ -63,7 +63,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         const secretKind = secretKindSelectedOption.secretKind;
         let secretName = '';
 
-        let options: { label: string, kind?: vscode.QuickPickItemKind, detail?: string }[] = [];
+        let options: { label: string, kind?: vscode.QuickPickItemKind, detail?: string, secretInfo?: CodespaceSecretInfo }[] = [];
 
         switch (secretKind) {
             case 'Personal':
@@ -100,7 +100,11 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
             name: secretName,
             value: secretValue!,
             properties: {
-                kind: secretKind
+                kind: secretKind,
+                createdAt: selectedOption.secretInfo?.created_at,
+                updatedAt: selectedOption.secretInfo?.updated_at,
+                visibility: selectedOption.secretInfo?.visibility,
+                selectedRepositoriesUri: selectedOption.secretInfo?.selected_repositories_url
             }
         };
     }
@@ -342,7 +346,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         return { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github+json' } };
     }
 
-    private async getQuickPickOptionsForPersonalSecrets(): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string }[]> {
+    private async getQuickPickOptionsForPersonalSecrets(): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string, secretInfo?: CodespaceSecretInfo }[]> {
 
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecrets();
 
@@ -357,12 +361,13 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
             return {
                 label : secret.name,
                 detail: `created ${secret.created_at.slice(0, 19)}`,
-                description: !!process.env[secret.name] ? 'available on this machine' : undefined
+                description: !!process.env[secret.name] ? 'available on this machine' : undefined,
+                secretInfo: secret
             };
         });    
     }
 
-    private async getQuickPickOptionsForOrganizationSecrets(): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string }[]> {
+    private async getQuickPickOptionsForOrganizationSecrets(): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string, secretInfo?: CodespaceSecretInfo }[]> {
 
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
 
@@ -401,7 +406,8 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
                 options.push({
                     label : secret.name,
                     detail: `created ${secret.created_at.slice(0, 19)}`,
-                    description: !!process.env[secret.name] ? 'available on this machine' : undefined
+                    description: !!process.env[secret.name] ? 'available on this machine' : undefined,
+                    secretInfo: secret
                 });
             }
         }
@@ -409,7 +415,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         return options;
     }
 
-    private async getQuickPickOptionsForRepoSecrets(repoFullName: string): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string }[]> {
+    private async getQuickPickOptionsForRepoSecrets(repoFullName: string): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string, secretInfo?: CodespaceSecretInfo }[]> {
 
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
 
@@ -424,7 +430,8 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
             return {
                 label : secret.name,
                 detail: `created ${secret.created_at.slice(0, 19)}`,
-                description: !!process.env[secret.name] ? 'available on this machine' : undefined
+                description: !!process.env[secret.name] ? 'available on this machine' : undefined,
+                secretInfo: secret
             };
         });    
     }
