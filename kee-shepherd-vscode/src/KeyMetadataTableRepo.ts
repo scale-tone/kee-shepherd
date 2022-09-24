@@ -346,7 +346,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         // Asking user if they want to store their salt in Key Vault
 
         const userResponse = await vscode.window.showWarningMessage(
-            `KeeShepherd stores salted hashes of your secrets in its Metadata Storage. For even stronger security, it is recommended to store the salt value in a separate, safe place. Would you like to store your salt as an Azure Key Vault secret (instead of storing it along with secret metadata)?`,
+            `KeeShepherd stores salted hashes of your secrets in its Metadata Storage. For even stronger protection, it is recommended to store the salt value in a separate, safe place. Would you like to store your salt as an Azure Key Vault secret (instead of storing it along with secret metadata)?`,
             `Yes`, `No, and don't ask again`
         );
 
