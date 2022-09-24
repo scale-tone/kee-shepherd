@@ -9,6 +9,7 @@ export enum CodespacesNodeTypeEnum {
     Organization,
     Repository,
     Secret,
+    SecretRepository
 }
 
 export type CodespacesTreeItem = vscode.TreeItem & {
@@ -73,6 +74,8 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
                             for (const secret of secrets) {
 
+                                const isAvailable = !!process.env[secret.name];
+
                                 const node = {
                                     label: secret.name,
                                     secretInfo: secret,
@@ -80,11 +83,11 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                                     nodeType: CodespacesNodeTypeEnum.Secret,
                                     secretKind: 'Personal' as CodespaceSecretKind,
                                     contextValue: 'codespaces-personal-secret',
-                                    collapsibleState: vscode.TreeItemCollapsibleState.None,
+                                    collapsibleState: !!secret.selected_repositories_url ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
         
                                     iconPath: {
-                                        light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
-                                        dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                                        light: path.join(this._resourcesFolder, 'light', isAvailable ? 'secret-unstashed.svg' : 'secret.svg'),
+                                        dark: path.join(this._resourcesFolder, 'dark', isAvailable ? 'secret-unstashed.svg' : 'secret.svg')
                                     }
                                 };
         
@@ -161,6 +164,8 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
                     for (const secret of secrets) {
 
+                        const isAvailable = !!process.env[secret.name];
+
                         const node = {
                             label: secret.name,
                             orgName: parent.orgName,
@@ -169,11 +174,11 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                             nodeType: CodespacesNodeTypeEnum.Secret,
                             secretKind: 'Organization' as CodespaceSecretKind,
                             contextValue: 'codespaces-organization-secret',
-                            collapsibleState: vscode.TreeItemCollapsibleState.None,
+                            collapsibleState: !!secret.selected_repositories_url ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
 
                             iconPath: {
-                                light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
-                                dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                                light: path.join(this._resourcesFolder, 'light', isAvailable ? 'secret-unstashed.svg' : 'secret.svg'),
+                                dark: path.join(this._resourcesFolder, 'dark', isAvailable ? 'secret-unstashed.svg' : 'secret.svg')
                             }
                         };
 
@@ -191,6 +196,8 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
                     for (const secret of parent.secrets) {
 
+                        const isAvailable = !!process.env[secret.name];
+
                         const node = {
                             label: secret.name,
                             repoName: parent.repoName,
@@ -202,9 +209,37 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
 
                             iconPath: {
-                                light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
-                                dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                                light: path.join(this._resourcesFolder, 'light', isAvailable ? 'secret-unstashed.svg' : 'secret.svg'),
+                                dark: path.join(this._resourcesFolder, 'dark', isAvailable ? 'secret-unstashed.svg' : 'secret.svg')
                             }
+                        };
+
+                        // Sorting by name on the fly
+                        const index = result.findIndex(n => n.label! > node.label);
+                        result.splice(index < 0 ? result.length : index, 0, node);
+                    }
+                }
+                break;
+                case CodespacesNodeTypeEnum.Secret: {
+
+                    if (!parent.secretInfo?.selected_repositories_url) {
+                        return result;
+                    }
+
+                    const accessToken = parent.secretKind === 'Organization' ?
+                        (await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets()) :
+                        (await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecretsAndRepos());
+
+                    const repos = await CodespaceSecretValueProvider.getReposByUrl(parent.secretInfo.selected_repositories_url, accessToken);
+
+                    for (const repo of repos) {
+
+
+                        const node = {
+                            label: repo.fullName,
+                            tooltip: `has access to ${parent.label} secret`,
+                            nodeType: CodespacesNodeTypeEnum.SecretRepository,
+                            collapsibleState: vscode.TreeItemCollapsibleState.None,
                         };
 
                         // Sorting by name on the fly

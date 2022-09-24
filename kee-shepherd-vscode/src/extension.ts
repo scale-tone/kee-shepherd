@@ -122,6 +122,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceRepoSecret', (item) => shepherd.createOrUpdateCodespacesRepoSecret(item)),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => shepherd.removeCodespacesSecret(item)),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyCodespacesSecretValue', (item) => shepherd.copyCodespacesSecretValue(item)),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => shepherd.codespacesTreeView.refresh()),
 

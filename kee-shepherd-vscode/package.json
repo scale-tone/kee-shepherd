@@ -260,6 +260,10 @@
                 "title": "Remove Secret"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.copyCodespacesSecretValue",
+                "title": "Copy Value to Clipboard"
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.setKeyVaultSecretValue",
                 "title": "Set new Value"
             },
@@ -461,6 +465,10 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.copyCodespacesSecretValue",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.insertKeyVaultSecretAsManaged",
                     "when": "never"
                 },
@@ -644,6 +652,10 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.removeCodespaceSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-personal-secret || viewItem == codespaces-organization-secret || viewItem == codespaces-repository-secret"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyCodespacesSecretValue",
                     "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-personal-secret || viewItem == codespaces-organization-secret || viewItem == codespaces-repository-secret"
                 },
                 {

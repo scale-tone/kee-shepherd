@@ -1547,7 +1547,28 @@ export class KeeShepherd extends KeeShepherdBase {
             vscode.window.showInformationMessage(`Codespaces secret ${secretName} was removed`);
 
         }, 'KeeShepherd failed to remove Codespaces secret');
-    }    
+    }
+
+    async copyCodespacesSecretValue(treeItem: CodespacesTreeItem): Promise<void> {
+
+        await this.doAndShowError(async () => {
+            
+            if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret || !treeItem.secretInfo?.name) {
+                return;
+            }
+
+            const secretValue = process.env[treeItem.secretInfo.name];
+
+            if (!secretValue) {
+                throw new Error(`${treeItem.secretInfo.name} secret is not available on this machine`);
+            }
+
+            vscode.env.clipboard.writeText(secretValue);
+
+            vscode.window.showInformationMessage(`KeeShepherd: value of ${treeItem.secretInfo.name} was copied to Clipboard`);
+
+        }, 'KeeShepherd failed to copy secret value');
+    }
     
     private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
         
