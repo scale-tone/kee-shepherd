@@ -1763,7 +1763,7 @@ export class KeeShepherd extends KeeShepherdBase {
                     .catch(err => {
 
                         // github search endpoint might produce 403 (which probably means throttling)
-                        console.log(err.message);
+                        console.log(err);
                     })
                     .finally(() => {
 
@@ -1797,7 +1797,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 })
                 .catch(err => {
 
-                    console.log(err.message);
+                    this._log(`Failed to get selected repositories for a Codespaces secret. ${err.message ?? err}`, true, true);
                 })
                 .finally(() => {
 
