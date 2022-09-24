@@ -2,7 +2,7 @@
 
 Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es). Gives you centralized access to them. Hides (masks) them whenever possible.
 
-Now also comes with a simple UI for Azure Key Vault secrets.
+Now also comes with a UI for Azure Key Vault secrets and GitHub Codespaces Secrets.
 
 <img src="https://user-images.githubusercontent.com/5447190/142853710-85ef42f6-2e30-46f2-a1ed-7f56fde13ccb.png" width="900">
 
@@ -12,7 +12,7 @@ Now also comes with a simple UI for Azure Key Vault secrets.
 * Remember where you left them.
 * Mask/unmask and stash/unstash them.
 * Mount them as Environment Variables.
-* Manage your Azure Key Vault secrets from within VsCode.
+* Manage your Azure Key Vault and GitHub Codespaces secrets from within VsCode.
 
 ## Features
 
@@ -119,6 +119,15 @@ Once signed in into Azure, a `KEY VAULT (VIA KEESHEPHERD)` view should appear on
 
 You can add and remove ("soft-delete") secrets, and for each secret you can get its value or insert it as **Managed** to the current text cursor position.
 
+### View, create, remove and use GitHub Codespaces secrets
+
+Once signed in into GitHub, a `CODESPACES SECRETS (VIA KEESHEPHERD)` view should appear on the `GITHUB` tab:
+
+<img src="https://user-images.githubusercontent.com/5447190/192107512-a94cb245-df3c-494d-8bd3-d0327202d174.png" width="400">
+
+All Personal, Organization and Repository secrets should be accessible and editable from there.
+
+
 
 ## Supported Secret Sources
 
@@ -135,6 +144,7 @@ You can add and remove ("soft-delete") secrets, and for each secret you can get 
 * [Azure Search](https://docs.microsoft.com/en-us/rest/api/searchmanagement/2020-08-01/admin-keys/get)
 * [Azure SignalR Services](https://docs.microsoft.com/en-us/rest/api/signalr/signalr/list-keys)
 * [Azure DevOps Personal Access Tokens](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate)
+* [GitHub Codespaces secrets](https://docs.github.com/en/codespaces/managing-your-codespaces/managing-encrypted-secrets-for-your-codespaces)
 * [Custom (Azure Resource Manager REST API)](https://docs.microsoft.com/en-us/rest/api/azure/)
 
 ## Requirements
