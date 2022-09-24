@@ -13,6 +13,7 @@ import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { execSync } from 'child_process';
 import { Log } from './helpers';
+import { CodespacesTreeView } from './CodespacesTreeView';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
@@ -74,6 +75,7 @@ export abstract class KeeShepherdBase {
         protected readonly _mapRepo: KeyMapRepo,
         public readonly treeView: SecretTreeView,
         public readonly keyVaultTreeView: KeyVaultTreeView,
+        public readonly codespacesTreeView: CodespacesTreeView,
         protected _log: Log
     ) { }
 
@@ -163,8 +165,15 @@ export abstract class KeeShepherdBase {
 
     protected async askUserForSecretName(defaultSecretName: string | undefined = undefined): Promise<string | undefined> {
 
+        if (!defaultSecretName) {
+            
+            defaultSecretName = `${vscode.workspace.name}_secret${new Date().getMilliseconds()}`
+                .replace(/-/g, `_`)
+                .replace(/[ \[\]]/g, ``);
+        }
+
         const secretName = await vscode.window.showInputBox({
-            value: defaultSecretName ?? `${vscode.workspace.name}-secret${new Date().getMilliseconds()}`,
+            value: defaultSecretName,
             prompt: 'Give your secret a name',
 
             validateInput: (n: string) => {

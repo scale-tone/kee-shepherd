@@ -46,6 +46,12 @@
                     "id": "kee-shepherd-key-vault-tree-view",
                     "name": "Key Vault (via KeeShepherd)"
                 }
+            ],
+            "github-pull-requests": [
+                {
+                    "id": "kee-shepherd-codespaces-tree-view",
+                    "name": "Codespaces Secrets (via KeeShepherd)"
+                }
             ]
         },
         "commands": [
@@ -226,6 +232,34 @@
                 "title": "Create new Secret from..."
             },
             {
+                "command": "kee-shepherd-vscode.view-context.createCodespacePersonalSecret",
+                "title": "Create new Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.updateCodespacePersonalSecret",
+                "title": "Update Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createCodespaceOrgSecret",
+                "title": "Create new Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.updateCodespaceOrgSecret",
+                "title": "Update Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createCodespaceRepoSecret",
+                "title": "Create new Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.updateCodespaceRepoSecret",
+                "title": "Update Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.removeCodespaceSecret",
+                "title": "Remove Secret"
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.setKeyVaultSecretValue",
                 "title": "Set new Value"
             },
@@ -239,6 +273,14 @@
             },
             {
                 "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
+                "title": "Refresh",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.codespaces-refresh",
                 "title": "Refresh",
                 "icon": {
                     "light": "resources/light/refresh.svg",
@@ -379,11 +421,43 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.codespaces-refresh",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createKeyVaultSecret",
                     "when": "never"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.createKeyVaultSecretFrom",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createCodespacePersonalSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.updateCodespacePersonalSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceOrgSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.updateCodespaceOrgSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceRepoSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.updateCodespaceRepoSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeCodespaceSecret",
                     "when": "never"
                 },
                 {
@@ -453,6 +527,11 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.key-vault-refresh",
                     "when": "view == kee-shepherd-key-vault-tree-view",
+                    "group": "navigation"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.codespaces-refresh",
+                    "when": "view == kee-shepherd-codespaces-tree-view",
                     "group": "navigation"
                 }
             ],
@@ -538,6 +617,34 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.createKeyVaultSecretFrom",
                     "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createCodespacePersonalSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-personal-secrets"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.updateCodespacePersonalSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-personal-secret"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceOrgSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-organization"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.updateCodespaceOrgSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-organization-secret"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceRepoSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-repository-secrets"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.updateCodespaceRepoSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-repository-secret"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeCodespaceSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-personal-secret || viewItem == codespaces-organization-secret || viewItem == codespaces-repository-secret"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copyKeyVaultSecretValue",
@@ -638,6 +745,7 @@
         "@azure/ms-rest-azure-env": "^2.0.0",
         "@azure/ms-rest-nodeauth": "^3.1.0",
         "@azure/msal-node": "^1.12.0",
-        "axios": "^0.24.0"
+        "axios": "^0.24.0",
+        "libsodium-wrappers": "^0.7.10"
     }
 }

@@ -112,6 +112,19 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.key-vault-refresh', () => shepherd.keyVaultTreeView.refresh()),
 
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespacePersonalSecret', (item) => shepherd.createOrUpdateCodespacesPersonalSecret(item)),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespacePersonalSecret', (item) => shepherd.createOrUpdateCodespacesPersonalSecret(item)),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceOrgSecret', (item) => shepherd.createOrUpdateCodespacesOrgSecret(item)),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceOrgSecret', (item) => shepherd.createOrUpdateCodespacesOrgSecret(item)),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceRepoSecret', (item) => shepherd.createOrUpdateCodespacesRepoSecret(item)),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceRepoSecret', (item) => shepherd.createOrUpdateCodespacesRepoSecret(item)),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => shepherd.removeCodespacesSecret(item)),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => shepherd.codespacesTreeView.refresh()),
+
         vscode.window.onDidChangeActiveTextEditor((editor) => shepherd.maskSecretsInThisFile(true)),
  
         vscode.workspace.onDidSaveTextDocument((doc) => shepherd.maskSecretsInThisFile(true)),
@@ -121,6 +134,15 @@ export async function activate(context: vscode.ExtensionContext) {
 //        }),
         
     );
+
+    // By far only registering this view if any github-related extensions are installed
+    const githubExtensionsExist = !!vscode.extensions.getExtension('vscode.github-authentication');
+    if (!!githubExtensionsExist) {
+        
+        context.subscriptions.push(
+            vscode.window.registerTreeDataProvider('kee-shepherd-codespaces-tree-view', shepherd.codespacesTreeView)
+        );
+    }
 
     const config = vscode.workspace.getConfiguration('kee-shepherd');
     const autoUnstashMode = config.get("autoUnstashMode");

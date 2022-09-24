@@ -5,6 +5,8 @@ import * as cp from 'child_process';
 import * as util from 'util';
 import axios from "axios";
 
+const sodium = require('libsodium-wrappers');
+
 const execAsync = util.promisify(cp.exec);
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
@@ -14,7 +16,11 @@ import { Log } from '../helpers';
 
 export const CodespaceSecretKinds = ['Personal', 'Organization', 'Repository'] as const;
 export type CodespaceSecretKind = typeof CodespaceSecretKinds[number];
-export type CodespaceSecretMeta = { name: string, created_at: string, updated_at: string, visibility: string };
+
+export const CodespaceSecretVisibilities = ['all', 'private', 'selected'] as const;
+export type CodespaceSecretVisibility = typeof CodespaceSecretVisibilities[number];
+
+export type CodespaceSecretInfo = { name: string, created_at: string, updated_at: string, visibility: string, selected_repositories_url?: string };
 
 // Implements picking and retrieving secret values from GitHub Codespace Secrets
 export class CodespaceSecretValueProvider implements ISecretValueProvider {
@@ -99,6 +105,109 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         };
     }
 
+    static async removeCodespacesSecret(secretsUri: string, secretName: string, accessToken: string): Promise<void> {
+
+        await axios.delete(`https://api.github.com/${secretsUri}/codespaces/secrets/${secretName}`, this.getRequestHeaders(accessToken));        
+    }
+
+    static async getCodespacesSecrets(secretsUri: string, accessToken: string): Promise<CodespaceSecretInfo[]> {
+
+        const result: CodespaceSecretInfo[] = [];
+
+        let pageNr = 0;
+        while (true) {
+
+            // Yes, page numbers start from _1_ there, not from 0
+            pageNr++;
+            const response = await axios.get(`https://api.github.com/${secretsUri}/codespaces/secrets?per_page=100&page=${pageNr}`, this.getRequestHeaders(accessToken));
+
+            const nextBatch = response.data?.secrets;
+            if (!nextBatch?.length) {
+                break;
+            }
+
+            result.push(...nextBatch);
+        }
+
+        return result;
+    }
+
+    static async getGithubAccessTokenForPersonalSecrets(): Promise<string> {
+
+        const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets'], { createIfNone: true } );
+        return githubSession.accessToken;        
+    }
+
+    static async getGithubAccessTokenForPersonalSecretsAndRepos(): Promise<string> {
+
+        const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets repo'], { createIfNone: true } );
+        return githubSession.accessToken;        
+    }
+
+    static async getGithubAccessTokenForOrgSecrets(): Promise<string> {
+
+        const githubSession = await vscode.authentication.getSession('github', ['user admin:org'], { createIfNone: true });
+        return githubSession.accessToken;        
+    }
+
+    static async getGithubAccessTokenForRepoSecrets(): Promise<string> {
+
+        const githubSession = await vscode.authentication.getSession('github', ['repo'], { createIfNone: true } );
+        return githubSession.accessToken;        
+    }
+
+    static async getGithubAccessTokenForOrgAndRepoSecrets(): Promise<string> {
+
+        const githubSession = await vscode.authentication.getSession('github', ['user admin:org repo'], { createIfNone: true });
+        return githubSession.accessToken;        
+    }    
+
+    static async getUserOrgs(accessToken: string): Promise<string[]> {
+
+        const result: string[] = [];
+
+        let pageNr = 0;
+        while (true) {
+
+            // Yes, page numbers start from _1_ there, not from 0
+            pageNr++;
+            const response = await axios.get(`https://api.github.com/user/orgs?per_page=100&page=${pageNr}`, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
+
+            const nextBatch: { login: string }[] = response.data;
+            if (!nextBatch?.length) {
+                break;
+            }
+
+            result.push(...nextBatch.map(b => b.login));
+        }
+
+        return result;
+    }
+
+    static async getUserRepos(accessToken: string): Promise<{ id: number, fullName: string }[]> {
+
+        const result: { id: number, fullName: string }[] = [];
+
+        let pageNr = 0;
+        while (true) {
+
+            // Yes, page numbers start from _1_ there, not from 0
+            pageNr++;
+            const response = await axios.get(`https://api.github.com/user/repos?affiliation=owner,collaborator&per_page=100&page=${pageNr}`, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
+
+            const nextBatch: { id: number, full_name: string }[] = response.data;
+            if (!nextBatch?.length) {
+                break;
+            }
+
+            result.push(...nextBatch.map(b => {
+                return { id: b.id, fullName: b.full_name };
+            }));
+        }
+
+        return result;
+    }
+
     private async getGitHubRepoFullName(): Promise<string> {
 
         const projectFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : '';
@@ -155,60 +264,89 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         return originUrl.substring(githubUrl.length);
     }
 
-    private getRequestHeaders(accessToken: string): any {
+    static async setSecretValue(url: string,
+        accessToken: string,
+        secretName: string,
+        secretValue: string,
+        visibility?: CodespaceSecretVisibility,
+        selectedRepoIds?: (string | number)[]
+    ): Promise<void> {
+
+        const publicKeyUrl = `https://api.github.com/${url}/codespaces/secrets/public-key`
+        const publicKeyResponse = await axios.get(publicKeyUrl, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
+        const publicKey: { key_id: string, key: string } = publicKeyResponse.data;
+
+        const keyBytes = Buffer.from(publicKey.key, 'base64');
+        const secretValueBytes = Buffer.from(secretValue);
+
+        await sodium.ready;
+
+        const encryptedBytes = sodium.crypto_box_seal(secretValueBytes, keyBytes);
+        const encryptedSecretValue = Buffer.from(encryptedBytes).toString('base64');
+
+        const putSecretBody: any = {
+            encrypted_value: encryptedSecretValue,
+            key_id: publicKey.key_id
+        };
+
+        if (!!visibility) {
+            putSecretBody.visibility = visibility;
+        }
+
+        if (!!selectedRepoIds) {
+            putSecretBody.selected_repository_ids = selectedRepoIds;
+        }
+
+        const putSecretUrl = `https://api.github.com/${url}/codespaces/secrets/${secretName}`;
+        await axios.put(putSecretUrl, putSecretBody, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
+    }
+
+    static async queryRepos(query: string, orgName: string, accessToken: string): Promise<{ id: number, fullName: string }[]> {
+
+        const response = await axios.get(`https://api.github.com/search/repositories?q=${query}+org:${orgName}`, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
+
+        if (!response.data?.items?.length) {
+            return [];
+        }
+
+        return response.data.items.map((item: any) => {
+            return {
+                id: item.id,
+                fullName: item.full_name
+            };
+        });
+    }
+
+    static async getReposByUrl(selectedReposUrl: string | undefined, accessToken: string): Promise<{ id: number, fullName: string }[]> {
+
+        if (!selectedReposUrl) {
+            return [];
+        }
+
+        const response = await axios.get(selectedReposUrl, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
+
+        if (!response.data?.repositories?.length) {
+            return [];
+        }
+
+        return response.data.repositories.map((item: any) => {
+            return {
+                id: item.id,
+                fullName: item.full_name
+            };
+        });
+    }
+
+    private static getRequestHeaders(accessToken: string): any {
         
         return { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github+json' } };
     }
 
-    private async getCodespacesSecrets(secretsUri: string, accessToken: string): Promise<CodespaceSecretMeta[]> {
-
-        const result: CodespaceSecretMeta[] = [];
-
-        let pageNr = 0;
-        while (true) {
-
-            // Yes, page numbers start from _1_ there, not from 0
-            pageNr++;
-            const response = await axios.get(`${secretsUri}?per_page=100&page=${pageNr}`, this.getRequestHeaders(accessToken));
-
-            const nextBatch = response.data?.secrets;
-            if (!nextBatch?.length) {
-                break;
-            }
-
-            result.push(...nextBatch);
-        }
-
-        return result;
-    }
-
-    private async getUserOrgs(accessToken: string): Promise<string[]> {
-
-        const result: string[] = [];
-
-        let pageNr = 0;
-        while (true) {
-
-            // Yes, page numbers start from _1_ there, not from 0
-            pageNr++;
-            const response = await axios.get(`https://api.github.com/user/orgs?per_page=100&page=${pageNr}`, this.getRequestHeaders(accessToken));
-
-            const nextBatch: { login: string }[] = response.data;
-            if (!nextBatch?.length) {
-                break;
-            }
-
-            result.push(...nextBatch.map(b => b.login));
-        }
-
-        return result;
-    }
-
     private async getQuickPickOptionsForPersonalSecrets(): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string }[]> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets'], { createIfNone: true } );
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecrets();
 
-        const secrets = await (this.getCodespacesSecrets(`https://api.github.com/user/codespaces/secrets`, githubSession.accessToken).catch(err => {
+        const secrets = await (CodespaceSecretValueProvider.getCodespacesSecrets(`user`, accessToken).catch(err => {
         
             this._log(`Failed to load Codespaces personal secrets. ${err.message ?? err}`, true, true);
 
@@ -226,16 +364,16 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     private async getQuickPickOptionsForOrganizationSecrets(): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string }[]> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['user admin:org'], { createIfNone: true } );
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
 
-        const orgs = await (this.getUserOrgs(githubSession.accessToken).catch(err => {
+        const orgs = await (CodespaceSecretValueProvider.getUserOrgs(accessToken).catch(err => {
         
             this._log(`Failed to get user organizations. ${err.message ?? err}`, true, true);
 
             return [];
         }));
 
-        const secretPromises = orgs.map(org => this.getCodespacesSecrets(`https://api.github.com/orgs/${org}/codespaces/secrets`, githubSession.accessToken).catch(err => {
+        const secretPromises = orgs.map(org => CodespaceSecretValueProvider.getCodespacesSecrets(`orgs/${org}`, accessToken).catch(err => {
 
             this._log(`Failed to get Codespaces secrets for organization ${org}. ${err.message ?? err}`, true, true);
 
@@ -273,9 +411,9 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     private async getQuickPickOptionsForRepoSecrets(repoFullName: string): Promise<{ label: string, kind?: vscode.QuickPickItemKind, detail?: string }[]> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['repo'], { createIfNone: true } );
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
 
-        const secrets = await this.getCodespacesSecrets(`https://api.github.com/repos/${repoFullName}/codespaces/secrets`, githubSession.accessToken).catch(err => {
+        const secrets = await CodespaceSecretValueProvider.getCodespacesSecrets(`repos/${repoFullName}`, accessToken).catch(err => {
 
             this._log(`Failed to get Codespaces secrets for repository ${repoFullName}. ${err.message ?? err}`, true, true);
 
