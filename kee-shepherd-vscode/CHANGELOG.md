@@ -1,5 +1,38 @@
 # Change Log
 
+## Version 1.6
+
+- UI for [GitHub Codespaces Secrets](https://docs.github.com/en/codespaces/managing-your-codespaces/managing-encrypted-secrets-for-your-codespaces):
+
+    <img src="https://user-images.githubusercontent.com/5447190/192107512-a94cb245-df3c-494d-8bd3-d0327202d174.png" width="400">
+
+    All Codespaces secrets (Personal, Organization and Repository) are now visible, accessible and updatable in one place.
+    
+    NOTE: to be able to see this view you need to have either [GitHub Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) or [GitHub Pull Requests and Issues](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) extension also installed. In a Codespaces instance those extensions are installed out-of-the-box. 
+    
+    Also Codespaces secrets are now available as yet another secret source.
+
+- Now you can use code completion to quickly insert secrets into text files:
+
+    <img src="https://user-images.githubusercontent.com/5447190/192107138-95fb39bc-debb-446b-b7a1-b3173416ef37.png" width="400">
+
+    Just type `@KeeShepherd(` and follow the flow.
+
+- Showing Azure Key Vault secret *versions*:
+
+    <img src="https://user-images.githubusercontent.com/5447190/192106967-df4f406f-6bf6-4c4b-8542-074f83d50131.png" width="300">
+
+- Now hashing salt can be stored separately from secret metadata. 
+    
+    For local metadata storages it is now automatically moved to [VsCode SecretStorage](https://code.visualstudio.com/api/references/vscode-api#SecretStorage). 
+    
+    For Azure Table storages you now have the option to store the salt in Azure Key Vault:
+    
+    <img src="https://user-images.githubusercontent.com/5447190/192106796-0ab23259-5351-4e12-86da-38653ecefa88.png" width="400">
+    
+- Minor bugfixes.
+
+
 ## Version 1.5
 
 - Very useful new secret source - [Azure DevOps PATs (Personal Access Tokens)](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate). You can now create new PATs: 
