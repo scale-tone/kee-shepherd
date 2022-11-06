@@ -4,7 +4,8 @@ This Visual Studio Code extension helps you to take care of credentials (secrets
 
 Instead of trying to catch them with various fuzzy secret detection tools, why not simply put your secrets on a leash?
 
-https://github.com/scale-tone/kee-shepherd/blob/main/demo.mp4
+https://user-images.githubusercontent.com/5447190/200199780-7493dad6-1bc2-438d-906c-d636845703c8.mp4
+
 
 [<img alt="Visual Studio Marketplace Installs" src="https://img.shields.io/visual-studio-marketplace/i/kee-shepherd.kee-shepherd-vscode?label=VsCode%20Extension%20Installs">](https://marketplace.visualstudio.com/items?itemName=kee-shepherd.kee-shepherd-vscode)
 
