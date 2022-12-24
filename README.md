@@ -16,6 +16,8 @@ https://user-images.githubusercontent.com/5447190/200199780-7493dad6-1bc2-438d-9
 
 See details in the [extension's readme](https://github.com/scale-tone/key-shepherd/blob/main/kee-shepherd-vscode/README.md).
 
+See more [short videos in our Wiki](https://github.com/scale-tone/kee-shepherd/wiki).
+
 Also check out [this blog post about it](https://scale-tone.github.io/2021/11/26/introducing-keeshepherd).
 
 ## How to compile and run
