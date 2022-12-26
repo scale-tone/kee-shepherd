@@ -36,23 +36,31 @@
     ],
     "main": "./dist/extension.js",
     "contributes": {
+
+        "viewsContainers": {
+
+            "activitybar": [
+                {
+                    "id": "kee-shepherd",
+                    "title": "KeeShepherd",
+                    "icon": "resources/keeShepherd.svg"
+                }
+            ]
+        },
+
         "views": {
-            "explorer": [
+            "kee-shepherd": [
                 {
                     "id": "kee-shepherd-tree-view",
-                    "name": "Secrets"
-                }
-            ],
-            "azure": [
+                    "name": "Managed/Supervised Secrets"
+                },
                 {
                     "id": "kee-shepherd-key-vault-tree-view",
-                    "name": "Key Vault (via KeeShepherd)"
-                }
-            ],
-            "github-pull-requests": [
+                    "name": "Azure Key Vault Secrets/Certificates"
+                },
                 {
                     "id": "kee-shepherd-codespaces-tree-view",
-                    "name": "Codespaces Secrets (via KeeShepherd)"
+                    "name": "GitHub Codespaces Secrets"
                 }
             ]
         },
