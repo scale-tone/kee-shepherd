@@ -3,6 +3,11 @@ import * as vscode from 'vscode';
 import { ControlledSecret, ControlTypeEnum, SecretTypeEnum } from './KeyMetadataHelpers';
 import { KeeShepherd } from './KeeShepherd';
 import { AnchorCompletionProvider, MenuCommandCompletionProvider, ExistingSecretsCompletionProvider } from './CompletionProviders';
+import { AzureAccountWrapper } from './AzureAccountWrapper';
+import { Log } from './helpers';
+import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { KeyMapRepo } from './KeyMapRepo';
+import path = require('path');
 
 var shepherd: KeeShepherd;
 
@@ -27,7 +32,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     };
 
-    shepherd = await KeeShepherd.create(context, log);
+    shepherd = await createKeeShepherd(context, log);
 
     await shepherd.stashPendingFolders();
     await shepherd.maskSecretsInThisFile(false);
@@ -167,4 +172,56 @@ export async function deactivate() {
     }
 
     shepherd.dispose();
+}
+
+// KeeShepherd factory
+async function createKeeShepherd(context: vscode.ExtensionContext, log: Log): Promise<KeeShepherd> {
+
+    const account = new AzureAccountWrapper();
+    var metadataRepo: IKeyMetadataRepo;
+
+    try {
+
+        metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, log);
+        
+    } catch (err) {
+
+        const msg = `KeeShepherd failed to initialize its metadata storage. What would you like to do?`;
+        const option1 = 'Reset storage settings and try again';
+        const option2 = 'Unload KeeShepherd';
+
+        if ((await vscode.window.showWarningMessage(msg, option1, option2)) !== option1) {
+
+            log(`Failed to initialize metadata storage. ${(err as any).message ?? err}`, true, true);
+
+            throw err;
+        }
+
+        await KeeShepherd.cleanupSettings(context);
+
+        // trying again
+        try {
+            
+            metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, log);
+
+        } catch (err2) {
+
+            vscode.window.showErrorMessage(`KeeShepherd still couldn't initialize its metadata storage. ${(err2 as any).message ?? err2}`);
+
+            log(`Failed to initialize metadata storage. ${(err2 as any).message ?? err2}`, true, true);
+
+            throw err2;
+        }
+    }
+
+    const resourcesFolderPath = context.asAbsolutePath('resources');
+
+    return new KeeShepherd(
+        context,
+        account,
+        metadataRepo,
+        await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
+        resourcesFolderPath,
+        log
+    );
 }

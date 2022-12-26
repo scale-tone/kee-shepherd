@@ -31,7 +31,7 @@ const SettingNames = {
 // Main functionality lies here
 export class KeeShepherd extends KeeShepherdBase {
 
-    private constructor (
+    constructor (
         private _context: vscode.ExtensionContext,
         private _account: AzureAccountWrapper,
         repo: IKeyMetadataRepo,
@@ -47,57 +47,6 @@ export class KeeShepherd extends KeeShepherdBase {
             new SecretTreeView(_account, () => this._repo, resourcesFolder, log),
             new KeyVaultTreeView(_account, resourcesFolder, log),
             new CodespacesTreeView(resourcesFolder, log),
-            log
-        );
-    }
-
-    static async create(context: vscode.ExtensionContext, log: Log): Promise<KeeShepherd> {
-
-        const account = new AzureAccountWrapper();
-        var metadataRepo: IKeyMetadataRepo;
-
-        try {
-
-            metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, log);
-            
-        } catch (err) {
-
-            const msg = `KeeShepherd failed to initialize its metadata storage. What would you like to do?`;
-            const option1 = 'Reset storage settings and try again';
-            const option2 = 'Unload KeeShepherd';
-
-            if ((await vscode.window.showWarningMessage(msg, option1, option2)) !== option1) {
-
-                log(`Failed to initialize metadata storage. ${(err as any).message ?? err}`, true, true);
-
-                throw err;
-            }
-
-            await this.cleanupSettings(context);
-
-            // trying again
-            try {
-                
-                metadataRepo = await KeeShepherd.getKeyMetadataRepo(context, account, log);
-
-            } catch (err2) {
-
-                vscode.window.showErrorMessage(`KeeShepherd still couldn't initialize its metadata storage. ${(err2 as any).message ?? err2}`);
-
-                log(`Failed to initialize metadata storage. ${(err2 as any).message ?? err2}`, true, true);
-
-                throw err2;
-            }
-        }
-
-        const resourcesFolderPath = context.asAbsolutePath('resources');
-
-        return new KeeShepherd(
-            context,
-            account,
-            metadataRepo,
-            await KeyMapRepo.create(path.join(context.globalStorageUri.fsPath, 'key-maps')),
-            resourcesFolderPath,
             log
         );
     }
@@ -1228,56 +1177,6 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed');
     }
 
-    private async addKeyVaultSecret(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
-
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return false;
-        }
-        
-        const subscriptionId = subscription.subscription.subscriptionId;
-        const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
-
-        if (!keyVaultName) {
-            return false;
-        }
-
-        // First adding the metadata
-
-        await this._repo.addSecret({
-            name: secretName,
-            type: SecretTypeEnum.AzureKeyVault,
-            controlType,
-            filePath: sourceFileName,
-            hash: this._repo.calculateHash(secretValue),
-            length: secretValue.length,
-            timestamp: new Date(),
-            properties: {
-                subscriptionId: subscriptionId,
-                keyVaultName: keyVaultName,
-                keyVaultSecretName: secretName
-            }
-        });
-
-        // Then adding this secret to KeyVault
-        try {
-
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
-
-            await keyVaultClient.setSecret(secretName, secretValue);
-            
-        } catch (err) {
-            
-            // Dropping the just created secret upon failure
-            this._repo.removeSecrets(controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : sourceFileName, [secretName]);
-
-            throw err;
-        }
-
-        return true;
-    }
-
     async createOrUpdateCodespacesPersonalSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
         await this.doAndShowError(async () => {
@@ -1570,7 +1469,7 @@ export class KeeShepherd extends KeeShepherdBase {
         }, 'KeeShepherd failed to copy secret value');
     }
     
-    private static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
+    static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
         
         // Zeroing settings
         await context.globalState.update(SettingNames.StorageType, undefined);
@@ -1580,7 +1479,7 @@ export class KeeShepherd extends KeeShepherdBase {
         await context.globalState.update(SettingNames.ResourceGroupName, undefined);
     }
 
-    private static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper, log: Log): Promise<IKeyMetadataRepo> {
+    static async getKeyMetadataRepo(context: vscode.ExtensionContext, account: AzureAccountWrapper, log: Log): Promise<IKeyMetadataRepo> {
 
         const storageFolder = context.globalStorageUri.fsPath;
 
@@ -1665,6 +1564,56 @@ export class KeeShepherd extends KeeShepherdBase {
         await context.globalState.update(SettingNames.ResourceGroupName, resourceGroupName);
 
         return result;
+    }
+
+    private async addKeyVaultSecret(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
+
+        const subscription = await this._account.pickUpSubscription();
+        if (!subscription) {
+            return false;
+        }
+        
+        const subscriptionId = subscription.subscription.subscriptionId;
+        const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+
+        if (!keyVaultName) {
+            return false;
+        }
+
+        // First adding the metadata
+
+        await this._repo.addSecret({
+            name: secretName,
+            type: SecretTypeEnum.AzureKeyVault,
+            controlType,
+            filePath: sourceFileName,
+            hash: this._repo.calculateHash(secretValue),
+            length: secretValue.length,
+            timestamp: new Date(),
+            properties: {
+                subscriptionId: subscriptionId,
+                keyVaultName: keyVaultName,
+                keyVaultSecretName: secretName
+            }
+        });
+
+        // Then adding this secret to KeyVault
+        try {
+
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
+
+            await keyVaultClient.setSecret(secretName, secretValue);
+            
+        } catch (err) {
+            
+            // Dropping the just created secret upon failure
+            this._repo.removeSecrets(controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : sourceFileName, [secretName]);
+
+            throw err;
+        }
+
+        return true;
     }
 
     private async pickUpPersonalRepoIds(selectedReposUrl: string | undefined, accessToken: string): Promise<number[]> {
