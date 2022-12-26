@@ -61,1412 +61,1288 @@ export class KeeShepherd extends KeeShepherdBase {
 
     async changeStorageType(context: vscode.ExtensionContext): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        await KeeShepherd.cleanupSettings(context);
 
-            await KeeShepherd.cleanupSettings(context);
+        this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account, this._log);
 
-            this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account, this._log);
-
-            this.treeView.refresh();
-
-        }, 'KeeShepherd failed to switch to another storage type');
+        this.treeView.refresh();
     }
 
     async forgetSecrets(treeItem: KeeShepherdTreeItem): Promise<void>{
 
-        await this.doAndShowError(async () => {
+        var secrets: ControlledSecret[] = [];
+        var filePath = '';
 
-            var secrets: ControlledSecret[] = [];
-            var filePath = '';
-
-            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.File && !!treeItem.isLocal && !!treeItem.filePath) {
-                
-                filePath = treeItem.filePath;
-                secrets = await this._repo.getSecrets(filePath, true);
-
-            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.command) {
-                
-                secrets = treeItem.command.arguments;
-                filePath = secrets[0].filePath;
-
-            } else {
-                return;
-            }
+        if (treeItem.nodeType === KeeShepherdNodeTypeEnum.File && !!treeItem.isLocal && !!treeItem.filePath) {
             
-            const userResponse = await vscode.window.showWarningMessage(
-                `Secrets ${secrets.map(s => s.name).join(', ')} will be dropped from secret metadata storage. This will NOT affect the secret itself or the file contents. Do you want to proceed?`,
-                'Yes', 'No');
-   
-            if (userResponse !== 'Yes') {
-                return;
-            }
+            filePath = treeItem.filePath;
+            secrets = await this._repo.getSecrets(filePath, true);
+
+        } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.command) {
             
-            await this._repo.removeSecrets(filePath, secrets.map(s => s.name));
+            secrets = treeItem.command.arguments;
+            filePath = secrets[0].filePath;
 
-            this._log(`${secrets.length} secrets have been forgotten from ${filePath}`, true, true);
-            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);
-            this.treeView.refresh();
+        } else {
+            return;
+        }
+        
+        const userResponse = await vscode.window.showWarningMessage(
+            `Secrets ${secrets.map(s => s.name).join(', ')} will be dropped from secret metadata storage. This will NOT affect the secret itself or the file contents. Do you want to proceed?`,
+            'Yes', 'No');
 
-        }, 'KeeShepherd failed to forget secrets');
+        if (userResponse !== 'Yes') {
+            return;
+        }
+        
+        await this._repo.removeSecrets(filePath, secrets.map(s => s.name));
+
+        this._log(`${secrets.length} secrets have been forgotten from ${filePath}`, true, true);
+        vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);
+        this.treeView.refresh();
     }
 
     async forgetAllSecrets(treeItem: KeeShepherdTreeItem): Promise<void>{
 
-        await this.doAndShowError(async () => {
+        if (treeItem.nodeType !== KeeShepherdNodeTypeEnum.Machine) {
+            return;
+        }
 
-            if (treeItem.nodeType !== KeeShepherdNodeTypeEnum.Machine) {
-                return;
-            }
+        const machineName = treeItem.label as string;
+        
+        const userResponse = await vscode.window.showWarningMessage(
+            `All secrets on ${machineName} will be dropped from secret metadata storage. If the machine still contains secret values, those values WILL REMAIN there. Do you want to proceed?`,
+            'Yes', 'No');
 
-            const machineName = treeItem.label as string;
-            
-            const userResponse = await vscode.window.showWarningMessage(
-                `All secrets on ${machineName} will be dropped from secret metadata storage. If the machine still contains secret values, those values WILL REMAIN there. Do you want to proceed?`,
-                'Yes', 'No');
-   
-            if (userResponse !== 'Yes') {
-                return;
-            }
-            
-            await this._repo.removeAllSecrets(machineName);
+        if (userResponse !== 'Yes') {
+            return;
+        }
+        
+        await this._repo.removeAllSecrets(machineName);
 
-            // Also cleaning up the key map
-            if (!!treeItem.isLocal) {
-                await this._mapRepo.cleanup();
-            }
+        // Also cleaning up the key map
+        if (!!treeItem.isLocal) {
+            await this._mapRepo.cleanup();
+        }
 
-            this._log(`All secrets on ${machineName} have been forgotten`, true, true);
-            vscode.window.showInformationMessage(`KeeShepherd: all secrets on ${machineName} have been forgotten`);
-            this.treeView.refresh();
-
-        }, 'KeeShepherd failed to forget secrets');
+        this._log(`All secrets on ${machineName} have been forgotten`, true, true);
+        vscode.window.showInformationMessage(`KeeShepherd: all secrets on ${machineName} have been forgotten`);
+        this.treeView.refresh();
     }
 
     async gotoSecret(secret: ControlledSecret): Promise<void>{
 
-        await this.doAndShowError(async () => {
+        if (!secret.filePath) {
+            return;
+        }
 
-            if (!secret.filePath) {
-                return;
-            }
+        const fileUri = vscode.Uri.parse(secret.filePath);
+        const editor = await vscode.window.showTextDocument(fileUri);
 
-            const fileUri = vscode.Uri.parse(secret.filePath);
-            const editor = await vscode.window.showTextDocument(fileUri);
+        // Reading file contents through vscode.workspace.fs.readFile() seems more reliable than using editor.getText()
+        const { text } = await KeeShepherdBase.readFile(fileUri);
 
-            // Reading file contents through vscode.workspace.fs.readFile() seems more reliable than using editor.getText()
-            const { text } = await KeeShepherdBase.readFile(fileUri);
+        // Searching for this secret in a brute-force way. Deliberately not using secret map here (as it might be outdated).
+        var secretPos = -1, secretLength = 0;
 
-            // Searching for this secret in a brute-force way. Deliberately not using secret map here (as it might be outdated).
-            var secretPos = -1, secretLength = 0;
+        for (var pos = 0; pos < text.length; pos++) {
 
-            for (var pos = 0; pos < text.length; pos++) {
-    
-                // checking if the secret appears at current position
-                const anchorName = getAnchorName(secret.name);
+            // checking if the secret appears at current position
+            const anchorName = getAnchorName(secret.name);
 
-                if (!!text.startsWith(anchorName, pos)) {
+            if (!!text.startsWith(anchorName, pos)) {
 
-                    // This secret appears in its stashed form. Need to adjust further positions
-                    secretPos = pos;
-                    secretLength = anchorName.length;
-                    break;
-
-                } else {
-
-                    // Calculating and trying to match the hash. Might take time, but no other options...
-                    const currentHash = this._repo.calculateHash(text.substr(pos, secret.length));
-                    
-                    if (currentHash === secret.hash) {
-
-                        secretPos = pos;
-                        secretLength = secret.length;
-                        break;
-                    }
-                }
-            }
-
-            var secretMap = await this._mapRepo.getSecretMapForFile(secret.filePath);
-
-            // If the secret wasn't found, then updating the entire secret map
-            if (secretPos < 0 || secretMap.length <= 0) {
-
-                await this.updateSecretMapForFile(secret.filePath, text, {});
-
-                // There might be stale secrets cached in the tree, so better to refresh it
-                this.treeView.refresh();
-
-            }
-
-            // Explicitly masking secrets here, because onDidChangeActiveTextEditor will interfere with this handler
-            await this.internalMaskSecrets(editor, secretMap);
-
-            if (secretPos < 0) {
-                
-                // Also asking the user if they want to forget this missing secret
-                await this.askUserAboutMissingSecrets(secret.filePath, [secret.name]);
+                // This secret appears in its stashed form. Need to adjust further positions
+                secretPos = pos;
+                secretLength = anchorName.length;
+                break;
 
             } else {
 
-                // Highlighting the secret
-                const secretSelection = new vscode.Selection(
-                    editor.document.positionAt(secretPos),
-                    editor.document.positionAt(secretPos + secretLength)
-                );
+                // Calculating and trying to match the hash. Might take time, but no other options...
+                const currentHash = this._repo.calculateHash(text.substr(pos, secret.length));
+                
+                if (currentHash === secret.hash) {
 
-                editor.selection = secretSelection;
-                editor.revealRange(secretSelection);
+                    secretPos = pos;
+                    secretLength = secret.length;
+                    break;
+                }
             }
+        }
 
-        }, 'KeeShepherd failed to navigate to this secret');
+        var secretMap = await this._mapRepo.getSecretMapForFile(secret.filePath);
+
+        // If the secret wasn't found, then updating the entire secret map
+        if (secretPos < 0 || secretMap.length <= 0) {
+
+            await this.updateSecretMapForFile(secret.filePath, text, {});
+
+            // There might be stale secrets cached in the tree, so better to refresh it
+            this.treeView.refresh();
+
+        }
+
+        // Explicitly masking secrets here, because onDidChangeActiveTextEditor will interfere with this handler
+        await this.internalMaskSecrets(editor, secretMap);
+
+        if (secretPos < 0) {
+            
+            // Also asking the user if they want to forget this missing secret
+            await this.askUserAboutMissingSecrets(secret.filePath, [secret.name]);
+
+        } else {
+
+            // Highlighting the secret
+            const secretSelection = new vscode.Selection(
+                editor.document.positionAt(secretPos),
+                editor.document.positionAt(secretPos + secretLength)
+            );
+
+            editor.selection = secretSelection;
+            editor.revealRange(secretSelection);
+        }
     }
 
     async unmaskSecretsInThisFile(): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
 
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                return;
-            }
-    
-            editor.setDecorations(this._hiddenTextDecoration, []);
-            editor.setDecorations(this._tempHiddenTextDecoration, []);
+        editor.setDecorations(this._hiddenTextDecoration, []);
+        editor.setDecorations(this._tempHiddenTextDecoration, []);
 
-            this._log(`Unmasked secrets in ${editor.document.uri}`, true, true);
-
-        }, 'KeeShepherd failed to unmask secrets');
+        this._log(`Unmasked secrets in ${editor.document.uri}`, true, true);
     }
 
     async maskSecretsInThisFile(updateMapIfSomethingNotFound: boolean): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
 
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                return;
+        const currentFile = editor.document.uri.toString();
+        if (!currentFile) {
+            return;
+        }
+
+        var secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
+        if (secretMap.length <= 0) {
+            return;
+        }
+
+        var missingSecrets = await this.internalMaskSecrets(editor, secretMap);
+
+        // If some secrets were not found, then trying to update the map and then mask again
+        if ( !!updateMapIfSomethingNotFound && missingSecrets.length > 0) {
+            
+            // Using empty values in a hope that updateSecretMapForFile() will be able to match by hashes
+            missingSecrets = await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
+
+            // Trying again
+            secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
+            await this.internalMaskSecrets(editor, secretMap);
+
+            if (missingSecrets.length > 0) {
+
+                // Notifying the user that there're still some secrets missing
+                // Intentionally not awaiting
+                this.askUserAboutMissingSecrets(currentFile, missingSecrets);
             }
-
-            const currentFile = editor.document.uri.toString();
-            if (!currentFile) {
-                return;
-            }
-
-            var secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
-            if (secretMap.length <= 0) {
-                return;
-            }
-
-            var missingSecrets = await this.internalMaskSecrets(editor, secretMap);
-
-            // If some secrets were not found, then trying to update the map and then mask again
-            if ( !!updateMapIfSomethingNotFound && missingSecrets.length > 0) {
-               
-                // Using empty values in a hope that updateSecretMapForFile() will be able to match by hashes
-                missingSecrets = await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
-
-                // Trying again
-                secretMap = await this._mapRepo.getSecretMapForFile(currentFile);
-                await this.internalMaskSecrets(editor, secretMap);
-
-                if (missingSecrets.length > 0) {
-
-                    // Notifying the user that there're still some secrets missing
-                    // Intentionally not awaiting
-                    this.askUserAboutMissingSecrets(currentFile, missingSecrets);
-                }
-            }
-
-        }, 'KeeShepherd failed to mask secrets');
+        }
     }
 
     async stashUnstashSecretsInThisFile(stash: boolean): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const document = vscode.window.activeTextEditor?.document;
+        if (!document) {
+            return;
+        }
 
-            const document = vscode.window.activeTextEditor?.document;
-            if (!document) {
-                return;
+        const currentFile = document?.uri.toString();
+        if (!currentFile) {
+            return;
+        }
+
+        // Making sure the file is not dirty
+        try {
+
+            await document.save();
+
+        } catch (err) { }
+
+        const secrets = await this._repo.getSecrets(currentFile, true);
+        const secretsAndValues = await this.getSecretValuesAndCheckHashes(secrets);
+
+        const secretsValuesMap = secretsAndValues.reduce((result, cv) => {
+
+            // Getting managed secrets only
+            if (cv.secret.controlType === ControlTypeEnum.Managed) {
+                
+                result[cv.secret.name] = cv.value;
             }
 
-            const currentFile = document?.uri.toString();
-            if (!currentFile) {
-                return;
-            }
+            return result;
+        
+        }, {} as { [name: string] : string });
 
-            // Making sure the file is not dirty
-            try {
+        await this.stashUnstashSecretsInFile(currentFile, stash, secretsValuesMap);
 
-                await document.save();
-
-            } catch (err) { }
-    
-            const secrets = await this._repo.getSecrets(currentFile, true);
-            const secretsAndValues = await this.getSecretValuesAndCheckHashes(secrets);
-
-            const secretsValuesMap = secretsAndValues.reduce((result, cv) => {
-
-                // Getting managed secrets only
-                if (cv.secret.controlType === ControlTypeEnum.Managed) {
-                    
-                    result[cv.secret.name] = cv.value;
-                }
-
-                return result;
-            
-            }, {} as { [name: string] : string });
-
-            await this.stashUnstashSecretsInFile(currentFile, stash, secretsValuesMap);
-
-            // Updating git hooks for this file
-            await updateGitHooksForFile(document.uri, !stash, Object.keys(secretsValuesMap).length > 0);
-
-        }, 'KeeShepherd failed');
+        // Updating git hooks for this file
+        await updateGitHooksForFile(document.uri, !stash, Object.keys(secretsValuesMap).length > 0);
     }
 
     async resolveSecretsInThisFile(): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const document = vscode.window.activeTextEditor?.document;
+        if (!document) {
+            return;
+        }
 
-            const document = vscode.window.activeTextEditor?.document;
-            if (!document) {
-                return;
+        const currentFileUri = document?.uri;
+        if (!currentFileUri) {
+            return;
+        }
+
+        const existingSecrets = await this._repo.getSecrets(currentFileUri.toString(), true);
+
+        // Reading current file contents
+        let { text } = await KeeShepherdBase.readFile(currentFileUri);
+
+        const resolvedSecretNames: string[] = [];
+
+        const regex = new RegExp(`${AnchorPrefix}\\((.+?)\\)`, 'g');
+        let match: RegExpExecArray | null;
+        while (match = regex.exec(text)) {
+
+            const secretName = match[1];
+
+            // Skipping secrets that are already known
+            if (existingSecrets.find(s => s.name === secretName)) {
+                continue;
             }
 
-            const currentFileUri = document?.uri;
-            if (!currentFileUri) {
-                return;
-            }
+            const resolvedSecrets = await this._repo.findBySecretName(secretName);
 
-            const existingSecrets = await this._repo.getSecrets(currentFileUri.toString(), true);
-
-            // Reading current file contents
-            let { text } = await KeeShepherdBase.readFile(currentFileUri);
-
-            const resolvedSecretNames: string[] = [];
-
-            const regex = new RegExp(`${AnchorPrefix}\\((.+?)\\)`, 'g');
-            let match: RegExpExecArray | null;
-            while (match = regex.exec(text)) {
-
-                const secretName = match[1];
-
-                // Skipping secrets that are already known
-                if (existingSecrets.find(s => s.name === secretName)) {
-                    continue;
-                }
-
-                const resolvedSecrets = await this._repo.findBySecretName(secretName);
-
-                if (resolvedSecrets.length <= 0) {
-                    
-                    vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. Insert it manually.`);
-                    continue;
-                }
-
-                // Using hash as a dictionary key, to detect potential namesakes with different hashes
-                const secretsByHash = resolvedSecrets.reduce((result, currentSecret) => {
-
-                    result[currentSecret.hash] = currentSecret;
-                    return result;
+            if (resolvedSecrets.length <= 0) {
                 
-                }, {} as { [hash: string] : ControlledSecret });
-    
-                if (Object.keys(secretsByHash).length > 1) {
-                    
-                    vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. There're multiple secrets with this name and different hashes in the storage.`);
-                    continue;
-                }
-
-                // Prefer managed over supervised
-                var resolvedSecret = resolvedSecrets.find(s => s.controlType === ControlTypeEnum.Managed);
-                if (!resolvedSecret) {
-                    resolvedSecret = resolvedSecrets[0];
-                }
-
-                if (!resolvedSecret.properties) {
-                    
-                    vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. Insert it manually.`);
-                    continue;
-                }
-                
-                // Adding the new secret to storage
-                await this._repo.addSecret({
-                    name: secretName,
-                    type: resolvedSecret.type,
-                    controlType: ControlTypeEnum.Managed,
-                    filePath: currentFileUri.toString(),
-                    hash: resolvedSecret.hash,
-                    length: resolvedSecret.length,
-                    timestamp: new Date(),
-                    properties: resolvedSecret.properties
-                });
-
-                resolvedSecretNames.push(secretName);
+                vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. Insert it manually.`);
+                continue;
             }
 
-            if (resolvedSecretNames.length > 0) {
+            // Using hash as a dictionary key, to detect potential namesakes with different hashes
+            const secretsByHash = resolvedSecrets.reduce((result, currentSecret) => {
+
+                result[currentSecret.hash] = currentSecret;
+                return result;
+            
+            }, {} as { [hash: string] : ControlledSecret });
+
+            if (Object.keys(secretsByHash).length > 1) {
                 
-                this.treeView.refresh();
-
-                this._log(`Resolved the following secrets: ${resolvedSecretNames.join(', ')} in ${currentFileUri}`, true, true);
-                vscode.window.showInformationMessage(`KeeShepherd resolved the following secrets: ${resolvedSecretNames.join(', ')}`);
-
-            } else {
-
-                this._log(`Found no secrets to resolve in ${currentFileUri}`, true, true);
-                vscode.window.showInformationMessage(`KeeShepherd found no secrets to resolve in this file`);
+                vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. There're multiple secrets with this name and different hashes in the storage.`);
+                continue;
             }
 
-        }, 'KeeShepherd failed to resolve secrets');
+            // Prefer managed over supervised
+            var resolvedSecret = resolvedSecrets.find(s => s.controlType === ControlTypeEnum.Managed);
+            if (!resolvedSecret) {
+                resolvedSecret = resolvedSecrets[0];
+            }
+
+            if (!resolvedSecret.properties) {
+                
+                vscode.window.showErrorMessage(`KeeShepherd couldn't automatically resolve ${secretName}. Insert it manually.`);
+                continue;
+            }
+            
+            // Adding the new secret to storage
+            await this._repo.addSecret({
+                name: secretName,
+                type: resolvedSecret.type,
+                controlType: ControlTypeEnum.Managed,
+                filePath: currentFileUri.toString(),
+                hash: resolvedSecret.hash,
+                length: resolvedSecret.length,
+                timestamp: new Date(),
+                properties: resolvedSecret.properties
+            });
+
+            resolvedSecretNames.push(secretName);
+        }
+
+        if (resolvedSecretNames.length > 0) {
+            
+            this.treeView.refresh();
+
+            this._log(`Resolved the following secrets: ${resolvedSecretNames.join(', ')} in ${currentFileUri}`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd resolved the following secrets: ${resolvedSecretNames.join(', ')}`);
+
+        } else {
+
+            this._log(`Found no secrets to resolve in ${currentFileUri}`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd found no secrets to resolve in this file`);
+        }
     }
 
     async stashUnstashSecretsInFolder(treeItem: KeeShepherdTreeItem, stash: boolean): Promise<void>{
 
-        await this.doAndShowError(async () => {
+        if ((treeItem.nodeType !== KeeShepherdNodeTypeEnum.Folder ) || !treeItem.isLocal || !treeItem.folderUri) {
+            return;
+        }
 
-            if ((treeItem.nodeType !== KeeShepherdNodeTypeEnum.Folder ) || !treeItem.isLocal || !treeItem.folderUri) {
-                return;
-            }
-
-            const folders = [treeItem.folderUri];
-            await this.stashUnstashAllSecretsInFolders(folders, stash);
-
-        }, 'KeeShepherd failed');
+        const folders = [treeItem.folderUri];
+        await this.stashUnstashAllSecretsInFolders(folders, stash);
     }
 
     async stashUnstashAllSecretsInThisProject(stash: boolean): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (!vscode.workspace.workspaceFolders) {
+            return;
+        }
 
-            if (!vscode.workspace.workspaceFolders) {
-                return;
-            }
+        try {
+            
+            // Making sure there're no dirty files open. This can be unreliable during shutdown, so wrapping with try-catch
+            await vscode.workspace.saveAll();
 
-            try {
-                
-                // Making sure there're no dirty files open. This can be unreliable during shutdown, so wrapping with try-catch
-                await vscode.workspace.saveAll();
+        } catch (err) {
+        }
 
-            } catch (err) {
-            }
+        const folders = vscode.workspace.workspaceFolders.map(f => f.uri.toString());
 
-            const folders = vscode.workspace.workspaceFolders.map(f => f.uri.toString());
+        // Persisting this list, in case the process gets killed in the middle
+        if (!!stash) {
+            await this._mapRepo.savePendingFolders(folders);
+        }
 
-            // Persisting this list, in case the process gets killed in the middle
-            if (!!stash) {
-                await this._mapRepo.savePendingFolders(folders);
-            }
+        await this.stashUnstashAllSecretsInFolders(folders, stash);
 
-            await this.stashUnstashAllSecretsInFolders(folders, stash);
-
-            // Cleanup upon success
-            await this._mapRepo.savePendingFolders([]);
-
-        }, 'KeeShepherd failed');
+        // Cleanup upon success
+        await this._mapRepo.savePendingFolders([]);
     }
 
     async stashPendingFolders(): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const folders = await this._mapRepo.getPendingFolders();
+        
+        if (!folders || folders.length <= 0) {
+            return;
+        }
 
-            const folders = await this._mapRepo.getPendingFolders();
-            
-            if (!folders || folders.length <= 0) {
-                return;
-            }
+        this._log(`Stashing the following pending folders: ${folders.join(',')}`, true, true);
 
-            this._log(`Stashing the following pending folders: ${folders.join(',')}`, true, true);
+        await this.stashUnstashAllSecretsInFolders(folders, true);
 
-            await this.stashUnstashAllSecretsInFolders(folders, true);
-
-            // Cleanup upon success
-            await this._mapRepo.savePendingFolders([]);
-
-        }, 'KeeShepherd failed');
+        // Cleanup upon success
+        await this._mapRepo.savePendingFolders([]);
     }
 
     async controlSecret(controlType: ControlTypeEnum): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !editor.document) {
+            return;
+        }
 
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || !editor.document) {
-                return;
-            }
+        if (editor.document.isUntitled) {
+            throw new Error('Cannot put secrets to untitled documents');
+        }
 
-            if (editor.document.isUntitled) {
-                throw new Error('Cannot put secrets to untitled documents');
-            }
+        const currentFile = editor.document.uri.toString();
+        if (!currentFile) {
+            return;
+        }
 
-            const currentFile = editor.document.uri.toString();
-            if (!currentFile) {
-                return;
-            }
+        const secretValue = editor.document.getText(editor.selection);
 
-            const secretValue = editor.document.getText(editor.selection);
+        if (secretValue.startsWith(AnchorPrefix)) {
+            throw new Error(`Secret value should not start with ${AnchorPrefix}`);
+        }
 
-            if (secretValue.startsWith(AnchorPrefix)) {
-                throw new Error(`Secret value should not start with ${AnchorPrefix}`);
-            }
+        const secretName = await this.askUserForSecretName();
+        if (!secretName) {
+            return;
+        }
 
-            const secretName = await this.askUserForSecretName();
-            if (!secretName) {
-                return;
-            }
+        // Managed secrets always go to KeyVault, supervised go there only by user's request
+        var alsoAddToKeyVault = true;
+        if (controlType === ControlTypeEnum.Supervised) {
+            alsoAddToKeyVault = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Do you want to also put this secret to Azure Key Vault?' }) === 'Yes';
+        }
 
-            // Managed secrets always go to KeyVault, supervised go there only by user's request
-            var alsoAddToKeyVault = true;
-            if (controlType === ControlTypeEnum.Supervised) {
-                alsoAddToKeyVault = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Do you want to also put this secret to Azure Key Vault?' }) === 'Yes';
-            }
+        if (!alsoAddToKeyVault) {
 
-            if (!alsoAddToKeyVault) {
+            // Just adding the secret as unknown
 
-                // Just adding the secret as unknown
-
-                await this._repo.addSecret({
-                    name: secretName,
-                    type: SecretTypeEnum.Unknown,
-                    controlType,
-                    filePath: currentFile,
-                    hash: this._repo.calculateHash(secretValue),
-                    length: secretValue.length,
-                    timestamp: new Date()
-                });
-                
-            } else {
-
-                // Adding both to metadata storage and to Key Vault
-
-                if (!await this.addKeyVaultSecret(secretName, secretValue, controlType, currentFile)) {
-                    return;
-                }
-            }
-
-            // Also updating secret map for this file
-            await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
-
-            // Also updating git hooks for this file, if it is a Managed secret
-            if (controlType === ControlTypeEnum.Managed) {
-                
-                await updateGitHooksForFile(editor.document.uri, true, true);
-            }
-
-            vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was added successfully.`);
-            this.treeView.refresh();
+            await this._repo.addSecret({
+                name: secretName,
+                type: SecretTypeEnum.Unknown,
+                controlType,
+                filePath: currentFile,
+                hash: this._repo.calculateHash(secretValue),
+                length: secretValue.length,
+                timestamp: new Date()
+            });
             
-        }, 'KeeShepherd failed to add a secret');
+        } else {
+
+            // Adding both to metadata storage and to Key Vault
+
+            if (!await this.addKeyVaultSecret(secretName, secretValue, controlType, currentFile)) {
+                return;
+            }
+        }
+
+        // Also updating secret map for this file
+        await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
+
+        // Also updating git hooks for this file, if it is a Managed secret
+        if (controlType === ControlTypeEnum.Managed) {
+            
+            await updateGitHooksForFile(editor.document.uri, true, true);
+        }
+
+        vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was added successfully.`);
+        this.treeView.refresh();
     }
 
     async insertSecret(controlType: ControlTypeEnum, secretType?: SecretTypeEnum, secret?: SelectedSecretType): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !editor.document || editor.document.uri.scheme === 'output') {
+            throw new Error(`Couldn't find any open text editor`);
+        }
 
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || !editor.document || editor.document.uri.scheme === 'output') {
-                throw new Error(`Couldn't find any open text editor`);
-            }
+        if (!!editor.document.isUntitled) {
+            throw new Error('Cannot put secrets to untitled documents');
+        }
 
-            if (!!editor.document.isUntitled) {
-                throw new Error('Cannot put secrets to untitled documents');
-            }
+        const currentFile = editor.document.uri.toString();
+        if (!currentFile) {
+            return;
+        }
 
-            const currentFile = editor.document.uri.toString();
-            if (!currentFile) {
-                return;
-            }
+        if (!secret) {
+
+            secret = await this._valuesProvider.pickUpSecret(controlType, undefined, secretType);
 
             if (!secret) {
-
-                secret = await this._valuesProvider.pickUpSecret(controlType, undefined, secretType);
-
-                if (!secret) {
-                    return;
-                }
-            }
-            
-            // Pre-masking the secret with a temporary mask
-            editor.setDecorations(this._tempHiddenTextDecoration, [editor.selection]);
-    
-            // Pasting secret value at current cursor position
-            var success = await editor.edit(edit => {
-                edit.replace(editor.selection, secret!.value);
-            });
-
-            if (!success) {
                 return;
             }
+        }
+        
+        // Pre-masking the secret with a temporary mask
+        editor.setDecorations(this._tempHiddenTextDecoration, [editor.selection]);
 
-            let localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
-            if (!localSecretName) {
-                return;
-            }
+        // Pasting secret value at current cursor position
+        var success = await editor.edit(edit => {
+            edit.replace(editor.selection, secret!.value);
+        });
 
-            // Adding metadata to the repo
-            const secretHash = this._repo.calculateHash(secret.value);
+        if (!success) {
+            return;
+        }
 
-            while (true) {
+        let localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
+        if (!localSecretName) {
+            return;
+        }
 
-                try {
+        // Adding metadata to the repo
+        const secretHash = this._repo.calculateHash(secret.value);
 
-                    // Trying to add the secret
-                    await this._repo.addSecret({
-                        name: localSecretName,
-                        type: secret.type,
-                        controlType,
-                        filePath: currentFile,
-                        hash: secretHash,
-                        length: secret.value.length,
-                        timestamp: new Date(),
-                        properties: secret.properties
-                    });
-                    
-                    break;
+        while (true) {
 
-                } catch (err) {
+            try {
 
-                    // This indicates that a secret with same name but different hash already exists
-                    if (err instanceof SecretNameConflictError) {
-
-                        // Demanding another name and trying again
-                        localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
-                        
-                    } else {
-                        throw err;
-                    }
-                }
-            }
-    
-            // Also updating secret map for this file
-            await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
-
-            // Immediately masking secrets in this file
-            await this.internalMaskSecrets(editor, await this._mapRepo.getSecretMapForFile(currentFile));
-
-            await editor.document.save();
-            this.treeView.refresh();
-
-            // Also updating git hooks for this file, if it is a Managed secret
-            if (controlType === ControlTypeEnum.Managed) {
+                // Trying to add the secret
+                await this._repo.addSecret({
+                    name: localSecretName,
+                    type: secret.type,
+                    controlType,
+                    filePath: currentFile,
+                    hash: secretHash,
+                    length: secret.value.length,
+                    timestamp: new Date(),
+                    properties: secret.properties
+                });
                 
-                await updateGitHooksForFile(editor.document.uri, true, true);
+                break;
+
+            } catch (err) {
+
+                // This indicates that a secret with same name but different hash already exists
+                if (err instanceof SecretNameConflictError) {
+
+                    // Demanding another name and trying again
+                    localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
+                    
+                } else {
+                    throw err;
+                }
             }
+        }
 
-            vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
+        // Also updating secret map for this file
+        await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
 
-        }, 'KeeShepherd failed to insert a secret');
+        // Immediately masking secrets in this file
+        await this.internalMaskSecrets(editor, await this._mapRepo.getSecretMapForFile(currentFile));
+
+        await editor.document.save();
+        this.treeView.refresh();
+
+        // Also updating git hooks for this file, if it is a Managed secret
+        if (controlType === ControlTypeEnum.Managed) {
+            
+            await updateGitHooksForFile(editor.document.uri, true, true);
+        }
+
+        vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
     }
 
     async registerSecretAsEnvVariable(): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        // Disallowing to register an env variable as an env variable
+        const secretTypesToExclude = [SecretTypeEnum.Codespaces];
 
-            // Disallowing to register an env variable as an env variable
-            const secretTypesToExclude = [SecretTypeEnum.Codespaces];
+        const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.EnvVariable, secretTypesToExclude);
 
-            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.EnvVariable, secretTypesToExclude);
+        if (!secret) {
+            return;
+        }
+        
+        let localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
+        if (!localSecretName) {
+            return;
+        }
 
-            if (!secret) {
-                return;
-            }
-            
-            let localSecretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
-            if (!localSecretName) {
-                return;
-            }
+        // Adding metadata to the repo
+        const secretHash = this._repo.calculateHash(secret.value);
 
-            // Adding metadata to the repo
-            const secretHash = this._repo.calculateHash(secret.value);
+        while (true) {
 
-            while (true) {
+            try {
 
-                try {
+                await this._repo.addSecret({
+                    name: localSecretName,
+                    type: secret.type,
+                    controlType: ControlTypeEnum.EnvVariable,
+                    filePath: '',
+                    hash: secretHash,
+                    length: secret.value.length,
+                    timestamp: new Date(),
+                    properties: secret.properties
+                });
+                
+                break;
+                
+            } catch (err) {
 
-                    await this._repo.addSecret({
-                        name: localSecretName,
-                        type: secret.type,
-                        controlType: ControlTypeEnum.EnvVariable,
-                        filePath: '',
-                        hash: secretHash,
-                        length: secret.value.length,
-                        timestamp: new Date(),
-                        properties: secret.properties
-                    });
-                 
-                    break;
+                // This indicates that a secret with same name but different hash already exists
+                if (err instanceof SecretNameConflictError) {
+
+                    // Demanding another name and trying again
+                    localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
                     
-                } catch (err) {
-
-                    // This indicates that a secret with same name but different hash already exists
-                    if (err instanceof SecretNameConflictError) {
-
-                        // Demanding another name and trying again
-                        localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
-                        
-                    } else {
-                        throw err;
-                    }
+                } else {
+                    throw err;
                 }
             }
-    
-            this.treeView.refresh();
+        }
 
-            vscode.window.showInformationMessage(`KeeShepherd registered ${localSecretName} as an environment variable.`);
+        this.treeView.refresh();
 
-        }, 'KeeShepherd failed to register secret as env variable');
+        vscode.window.showInformationMessage(`KeeShepherd registered ${localSecretName} as an environment variable.`);
     }
 
     async createEnvVariableFromClipboard(): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const secretValue = await vscode.env.clipboard.readText();
 
-            const secretValue = await vscode.env.clipboard.readText();
+        if (!secretValue) {
+            throw new Error('No text found in Clipboard');
+        }
 
-            if (!secretValue) {
-                throw new Error('No text found in Clipboard');
-            }
+        const secretName = await this.askUserForSecretName();
+        if (!secretName) {
+            return;
+        }
 
-            const secretName = await this.askUserForSecretName();
-            if (!secretName) {
-                return;
-            }
+        if (!await this.addKeyVaultSecret(secretName, secretValue, ControlTypeEnum.EnvVariable, '')) {
+            return;
+        }
 
-            if (!await this.addKeyVaultSecret(secretName, secretValue, ControlTypeEnum.EnvVariable, '')) {
-                return;
-            }
+        this.treeView.refresh();
 
-            this.treeView.refresh();
-
-            vscode.window.showInformationMessage(`KeeShepherd registered ${secretName} as an environment variable.`);
-
-        }, 'KeeShepherd failed to create an env variable');
+        vscode.window.showInformationMessage(`KeeShepherd registered ${secretName} as an environment variable.`);
     }
 
     async removeEnvVariables(treeItem: KeeShepherdTreeItem): Promise<void>{
 
-        await this.doAndShowError(async () => {
+        var secretNames: string[] = [];
 
-            var secretNames: string[] = [];
+        if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
 
-            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
-
-                secretNames = (await this._repo.getSecrets(EnvVariableSpecialPath, true)).map(s => s.name);
-                
-            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && treeItem.contextValue?.startsWith('tree-env-variable')) {
-                
-                secretNames = [treeItem.label as string];
-
-            } else {
-                return;
-            }
+            secretNames = (await this._repo.getSecrets(EnvVariableSpecialPath, true)).map(s => s.name);
             
-            const userResponse = await vscode.window.showWarningMessage(
-                `Secrets ${secretNames.join(', ')} will be dropped from secret metadata storage. If they were mounted as global environment variables, those will be removed as well. Do you want to proceed?`,
-                'Yes', 'No');
-   
-            if (userResponse !== 'Yes') {
-                return;
-            }
-
-            try {
-                
-                // Unmounting global env variables, if any
-                await this.setGlobalEnvVariables(toDictionary(secretNames, () => ''));
-
-            } catch (err) {
-
-                this._log(`Failed to unmount secrets from global env variables. ${(err as any).message ?? err}`, true, true);
-            }
+        } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && treeItem.contextValue?.startsWith('tree-env-variable')) {
             
-            // Now removing secrets themselves
-            await this._repo.removeSecrets(EnvVariableSpecialPath, secretNames);
+            secretNames = [treeItem.label as string];
 
-            this._log(`${secretNames.length} secrets have been removed`, true, true);
-            vscode.window.showInformationMessage(`KeeShepherd: ${secretNames.length} secrets have been removed`);
-            this.treeView.refresh();
+        } else {
+            return;
+        }
+        
+        const userResponse = await vscode.window.showWarningMessage(
+            `Secrets ${secretNames.join(', ')} will be dropped from secret metadata storage. If they were mounted as global environment variables, those will be removed as well. Do you want to proceed?`,
+            'Yes', 'No');
 
-        }, 'KeeShepherd failed to forget secrets');
+        if (userResponse !== 'Yes') {
+            return;
+        }
+
+        try {
+            
+            // Unmounting global env variables, if any
+            await this.setGlobalEnvVariables(toDictionary(secretNames, () => ''));
+
+        } catch (err) {
+
+            this._log(`Failed to unmount secrets from global env variables. ${(err as any).message ?? err}`, true, true);
+        }
+        
+        // Now removing secrets themselves
+        await this._repo.removeSecrets(EnvVariableSpecialPath, secretNames);
+
+        this._log(`${secretNames.length} secrets have been removed`, true, true);
+        vscode.window.showInformationMessage(`KeeShepherd: ${secretNames.length} secrets have been removed`);
+        this.treeView.refresh();
     }
 
     async openTerminal(): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
+        const secretValues = await this.getSecretValuesAndCheckHashes(secrets);
 
-            const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
-            const secretValues = await this.getSecretValuesAndCheckHashes(secrets);
+        const env: { [name: string]: string } = {};
+        for (const pair of secretValues) {
 
-            const env: { [name: string]: string } = {};
-            for (const pair of secretValues) {
+            env[pair.secret.name] = pair.value;
+        }
 
-                env[pair.secret.name] = pair.value;
-            }
+        const terminal = vscode.window.createTerminal({
+            name: 'KeeShepherd',
+            env
+        });
+        this._context.subscriptions.push(terminal);
 
-            const terminal = vscode.window.createTerminal({
-                name: 'KeeShepherd',
-                env
-            });
-            this._context.subscriptions.push(terminal);
-
-            terminal.show();
-
-        }, 'KeeShepherd failed to open terminal window');
+        terminal.show();
     }
 
     async copySecretValue(treeItem: KeeShepherdTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        const secret = treeItem.secret;
+        if (!secret) {
+            return;
+        }
 
-            const secret = treeItem.secret;
-            if (!secret) {
-                return;
-            }
+        const secretValue = (await this.getSecretValuesAndCheckHashes([secret]))[0].value;
 
-            const secretValue = (await this.getSecretValuesAndCheckHashes([secret]))[0].value;
+        if (!secretValue) {
+            throw new Error(`Failed to get secret value`);
+        }
 
-            if (!secretValue) {
-                throw new Error(`Failed to get secret value`);
-            }
+        vscode.env.clipboard.writeText(secretValue);
 
-            vscode.env.clipboard.writeText(secretValue);
-
-            vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
-
-        }, 'KeeShepherd failed to copy secret value');
+        vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
     }
 
     async mountAsGlobalEnv(treeItem: KeeShepherdTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        var secrets: ControlledSecret[];
 
-            var secrets: ControlledSecret[];
+        if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
 
-            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
+            secrets = (await this._repo.getSecrets(EnvVariableSpecialPath, true));
+            
+        } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
+            
+            secrets = [treeItem.secret];
 
-                secrets = (await this._repo.getSecrets(EnvVariableSpecialPath, true));
-                
-            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
-                
-                secrets = [treeItem.secret];
+        } else {
+            return;
+        }
 
-            } else {
-                return;
+        const secretValues = (await this.getSecretValuesAndCheckHashes(secrets));
+
+        const variables: { [n: string]: string } = {};
+        for (const pair of secretValues) {
+
+            if (!pair.value) {
+                throw new Error(`Failed to get secret value`);
             }
 
-            const secretValues = (await this.getSecretValuesAndCheckHashes(secrets));
+            variables[pair.secret.name] = pair.value;
+        }
 
-            const variables: { [n: string]: string } = {};
-            for (const pair of secretValues) {
+        await this.setGlobalEnvVariables(variables);
 
-                if (!pair.value) {
-                    throw new Error(`Failed to get secret value`);
-                }
-    
-                variables[pair.secret.name] = pair.value;
-            }
-
-            await this.setGlobalEnvVariables(variables);
-
-            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were set as global environment variables. Restart your shell to see the effect.`);
-            this.treeView.refresh();
-
-        }, 'KeeShepherd failed to mount secret as global environment variable');
+        vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were set as global environment variables. Restart your shell to see the effect.`);
+        this.treeView.refresh();
     }
 
     async unmountAsGlobalEnv(treeItem: KeeShepherdTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        var secrets: ControlledSecret[];
 
-            var secrets: ControlledSecret[];
+        if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
 
-            if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
-
-                secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
-                
-            } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
-                
-                secrets = [treeItem.secret];
-
-            } else {
-                return;
-            }
+            secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
             
-            await this.setGlobalEnvVariables(toDictionary(secrets.map(s => s.name), () => ''));
+        } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
+            
+            secrets = [treeItem.secret];
 
-            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were removed from global environment variables. Restart your shell to see the effect.`);
-            this.treeView.refresh();
+        } else {
+            return;
+        }
+        
+        await this.setGlobalEnvVariables(toDictionary(secrets.map(s => s.name), () => ''));
 
-        }, 'KeeShepherd failed to unmount secret from global environment variables');
+        vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were removed from global environment variables. Restart your shell to see the effect.`);
+        this.treeView.refresh();
     }
 
     async registerEnvVariablesOnLocalMachine(treeItem: KeeShepherdTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (treeItem.nodeType !== KeeShepherdNodeTypeEnum.EnvVariables || !!treeItem.isLocal) {
+            return;
+        }
 
-            if (treeItem.nodeType !== KeeShepherdNodeTypeEnum.EnvVariables || !!treeItem.isLocal) {
-                return;
-            }
+        const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true, treeItem.machineName);
 
-            const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true, treeItem.machineName);
+        for (const secret of secrets) {
+            
+            await this._repo.addSecret(secret);
+        }
 
-            for (const secret of secrets) {
-             
-                await this._repo.addSecret(secret);
-            }
-
-            vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were added.`);
-            this.treeView.refresh();
-
-        }, 'KeeShepherd failed to register secrets as environment variables');
+        vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were added.`);
+        this.treeView.refresh();
     }
 
     async copyKeyVaultSecretValueOrUri(treeItem: KeyVaultTreeItem, copyUri: boolean): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if ((treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret && treeItem.nodeType !== KeyVaultNodeTypeEnum.SecretVersion) ||
+            !treeItem.subscriptionId ||
+            !treeItem.keyVaultName ||
+            !treeItem.secretId) {
+            return;
+        }
 
-            if ((treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret && treeItem.nodeType !== KeyVaultNodeTypeEnum.SecretVersion) ||
-                !treeItem.subscriptionId ||
-                !treeItem.keyVaultName ||
-                !treeItem.secretId) {
-                return;
-            }
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
 
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        const secret = await keyVaultClient.getSecret(treeItem.secretId);
 
-            const secret = await keyVaultClient.getSecret(treeItem.secretId);
+        if (!!copyUri) {
 
-            if (!!copyUri) {
+            vscode.env.clipboard.writeText(
+                treeItem.nodeType === KeyVaultNodeTypeEnum.Secret ? 
+                `${secret.properties.vaultUrl}/secrets/${secret.name}` :
+                secret.properties.id!
+            );
 
-                vscode.env.clipboard.writeText(
-                    treeItem.nodeType === KeyVaultNodeTypeEnum.Secret ? 
-                    `${secret.properties.vaultUrl}/secrets/${secret.name}` :
-                    secret.properties.id!
-                );
+        } else {
 
-            } else {
+            vscode.env.clipboard.writeText(secret.value as string);
+        }
 
-                vscode.env.clipboard.writeText(secret.value as string);
-            }
-
-            vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${treeItem.secretId} was copied to Clipboard`);
-
-        }, 'KeeShepherd failed to get the secret');
+        vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${treeItem.secretId} was copied to Clipboard`);
     }
 
     async createKeyVaultSecret(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.KeyVault || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            return;
+        }
 
-            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.KeyVault || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+        let secretName;
+        let secretValue;
+
+        if (!!pickUpSecretValue) {
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
                 return;
             }
 
-            let secretName;
-            let secretValue;
-
-            if (!!pickUpSecretValue) {
-
-                const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
-                if (!secret) {
-                    return;
-                }
-
-                secretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
-                
-                secretValue = secret.value;
-                
-            } else {
-
-                secretName = await this.askUserForSecretName();
-
-                secretValue = await vscode.window.showInputBox({
-                    prompt: 'Enter secret value',
-                    password: true
-                });
-            }
-
-            if (!secretName) {
-                return;
-            }
-
-            if (!secretValue) {
-                return;
-            }
-
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
-
-            const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
-            if (checkResult === 'not-ok-to-overwrite') {
-                return;
-            }
+            secretName = !!secret.alreadyAskedForName ? secret.name : await this.askUserForSecretName(secret.name);
             
-            await keyVaultClient.setSecret(secretName, secretValue);
+            secretValue = secret.value;
+            
+        } else {
 
-            this.keyVaultTreeView.refresh();
+            secretName = await this.askUserForSecretName();
 
-            if (checkResult === 'does-not-exist') {
-                
-                this._log(`Created ${secretName} in ${treeItem.keyVaultName} Key Vault`, true, true);
-                vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`);
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
+        }
 
-            } else {
+        if (!secretName) {
+            return;
+        }
 
-                this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
-                vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
-            }
+        if (!secretValue) {
+            return;
+        }
 
-        }, 'KeeShepherd failed to add secret to Key Vault');
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+        const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
+        if (checkResult === 'not-ok-to-overwrite') {
+            return;
+        }
+        
+        await keyVaultClient.setSecret(secretName, secretValue);
+
+        this.keyVaultTreeView.refresh();
+
+        if (checkResult === 'does-not-exist') {
+            
+            this._log(`Created ${secretName} in ${treeItem.keyVaultName} Key Vault`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`);
+
+        } else {
+
+            this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
+        }
     }
 
     async setKeyVaultSecretValue(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            return;
+        }
 
-            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+        const secretName = treeItem.label as string;
+        let secretValue;
+
+        if (!!pickUpSecretValue) {
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
                 return;
             }
 
-            const secretName = treeItem.label as string;
-            let secretValue;
+            secretValue = secret.value;
+            
+        } else {
 
-            if (!!pickUpSecretValue) {
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
+        }
 
-                const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
-                if (!secret) {
-                    return;
-                }
+        if (!secretValue) {
+            return;
+        }
 
-                secretValue = secret.value;
-                
-            } else {
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
 
-                secretValue = await vscode.window.showInputBox({
-                    prompt: 'Enter secret value',
-                    password: true
-                });
-            }
+        await keyVaultClient.setSecret(secretName, secretValue);
 
-            if (!secretValue) {
-                return;
-            }
+        this.keyVaultTreeView.refresh();
 
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
-
-            await keyVaultClient.setSecret(secretName, secretValue);
-
-            this.keyVaultTreeView.refresh();
-
-            this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
-            vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
-
-        }, 'KeeShepherd failed to set secret value');
+        this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
+        vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
     }
 
     async removeSecretFromKeyVault(treeItem: KeyVaultTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            return;
+        }
 
-            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
-                return;
-            }
+        const userResponse = await vscode.window.showWarningMessage(
+            `Secret ${treeItem.label} will be removed ("soft-deleted") from Key Vault. Do you want to proceed?`,
+            'Yes', 'No');
 
-            const userResponse = await vscode.window.showWarningMessage(
-                `Secret ${treeItem.label} will be removed ("soft-deleted") from Key Vault. Do you want to proceed?`,
-                'Yes', 'No');
-   
-            if (userResponse !== 'Yes') {
-                return;
-            }
+        if (userResponse !== 'Yes') {
+            return;
+        }
 
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
 
-            const progressOptions = {
-                location: vscode.ProgressLocation.Notification,
-                title: `Removing secret from Key Vault...`
-            };
-    
-            await vscode.window.withProgress(progressOptions, async () => { 
+        const progressOptions = {
+            location: vscode.ProgressLocation.Notification,
+            title: `Removing secret from Key Vault...`
+        };
 
-                const poller = await keyVaultClient.beginDeleteSecret(treeItem.label as string);
-                const removedSecret = await poller.pollUntilDone();
+        await vscode.window.withProgress(progressOptions, async () => { 
 
-                this._log(`Removed ${removedSecret.name} from ${treeItem.keyVaultName} Key Vault`, true, true);
-            });
+            const poller = await keyVaultClient.beginDeleteSecret(treeItem.label as string);
+            const removedSecret = await poller.pollUntilDone();
 
-            this.keyVaultTreeView.refresh();
+            this._log(`Removed ${removedSecret.name} from ${treeItem.keyVaultName} Key Vault`, true, true);
+        });
 
-            vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.label} was removed from Key Vault`);
+        this.keyVaultTreeView.refresh();
 
-        }, 'KeeShepherd failed to remove secret from Key Vault');
+        vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.label} was removed from Key Vault`);
     }
 
     async insertKeyVaultSecretAsManaged(treeItem: KeyVaultTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            return;
+        }
 
-            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
-                return;
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !editor.document || editor.document.uri.scheme === 'output') {
+            throw new Error(`Input cursor is not on an editable text file`);
+        }
+
+        if (!!editor.document.isUntitled) {
+            throw new Error('Cannot put secrets to untitled documents');
+        }
+
+        const currentFile = editor.document.uri.toString();
+        if (!currentFile) {
+            return;
+        }
+
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+        const secret = await keyVaultClient.getSecret(treeItem.label as string);
+
+        // Pre-masking the secret with a temporary mask
+        editor.setDecorations(this._tempHiddenTextDecoration, [editor.selection]);
+
+        // Pasting secret value at current cursor position
+        var success = await editor.edit(edit => {
+            edit.replace(editor.selection, secret.value!);
+        });
+
+        if (!success) {
+            return;
+        }
+
+        // Adding metadata to the repo
+        const secretHash = this._repo.calculateHash(secret.value!);
+
+        await this._repo.addSecret({
+            name: secret.name,
+            type: SecretTypeEnum.AzureKeyVault,
+            controlType: ControlTypeEnum.Managed,
+            filePath: currentFile,
+            hash: secretHash,
+            length: secret.value!.length,
+            timestamp: new Date(),
+            properties: {
+                subscriptionId: treeItem.subscriptionId,
+                keyVaultName: treeItem.keyVaultName,
+                keyVaultSecretName: secret.name
             }
+        });
 
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || !editor.document || editor.document.uri.scheme === 'output') {
-                throw new Error(`Input cursor is not on an editable text file`);
-            }
+        // Also updating secret map for this file
+        await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
 
-            if (!!editor.document.isUntitled) {
-                throw new Error('Cannot put secrets to untitled documents');
-            }
+        // Immediately masking secrets in this file
+        await this.internalMaskSecrets(editor, await this._mapRepo.getSecretMapForFile(currentFile));
 
-            const currentFile = editor.document.uri.toString();
-            if (!currentFile) {
-                return;
-            }
+        await editor.document.save();
+        this.treeView.refresh();
 
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        // Also updating git hooks for this file, since it is a Managed secret
+        await updateGitHooksForFile(editor.document.uri, true, true);
 
-            const secret = await keyVaultClient.getSecret(treeItem.label as string);
-
-            // Pre-masking the secret with a temporary mask
-            editor.setDecorations(this._tempHiddenTextDecoration, [editor.selection]);
-
-            // Pasting secret value at current cursor position
-            var success = await editor.edit(edit => {
-                edit.replace(editor.selection, secret.value!);
-            });
-
-            if (!success) {
-                return;
-            }
-
-            // Adding metadata to the repo
-            const secretHash = this._repo.calculateHash(secret.value!);
-
-            await this._repo.addSecret({
-                name: secret.name,
-                type: SecretTypeEnum.AzureKeyVault,
-                controlType: ControlTypeEnum.Managed,
-                filePath: currentFile,
-                hash: secretHash,
-                length: secret.value!.length,
-                timestamp: new Date(),
-                properties: {
-                    subscriptionId: treeItem.subscriptionId,
-                    keyVaultName: treeItem.keyVaultName,
-                    keyVaultSecretName: secret.name
-                }
-            });
-    
-            // Also updating secret map for this file
-            await this.updateSecretMapForFile(currentFile, editor.document.getText(), {});
-
-            // Immediately masking secrets in this file
-            await this.internalMaskSecrets(editor, await this._mapRepo.getSecretMapForFile(currentFile));
-
-            await editor.document.save();
-            this.treeView.refresh();
-
-            // Also updating git hooks for this file, since it is a Managed secret
-            await updateGitHooksForFile(editor.document.uri, true, true);
-
-            vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was added successfully.`);
-
-        }, 'KeeShepherd failed');
+        vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was added successfully.`);
     }
 
     async createOrUpdateCodespacesPersonalSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (!(
+            (treeItem.nodeType === CodespacesNodeTypeEnum.SecretKind && treeItem.secretKind === 'Personal') ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
+        )) {
+            return;
+        }
 
-            if (!(
-                (treeItem.nodeType === CodespacesNodeTypeEnum.SecretKind && treeItem.secretKind === 'Personal') ||
-                (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-            )) {
-                return;
-            }
+        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
-            let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
+        // This should be at the beginning, since it might require the user to re-authenticate
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecretsAndRepos();
 
-            // This should be at the beginning, since it might require the user to re-authenticate
-            const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecretsAndRepos();
+        let secretName = treeItem.secretInfo?.name;
 
-            let secretName = treeItem.secretInfo?.name;
-
-            if (!secretName) {
-                
-                secretName = await this.askUserForSecretName();
-            }
-
-            if (!secretName) {
-                return;
-            }
-
-            const secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
-
-            if (!secretValue) {
-                return;
-            }
-
-            const selectedRepoIds = await this.pickUpPersonalRepoIds(treeItem.secretInfo?.selected_repositories_url, accessToken);
-            if (!selectedRepoIds?.length) {
-                return;
-            }
-
-            const selectedRepoIdsAsStrings = selectedRepoIds.map(id => id.toString());
-
-            await CodespaceSecretValueProvider.setSecretValue('user', accessToken, secretName, secretValue, undefined, selectedRepoIdsAsStrings);
+        if (!secretName) {
             
-            this.codespacesTreeView.refresh();
+            secretName = await this.askUserForSecretName();
+        }
 
-            if (!!isUpdating) {
-                
-                vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
+        if (!secretName) {
+            return;
+        }
 
-            } else {
+        const secretValue = await vscode.window.showInputBox({
+            prompt: 'Enter secret value',
+            password: true
+        });
 
-                vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added`);
-            }
+        if (!secretValue) {
+            return;
+        }
 
-        }, 'KeeShepherd failed to save Codespaces secret');
+        const selectedRepoIds = await this.pickUpPersonalRepoIds(treeItem.secretInfo?.selected_repositories_url, accessToken);
+        if (!selectedRepoIds?.length) {
+            return;
+        }
+
+        const selectedRepoIdsAsStrings = selectedRepoIds.map(id => id.toString());
+
+        await CodespaceSecretValueProvider.setSecretValue('user', accessToken, secretName, secretValue, undefined, selectedRepoIdsAsStrings);
+        
+        this.codespacesTreeView.refresh();
+
+        if (!!isUpdating) {
+            
+            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
+
+        } else {
+
+            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added`);
+        }
     }    
 
     async createOrUpdateCodespacesOrgSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (!treeItem.orgName) {
+            return;
+        }
 
-            if (!treeItem.orgName) {
-                return;
-            }
+        if (!(
+            (treeItem.nodeType === CodespacesNodeTypeEnum.Organization) ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
+        )) {
+            return;
+        }
 
-            if (!(
-                (treeItem.nodeType === CodespacesNodeTypeEnum.Organization) ||
-                (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-            )) {
-                return;
-            }
+        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
-            let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
+        // This should be at the beginning, since it might require the user to re-authenticate
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgAndRepoSecrets();
 
-            // This should be at the beginning, since it might require the user to re-authenticate
-            const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgAndRepoSecrets();
+        let secretName = treeItem.secretInfo?.name;
 
-            let secretName = treeItem.secretInfo?.name;
-
-            if (!secretName) {
-                
-                secretName = await this.askUserForSecretName();
-            }
-
-            if (!secretName) {
-                return;
-            }
-
-            const secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
-
-            if (!secretValue) {
-                return;
-            }
-
-            const orgName = treeItem.orgName!;
-
-            const selectedVisibilityOption = await vscode.window.showQuickPick([
-
-                {
-                    label: `All Repositories in ${orgName} organization`,
-                    visibility: 'all' as CodespaceSecretVisibility
-                },
-                {
-                    label: `All Private Repositories in ${orgName} organization`,
-                    visibility: 'private' as CodespaceSecretVisibility
-                },
-                {
-                    label: `Selected Repositories in ${orgName} organization`,
-                    visibility: 'selected' as CodespaceSecretVisibility
-                },
-
-            ], { title: `Select visibility level for your secret (which repositories should have access to it)` });
-
-            if (!selectedVisibilityOption) {
-                return;
-            }
-
-            let selectedRepoIds: number[] | undefined = undefined;
-
-            if (selectedVisibilityOption.visibility === 'selected') {
-
-                selectedRepoIds = await this.pickUpOrgRepoIds(orgName, treeItem.secretInfo?.selected_repositories_url, accessToken);
-                if (!selectedRepoIds?.length) {
-                    return;
-                }
-            }
-
-            await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
+        if (!secretName) {
             
-            this.codespacesTreeView.refresh();
+            secretName = await this.askUserForSecretName();
+        }
 
-            if (!!isUpdating) {
-                
-                vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
+        if (!secretName) {
+            return;
+        }
 
-            } else {
+        const secretValue = await vscode.window.showInputBox({
+            prompt: 'Enter secret value',
+            password: true
+        });
 
-                vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added to ${orgName} organization`);
+        if (!secretValue) {
+            return;
+        }
+
+        const orgName = treeItem.orgName!;
+
+        const selectedVisibilityOption = await vscode.window.showQuickPick([
+
+            {
+                label: `All Repositories in ${orgName} organization`,
+                visibility: 'all' as CodespaceSecretVisibility
+            },
+            {
+                label: `All Private Repositories in ${orgName} organization`,
+                visibility: 'private' as CodespaceSecretVisibility
+            },
+            {
+                label: `Selected Repositories in ${orgName} organization`,
+                visibility: 'selected' as CodespaceSecretVisibility
+            },
+
+        ], { title: `Select visibility level for your secret (which repositories should have access to it)` });
+
+        if (!selectedVisibilityOption) {
+            return;
+        }
+
+        let selectedRepoIds: number[] | undefined = undefined;
+
+        if (selectedVisibilityOption.visibility === 'selected') {
+
+            selectedRepoIds = await this.pickUpOrgRepoIds(orgName, treeItem.secretInfo?.selected_repositories_url, accessToken);
+            if (!selectedRepoIds?.length) {
+                return;
             }
+        }
 
-        }, 'KeeShepherd failed to save Codespaces secret');
+        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
+        
+        this.codespacesTreeView.refresh();
+
+        if (!!isUpdating) {
+            
+            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
+
+        } else {
+
+            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added to ${orgName} organization`);
+        }
     }    
 
     async createOrUpdateCodespacesRepoSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (!(
+            (treeItem.nodeType === CodespacesNodeTypeEnum.SecretKind && treeItem.secretKind === 'Repository') ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
+        )) {
+            return;
+        }
 
-            if (!(
-                (treeItem.nodeType === CodespacesNodeTypeEnum.SecretKind && treeItem.secretKind === 'Repository') ||
-                (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-            )) {
-                return;
-            }
+        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
-            let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
+        // This should be at the beginning, since it might require the user to re-authenticate
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
 
-            // This should be at the beginning, since it might require the user to re-authenticate
-            const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
-
-            let repoName = '';
-            if (!!isUpdating) {
-                
-                repoName = treeItem.repoName!;
-
-            } else {
-
-                const repos = await CodespaceSecretValueProvider.getUserRepos(accessToken);
-
-                const selectedRepo = await vscode.window.showQuickPick(repos.map(repo => {
-
-                    return { label: repo.fullName };
-        
-                }), {
-                    title: `Select repository`
-                });
-        
-                if (!selectedRepo) {
-                    return;
-                }
-
-                repoName = selectedRepo.label;
-            }
-
-            let secretName = treeItem.secretInfo?.name;
-
-            if (!secretName) {
-                
-                secretName = await this.askUserForSecretName();
-            }
-
-            if (!secretName) {
-                return;
-            }
-
-            const secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
-
-            if (!secretValue) {
-                return;
-            }
-
-            await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}`, accessToken, secretName, secretValue);
+        let repoName = '';
+        if (!!isUpdating) {
             
-            this.codespacesTreeView.refresh();
+            repoName = treeItem.repoName!;
 
-            if (!!isUpdating) {
-                
-                vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
+        } else {
 
-            } else {
+            const repos = await CodespaceSecretValueProvider.getUserRepos(accessToken);
 
-                vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added`);
+            const selectedRepo = await vscode.window.showQuickPick(repos.map(repo => {
+
+                return { label: repo.fullName };
+    
+            }), {
+                title: `Select repository`
+            });
+    
+            if (!selectedRepo) {
+                return;
             }
 
-        }, 'KeeShepherd failed to save Codespaces secret');
+            repoName = selectedRepo.label;
+        }
+
+        let secretName = treeItem.secretInfo?.name;
+
+        if (!secretName) {
+            
+            secretName = await this.askUserForSecretName();
+        }
+
+        if (!secretName) {
+            return;
+        }
+
+        const secretValue = await vscode.window.showInputBox({
+            prompt: 'Enter secret value',
+            password: true
+        });
+
+        if (!secretValue) {
+            return;
+        }
+
+        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}`, accessToken, secretName, secretValue);
+        
+        this.codespacesTreeView.refresh();
+
+        if (!!isUpdating) {
+            
+            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
+
+        } else {
+
+            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added`);
+        }
     }    
 
     async removeCodespacesSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
+        if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret) {
+            return;
+        }
 
-            if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret) {
+        let secretName = treeItem.label as string;
+
+        const userResponse = await vscode.window.showWarningMessage(
+            `Are you sure you want to remove Codespaces secret ${secretName}?`,
+            'Yes', 'No');
+
+        if (userResponse !== 'Yes') {
+            return;
+        }
+
+        let secretsUri = '';
+        let accessToken = '';
+
+        switch (treeItem.secretKind) {
+            case 'Personal':
+                secretsUri = 'user';
+                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecrets();
+            break;
+            case 'Organization':
+                secretsUri = `orgs/${treeItem.orgName}`;
+                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
+            break;
+            case 'Repository':
+                secretsUri = `repos/${treeItem.repoName}`;
+                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+            break;
+            default:
                 return;
-            }
+        }
 
-            let secretName = treeItem.label as string;
+        await CodespaceSecretValueProvider.removeCodespacesSecret(secretsUri, secretName, accessToken);
 
-            const userResponse = await vscode.window.showWarningMessage(
-                `Are you sure you want to remove Codespaces secret ${secretName}?`,
-                'Yes', 'No');
-   
-            if (userResponse !== 'Yes') {
-                return;
-            }
-
-            let secretsUri = '';
-            let accessToken = '';
-
-            switch (treeItem.secretKind) {
-                case 'Personal':
-                    secretsUri = 'user';
-                    accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecrets();
-                break;
-                case 'Organization':
-                    secretsUri = `orgs/${treeItem.orgName}`;
-                    accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
-                break;
-                case 'Repository':
-                    secretsUri = `repos/${treeItem.repoName}`;
-                    accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
-                break;
-                default:
-                    return;
-            }
-
-            await CodespaceSecretValueProvider.removeCodespacesSecret(secretsUri, secretName, accessToken);
-
-            this.codespacesTreeView.refresh();
-            
-            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was removed`);
-
-        }, 'KeeShepherd failed to remove Codespaces secret');
+        this.codespacesTreeView.refresh();
+        
+        vscode.window.showInformationMessage(`Codespaces secret ${secretName} was removed`);
     }
 
     async copyCodespacesSecretValue(treeItem: CodespacesTreeItem): Promise<void> {
 
-        await this.doAndShowError(async () => {
-            
-            if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret || !treeItem.secretInfo?.name) {
-                return;
-            }
+        if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret || !treeItem.secretInfo?.name) {
+            return;
+        }
 
-            const secretValue = process.env[treeItem.secretInfo.name];
+        const secretValue = process.env[treeItem.secretInfo.name];
 
-            if (!secretValue) {
-                throw new Error(`${treeItem.secretInfo.name} secret is not available on this machine`);
-            }
+        if (!secretValue) {
+            throw new Error(`${treeItem.secretInfo.name} secret is not available on this machine`);
+        }
 
-            vscode.env.clipboard.writeText(secretValue);
+        vscode.env.clipboard.writeText(secretValue);
 
-            vscode.window.showInformationMessage(`KeeShepherd: value of ${treeItem.secretInfo.name} was copied to Clipboard`);
-
-        }, 'KeeShepherd failed to copy secret value');
+        vscode.window.showInformationMessage(`KeeShepherd: value of ${treeItem.secretInfo.name} was copied to Clipboard`);
     }
     
     static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
@@ -1757,23 +1633,4 @@ export class KeeShepherd extends KeeShepherdBase {
                 });
         });
     }
-
-    private doAndShowError(todo: () => Promise<void>, errorMessage: string): Promise<void> {
-
-        // Chaining all incoming commands, to make sure they never interfere with each other
-        this._commandChain = this._commandChain.then(
-
-            () => todo().catch(err => {
-
-                const msg = `${errorMessage}. ${err.message ?? err}`;
-                this._log(msg, true, true);
-                vscode.window.showErrorMessage(msg);
-            }
-                
-        ));
-
-        return this._commandChain;
-    }
-
-    private _commandChain: Promise<void> = Promise.resolve();
 }
