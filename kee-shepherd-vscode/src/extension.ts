@@ -134,17 +134,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.key-vault-refresh', () => doAndShowError(async () => shepherd.keyVaultTreeView.refresh(), 'KeeShepherd failed')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save Codespaces secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save Codespaces secret')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save Codespaces secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save Codespaces secret')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save Codespaces secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save Codespaces secret')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => doAndShowError(() => shepherd.removeCodespacesSecret(item), 'KeeShepherd failed to remove Codespaces secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyCodespacesSecretValue', (item) => doAndShowError(() => shepherd.copyCodespacesSecretValue(item), 'KeeShepherd failed to copy secret value')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeCodespacesSecret(item), 'KeeShepherd failed to remove Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyCodespacesSecretValue', (item) => doAndShowError(() => shepherd.codespacesTreeView.copyCodespacesSecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => doAndShowError(async () => shepherd.codespacesTreeView.refresh(), 'KeeShepherd failed')),
 

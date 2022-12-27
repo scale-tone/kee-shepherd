@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+import { AnchorPrefix } from "./KeyMetadataHelpers";
 
 export type Log = (s: string, withEof: boolean, withTimestamp: boolean) => void;
 
@@ -54,4 +56,34 @@ export function timestampToString(ts: Date): string {
     } catch {
         return '';
     }
+}
+
+export async function askUserForSecretName(defaultSecretName: string | undefined = undefined): Promise<string | undefined> {
+
+    if (!defaultSecretName) {
+        
+        defaultSecretName = `${vscode.workspace.name}_secret${new Date().getMilliseconds()}`
+            .replace(/-/g, `_`)
+            .replace(/[ \[\]]/g, ``);
+    }
+
+    const secretName = await vscode.window.showInputBox({
+        value: defaultSecretName,
+        prompt: 'Give your secret a name',
+
+        validateInput: (n: string) => {
+
+            if (!n) {
+                return 'Provide a non-empty secret name';
+            }
+
+            if (n.startsWith(AnchorPrefix)) {
+                return `Secret name should not start with ${AnchorPrefix}`;
+            }
+
+            return null;
+        }
+    });
+
+    return secretName;
 }
