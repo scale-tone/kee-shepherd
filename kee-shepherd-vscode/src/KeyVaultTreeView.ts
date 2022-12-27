@@ -5,7 +5,9 @@ import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
-import { Log, timestampToString } from './helpers';
+import { askUserForSecretName, Log, timestampToString } from './helpers';
+import { ControlTypeEnum } from './KeyMetadataHelpers';
+import { SecretValuesProvider } from './SecretValuesProvider';
 
 export enum KeyVaultNodeTypeEnum {
     Subscription = 1,
@@ -29,9 +31,10 @@ export type KeyVaultTreeItem = vscode.TreeItem & {
 export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
 
     constructor(
-        private _account: AzureAccountWrapper,
-        private _resourcesFolder: string,
-        private _log: Log
+        private readonly _account: AzureAccountWrapper,
+        private readonly _valuesProvider: SecretValuesProvider,
+        private readonly _resourcesFolder: string,
+        private readonly _log: Log
     ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
@@ -195,5 +198,173 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
         }
         
         return result;
+    }
+
+    async copyKeyVaultSecretValueOrUri(treeItem: KeyVaultTreeItem, copyUri: boolean): Promise<void> {
+
+        if ((treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret && treeItem.nodeType !== KeyVaultNodeTypeEnum.SecretVersion) ||
+            !treeItem.subscriptionId ||
+            !treeItem.keyVaultName ||
+            !treeItem.secretId) {
+            return;
+        }
+
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+        const secret = await keyVaultClient.getSecret(treeItem.secretId);
+
+        if (!!copyUri) {
+
+            vscode.env.clipboard.writeText(
+                treeItem.nodeType === KeyVaultNodeTypeEnum.Secret ? 
+                `${secret.properties.vaultUrl}/secrets/${secret.name}` :
+                secret.properties.id!
+            );
+
+        } else {
+
+            vscode.env.clipboard.writeText(secret.value as string);
+        }
+
+        vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${treeItem.secretId} was copied to Clipboard`);
+    }
+
+    async createKeyVaultSecret(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
+
+        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.KeyVault || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            return;
+        }
+
+        let secretName;
+        let secretValue;
+
+        if (!!pickUpSecretValue) {
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
+                return;
+            }
+
+            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            
+            secretValue = secret.value;
+            
+        } else {
+
+            secretName = await askUserForSecretName();
+
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
+        }
+
+        if (!secretName) {
+            return;
+        }
+
+        if (!secretValue) {
+            return;
+        }
+
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+        const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
+        if (checkResult === 'not-ok-to-overwrite') {
+            return;
+        }
+        
+        await keyVaultClient.setSecret(secretName, secretValue);
+
+        this.refresh();
+
+        if (checkResult === 'does-not-exist') {
+            
+            this._log(`Created ${secretName} in ${treeItem.keyVaultName} Key Vault`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`);
+
+        } else {
+
+            this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
+            vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
+        }
+    }
+
+    async setKeyVaultSecretValue(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
+
+        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            return;
+        }
+
+        const secretName = treeItem.label as string;
+        let secretValue;
+
+        if (!!pickUpSecretValue) {
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
+                return;
+            }
+
+            secretValue = secret.value;
+            
+        } else {
+
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
+        }
+
+        if (!secretValue) {
+            return;
+        }
+
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+        await keyVaultClient.setSecret(secretName, secretValue);
+
+        this.refresh();
+
+        this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
+        vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
+    }
+
+    async removeSecretFromKeyVault(treeItem: KeyVaultTreeItem): Promise<void> {
+
+        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.Secret || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+            return;
+        }
+
+        const userResponse = await vscode.window.showWarningMessage(
+            `Secret ${treeItem.label} will be removed ("soft-deleted") from Key Vault. Do you want to proceed?`,
+            'Yes', 'No');
+
+        if (userResponse !== 'Yes') {
+            return;
+        }
+
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+
+        const progressOptions = {
+            location: vscode.ProgressLocation.Notification,
+            title: `Removing secret from Key Vault...`
+        };
+
+        await vscode.window.withProgress(progressOptions, async () => { 
+
+            const poller = await keyVaultClient.beginDeleteSecret(treeItem.label as string);
+            const removedSecret = await poller.pollUntilDone();
+
+            this._log(`Removed ${removedSecret.name} from ${treeItem.keyVaultName} Key Vault`, true, true);
+        });
+
+        this.refresh();
+
+        vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.label} was removed from Key Vault`);
     }
 }

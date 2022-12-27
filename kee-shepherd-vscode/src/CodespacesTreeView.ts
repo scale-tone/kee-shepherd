@@ -26,8 +26,8 @@ export type CodespacesTreeItem = vscode.TreeItem & {
 export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
 
     constructor(
-        private _resourcesFolder: string,
-        private _log: Log
+        private readonly _resourcesFolder: string,
+        private readonly _log: Log
     ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();

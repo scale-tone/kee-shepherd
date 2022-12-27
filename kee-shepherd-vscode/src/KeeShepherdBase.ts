@@ -70,13 +70,13 @@ export abstract class KeeShepherdBase {
         }
     }
     
-    protected constructor(protected _valuesProvider: SecretValuesProvider,
+    protected constructor(protected readonly _valuesProvider: SecretValuesProvider,
         protected _repo: IKeyMetadataRepo,
         protected readonly _mapRepo: KeyMapRepo,
         public readonly treeView: SecretTreeView,
         public readonly keyVaultTreeView: KeyVaultTreeView,
         public readonly codespacesTreeView: CodespacesTreeView,
-        protected _log: Log
+        protected readonly _log: Log
     ) { }
 
     dispose(): void {
