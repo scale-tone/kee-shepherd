@@ -31,7 +31,8 @@ export enum SecretTypeEnum {
     AzureSearch,
     AzureSignalR,
     AzureDevOpsPAT,
-    Codespaces
+    Codespaces,
+    VsCodeSecretStorage
 }
 
 export enum ControlTypeEnum {

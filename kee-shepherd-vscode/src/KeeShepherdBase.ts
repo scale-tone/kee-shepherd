@@ -70,7 +70,9 @@ export abstract class KeeShepherdBase {
         }
     }
     
-    protected constructor(protected readonly _valuesProvider: SecretValuesProvider,
+    protected constructor(
+        protected readonly _context: vscode.ExtensionContext,
+        protected readonly _valuesProvider: SecretValuesProvider,
         protected _repo: IKeyMetadataRepo,
         protected readonly _mapRepo: KeyMapRepo,
         public readonly treeView: SecretTreeView,
@@ -513,12 +515,26 @@ export abstract class KeeShepherdBase {
         
         if (userResponse === 'Yes') {
             
-            await this._repo.removeSecrets(filePath, missingSecrets);
+            await this.removeSecrets(filePath, missingSecrets);
 
             this._log(`${missingSecrets.length} secrets have been forgotten`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten from ${filePath}`);
             this.treeView.refresh();
         }
+    }
+
+    protected async removeSecrets(filePath: string, secretNames: string[]): Promise<void> {
+
+        // Need to also drop VsCodeSecretStorage secrets from VsCodeSecretStorage
+        const vsCodeSecretStorageSecrets = (await this._repo.getSecrets(filePath, true))
+            .filter(s => s.type === SecretTypeEnum.VsCodeSecretStorage && secretNames.includes(s.name));
+
+        for (const secret of vsCodeSecretStorageSecrets) {
+         
+            await this._context.secrets.delete(secret.name);
+        }
+
+        await this._repo.removeSecrets(filePath, secretNames);
     }
 
     protected async setGlobalEnvVariables(variables: { [n: string] : string | undefined }): Promise<void> {

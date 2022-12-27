@@ -31,16 +31,17 @@ const SettingNames = {
 export class KeeShepherd extends KeeShepherdBase {
 
     constructor (
-        private readonly _context: vscode.ExtensionContext,
+        context: vscode.ExtensionContext,
         private readonly _account: AzureAccountWrapper,
         repo: IKeyMetadataRepo,
         mapRepo: KeyMapRepo,
         resourcesFolder: string,
         log: Log
     ) {
-        const valuesProvider = new SecretValuesProvider(_account, log);
+        const valuesProvider = new SecretValuesProvider(context, _account, log);
         
-        super (
+        super(
+            context,
             valuesProvider,
             repo,
             mapRepo,
@@ -95,7 +96,7 @@ export class KeeShepherd extends KeeShepherdBase {
             return;
         }
         
-        await this._repo.removeSecrets(filePath, secrets.map(s => s.name));
+        await this.removeSecrets(filePath, secrets.map(s => s.name));
 
         this._log(`${secrets.length} secrets have been forgotten from ${filePath}`, true, true);
         vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);
@@ -117,7 +118,21 @@ export class KeeShepherd extends KeeShepherdBase {
         if (userResponse !== 'Yes') {
             return;
         }
-        
+
+        if (!!treeItem.isLocal) {
+
+            // Need to also drop VsCodeSecretStorage secrets from VsCodeSecretStorage
+            this._repo.refreshCache();
+
+            const vsCodeSecretStorageSecrets = (await this._repo.getAllCachedSecrets())
+                .filter(s => s.type === SecretTypeEnum.VsCodeSecretStorage);
+
+            for (const secret of vsCodeSecretStorageSecrets) {
+            
+                await this._context.secrets.delete(secret.name);
+            }
+        }
+
         await this._repo.removeAllSecrets(machineName);
 
         // Also cleaning up the key map
@@ -471,7 +486,7 @@ export class KeeShepherd extends KeeShepherdBase {
         // Managed secrets always go to KeyVault, supervised go there only by user's request
         var alsoAddToKeyVault = true;
         if (controlType === ControlTypeEnum.Supervised) {
-            alsoAddToKeyVault = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Do you want to also put this secret to Azure Key Vault?' }) === 'Yes';
+            alsoAddToKeyVault = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Do you want to also put this secret value to a secure storage?' }) === 'Yes';
         }
 
         if (!alsoAddToKeyVault) {
@@ -492,7 +507,7 @@ export class KeeShepherd extends KeeShepherdBase {
 
             // Adding both to metadata storage and to Key Vault
 
-            if (!await this.addKeyVaultSecret(secretName, secretValue, controlType, currentFile)) {
+            if (!await this.persistSecretValue(secretName, secretValue, controlType, currentFile)) {
                 return;
             }
         }
@@ -673,7 +688,7 @@ export class KeeShepherd extends KeeShepherdBase {
             return;
         }
 
-        if (!await this.addKeyVaultSecret(secretName, secretValue, ControlTypeEnum.EnvVariable, '')) {
+        if (!await this.persistSecretValue(secretName, secretValue, ControlTypeEnum.EnvVariable, '')) {
             return;
         }
 
@@ -717,7 +732,7 @@ export class KeeShepherd extends KeeShepherdBase {
         }
         
         // Now removing secrets themselves
-        await this._repo.removeSecrets(EnvVariableSpecialPath, secretNames);
+        await this.removeSecrets(EnvVariableSpecialPath, secretNames);
 
         this._log(`${secretNames.length} secrets have been removed`, true, true);
         vscode.window.showInformationMessage(`KeeShepherd: ${secretNames.length} secrets have been removed`);
@@ -1002,45 +1017,87 @@ export class KeeShepherd extends KeeShepherdBase {
         return result;
     }
 
-    private async addKeyVaultSecret(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
+    private async persistSecretValue(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return false;
-        }
+        const storageChoice = await vscode.window.showQuickPick([
+
+            {
+                label: 'VsCode SecretStorage (aka locally on this machine)',
+                whereToStore: SecretTypeEnum.VsCodeSecretStorage
+            },
+            {
+                label: 'Azure Key Vault',
+                whereToStore: SecretTypeEnum.AzureKeyVault
+            }
+
+        ], { title: `Where to store this secret's value` });
+
+
+        let secretProperties = undefined;
+        let persistRoutine = async () => {};
+
+        switch (storageChoice?.whereToStore)
+        {
+            case SecretTypeEnum.VsCodeSecretStorage:
+
+                persistRoutine = async () => {
+
+                    await this._context.secrets.store(secretName, secretValue);
+                };
+                
+                break;
+            
+            case SecretTypeEnum.AzureKeyVault:
+
+                const subscription = await this._account.pickUpSubscription();
+                if (!subscription) {
+                    return false;
+                }
+                
+                const subscriptionId = subscription.subscription.subscriptionId;
+                const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
         
-        const subscriptionId = subscription.subscription.subscriptionId;
-        const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+                if (!keyVaultName) {
+                    return false;
+                }
 
-        if (!keyVaultName) {
-            return false;
+                secretProperties = {
+                    subscriptionId: subscriptionId,
+                    keyVaultName: keyVaultName,
+                    keyVaultSecretName: secretName
+                };
+
+                persistRoutine = async () => { 
+
+                    const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+                    const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
+        
+                    await keyVaultClient.setSecret(secretName, secretValue);        
+                };
+                
+                break;
+            default:
+                return false;
         }
 
         // First adding the metadata
 
         await this._repo.addSecret({
             name: secretName,
-            type: SecretTypeEnum.AzureKeyVault,
+            type: storageChoice.whereToStore,
             controlType,
             filePath: sourceFileName,
             hash: this._repo.calculateHash(secretValue),
             length: secretValue.length,
             timestamp: new Date(),
-            properties: {
-                subscriptionId: subscriptionId,
-                keyVaultName: keyVaultName,
-                keyVaultSecretName: secretName
-            }
+            properties: secretProperties
         });
 
         // Then adding this secret to KeyVault
         try {
 
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
+            await persistRoutine();
 
-            await keyVaultClient.setSecret(secretName, secretValue);
-            
         } catch (err) {
             
             // Dropping the just created secret upon failure

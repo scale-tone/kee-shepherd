@@ -19,13 +19,14 @@ import { AzureSignalRSecretValueProvider } from './secret-value-providers/AzureS
 import { AzureDevOpsSecretValueProvider } from './secret-value-providers/AzureDevOpsSecretValueProvider';
 import { CodespaceSecretValueProvider } from './secret-value-providers/CodespaceSecretValueProvider';
 import { Log } from './helpers';
+import { VsCodeSecretStorageValueProvider } from './secret-value-providers/VsCodeSecretStorageValueProvider';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
 
     private _providers: { [secretType: number]: ISecretValueProvider } = {};
 
-    constructor(account: AzureAccountWrapper, log: Log) {
+    constructor(context: vscode.ExtensionContext, account: AzureAccountWrapper, log: Log) {
         
         this._providers[SecretTypeEnum.AzureKeyVault] = new KeyVaultSecretValueProvider(account);
         this._providers[SecretTypeEnum.AzureStorage] = new StorageSecretValueProvider(account);
@@ -42,6 +43,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(account);
         this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(account);
         this._providers[SecretTypeEnum.Codespaces] = new CodespaceSecretValueProvider(account, log);
+        this._providers[SecretTypeEnum.VsCodeSecretStorage] = new VsCodeSecretStorageValueProvider(context, account);
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
