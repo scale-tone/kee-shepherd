@@ -7,6 +7,9 @@ import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider
 import { azureDevOpsScopeOptions } from './AzureDevOpsScopeOptions';
 import { KeyVaultSecretValueProvider } from './KeyVaultSecretValueProvider';
 
+// Well-known resourceId (clientId) of Azure DevOps
+const azDoResourceId = '499b84ac-1321-427f-aa17-267ca6975798';
+
 // Implements picking and retrieving secret values from Azure DevOps
 export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
@@ -21,14 +24,8 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
     async pickUpSecret(controlType: ControlTypeEnum): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
-
-        const subscriptionId = subscription.subscription.subscriptionId;
-
-        const accessToken = await this._account.getAzDoTokenViaMsal(subscriptionId);
+        // Obtaining access token for Azure DevOps REST API
+        const accessToken = await this._account.getTokenWithScopes([azDoResourceId + '/user_impersonation']);
 
         const azDoBaseUri = 'https://app.vssps.visualstudio.com/_apis/';
 
@@ -176,8 +173,16 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
         let keyVaultClient;
         let keyVaultName;
+        let subscriptionId;
         if (controlType === ControlTypeEnum.Managed || controlType === ControlTypeEnum.EnvVariable) {
-            
+
+            const subscription = await this._account.pickUpSubscription();
+            if (!subscription) {
+                return;
+            }
+    
+            subscriptionId = subscription.subscription.subscriptionId;
+                
             // Need to immediately put managed PATs to KeyVault, because there's no way to retrieve a PAT after it was created.
             // So asking user for a KeyVault name.
             keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
