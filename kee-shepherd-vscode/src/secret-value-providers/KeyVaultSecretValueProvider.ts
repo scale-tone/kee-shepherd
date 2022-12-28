@@ -13,10 +13,9 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     async getKeyVaultClient(subscriptionId: string, keyVaultName: string): Promise<SecretClient> {
 
-        // Need to create our own credentials object, because the one that comes from Azure Account ext has a wrong resourceId in it
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId, 'https://vault.azure.net');
+        const tokenCredential = await this._account.getTokenCredentialsWithScopes(['https://vault.azure.net/user_impersonation']);
         
-        return new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredentials as any);
+        return new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredential);
     }
 
     static async checkIfSecretExists(keyVaultClient: SecretClient, secretName: string): Promise<'does-not-exist' | 'ok-to-overwrite' | 'not-ok-to-overwrite'> {

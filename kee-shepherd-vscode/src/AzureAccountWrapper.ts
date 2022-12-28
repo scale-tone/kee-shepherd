@@ -4,6 +4,7 @@ import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { Environment } from "@azure/ms-rest-azure-env";
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
+import { TokenCredential, GetTokenOptions } from "@azure/core-auth";
 
 // Full typings for this can be found here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
 export type AzureSubscription = { session: { credentials2: any }, subscription: { subscriptionId: string, displayName: string } };
@@ -39,7 +40,6 @@ class SequentialDeviceTokenCredentials extends DeviceTokenCredentials {
         });
     }
 }
-
 // Wraps Azure Acccount extension
 export class AzureAccountWrapper {
 
@@ -129,7 +129,8 @@ export class AzureAccountWrapper {
         return this._account.filters;
     }
 
-    async getTokenCredentials(subscriptionId: string, resourceId: string | undefined = undefined): Promise<DeviceTokenCredentials> {
+    // Returns DeviceTokenCredentials object provided by Azure Account extension
+    async getTokenCredentials(subscriptionId: string): Promise<DeviceTokenCredentials> {
 
         const subscription = (await this.getSubscriptions()).find(s => s.subscription.subscriptionId === subscriptionId);
 
@@ -152,12 +153,13 @@ export class AzureAccountWrapper {
                 managementEndpointUrl: environment.managementEndpointUrl,
                 resourceManagerEndpointUrl: environment.resourceManagerEndpointUrl,
                 activeDirectoryEndpointUrl: environment.activeDirectoryEndpointUrl,
-                activeDirectoryResourceId: resourceId ?? environment.activeDirectoryResourceId
+                activeDirectoryResourceId: environment.activeDirectoryResourceId
             }),
             tokenCredential.tokenCache
         );
     }
 
+    // Uses vscode.authentication to get a token with custom scopes
     async getTokenWithScopes(scopes: string[]): Promise<string> {
 
         // First trying silent mode
@@ -172,6 +174,35 @@ export class AzureAccountWrapper {
         authSession = await vscode.authentication.getSession('microsoft', scopes, { createIfNone: true });
 
         return authSession.accessToken;
+    }
+
+    // Uses vscode.authentication to get a TokenCredential object for custom scopes
+    async getTokenCredentialsWithScopes(scopes: string[]): Promise<TokenCredential> {
+
+        const accessToken = await this.getTokenWithScopes(scopes);
+
+        // Need to extract expiration time from token
+        let expiresOnTimestamp = new Date().getTime() + 60 * 1000;
+
+        const tokenJson = Buffer.from(accessToken, 'base64').toString();
+
+        const match = /"exp"\s*:\s*(\d+)/i.exec(tokenJson);
+        if (!!match) {
+
+            const exp = match[1];
+            expiresOnTimestamp = parseInt(exp) * 1000;
+        }
+
+        return {
+
+            getToken: async (scopes: string | string[], options?: GetTokenOptions) => {
+
+                return {
+                    token: accessToken,
+                    expiresOnTimestamp
+                };
+            }
+        };
     }
 
     async isSignedIn(): Promise<boolean> {
