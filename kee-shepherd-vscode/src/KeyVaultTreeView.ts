@@ -116,7 +116,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                     try {
                      
                         const secretProvider = new KeyVaultSecretValueProvider(this._account);
-                        const secrets = await secretProvider.getSecrets(parent.subscriptionId as string, parent.label as string);
+                        const secrets = await secretProvider.getSecrets(parent.label as string);
     
                         for (const secret of secrets) {
                             
@@ -156,7 +156,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                      
                         const secretProvider = new KeyVaultSecretValueProvider(this._account);
 
-                        const secretVersions = await secretProvider.getSecretVersions(parent.subscriptionId as string, parent.keyVaultName!, parent.label as string);
+                        const secretVersions = await secretProvider.getSecretVersions(parent.keyVaultName!, parent.label as string);
     
                         for (const secretVersion of secretVersions) {
                             
@@ -210,7 +210,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
         }
 
         const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.keyVaultName);
 
         const secret = await keyVaultClient.getSecret(treeItem.secretId);
 
@@ -269,7 +269,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
         }
 
         const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.keyVaultName);
 
         const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
         if (checkResult === 'not-ok-to-overwrite') {
@@ -323,7 +323,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
         }
 
         const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.keyVaultName);
 
         await keyVaultClient.setSecret(secretName, secretValue);
 
@@ -348,7 +348,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
         }
 
         const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.keyVaultName);
 
         const progressOptions = {
             location: vscode.ProgressLocation.Notification,

@@ -173,26 +173,19 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
         let keyVaultClient;
         let keyVaultName;
-        let subscriptionId;
         if (controlType === ControlTypeEnum.Managed || controlType === ControlTypeEnum.EnvVariable) {
 
-            const subscription = await this._account.pickUpSubscription();
-            if (!subscription) {
-                return;
-            }
-    
-            subscriptionId = subscription.subscription.subscriptionId;
-                
+            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+            
             // Need to immediately put managed PATs to KeyVault, because there's no way to retrieve a PAT after it was created.
             // So asking user for a KeyVault name.
-            keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+            keyVaultName = await keyVaultProvider.pickUpKeyVault();
 
             if (!keyVaultName) {
                 return;
             }
 
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
+            keyVaultClient = await keyVaultProvider.getKeyVaultClient(keyVaultName);
 
             const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
             if (checkResult === 'not-ok-to-overwrite') {
@@ -239,7 +232,6 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
                 name: secretName,
                 value: token,
                 properties: {
-                    subscriptionId: subscriptionId,
                     keyVaultName,
                     keyVaultSecretName: secretName,
                     azDoPatProperties: tokenProperties

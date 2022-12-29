@@ -11,7 +11,7 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
-    async getKeyVaultClient(subscriptionId: string, keyVaultName: string): Promise<SecretClient> {
+    async getKeyVaultClient(keyVaultName: string): Promise<SecretClient> {
 
         const tokenCredential = await this._account.getTokenCredential(['https://vault.azure.net/user_impersonation']);
         
@@ -43,27 +43,21 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const keyVaultClient = await this.getKeyVaultClient(secret.properties.subscriptionId, secret.properties.keyVaultName);
+        const keyVaultClient = await this.getKeyVaultClient(secret.properties.keyVaultName);
 
         const keyVaultSecret = await keyVaultClient.getSecret(secret.properties.keyVaultSecretName);
         return keyVaultSecret.value ?? '';
     }
 
     async pickUpSecret(): Promise<SelectedSecretType | undefined> {
-
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
         
-        const subscriptionId = subscription.subscription.subscriptionId;
-        const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+        const keyVaultName = await this.pickUpKeyVault();
 
         if (!keyVaultName) {
             return;
         }
         
-        const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
+        const keyVaultClient = await this.getKeyVaultClient(keyVaultName);
         
         const secretNames = [];
         for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
@@ -90,16 +84,15 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
             name: secretName,
             value: secret.value,
             properties: {
-                subscriptionId: subscriptionId,
                 keyVaultName,
                 keyVaultSecretName: secretName
             }
         };
     }
 
-    async getSecrets(subscriptionId: string, keyVaultName: string): Promise<SecretProperties[]> {
+    async getSecrets(keyVaultName: string): Promise<SecretProperties[]> {
 
-        const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
+        const keyVaultClient = await this.getKeyVaultClient(keyVaultName);
         
         const result = [];
         for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
@@ -109,9 +102,9 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         return result;
     }
 
-    async getSecretVersions(subscriptionId: string, keyVaultName: string, secretName: string): Promise<SecretProperties[]> {
+    async getSecretVersions(keyVaultName: string, secretName: string): Promise<SecretProperties[]> {
 
-        const keyVaultClient = await this.getKeyVaultClient(subscriptionId, keyVaultName);
+        const keyVaultClient = await this.getKeyVaultClient(keyVaultName);
         
         const result = [];
         for await (const secretProps of keyVaultClient.listPropertiesOfSecretVersions(secretName)) {
@@ -121,8 +114,14 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         return result;
     }
 
-    static pickUpKeyVault(subscription: AzureSubscription): Promise<string> {
-        return new Promise<string>((resolve, reject) => {
+    async pickUpKeyVault(): Promise<string> {
+
+        const credential = await this._account.getTokenCredential();
+        const resourceGraphClient = new ResourceGraphClient(credential);
+
+        const subscriptions = await this._account.getSubscriptions();
+
+        return await new Promise<string>((resolve, reject) => {
     
             // Picking up a KeyVault
             var keyVaultName: string;
@@ -152,11 +151,10 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
             pick.title = 'Select or Enter Key Vault Name';
     
             // Getting the list of existing KeyVaults
-            const resourceGraphClient = new ResourceGraphClient(subscription.session.credentials2);
     
             resourceGraphClient.resources({
     
-                subscriptions: [subscription.subscription.subscriptionId],
+                subscriptions: subscriptions.map(s => s.subscription.subscriptionId),
                 query: 'resources | where type == "microsoft.keyvault/vaults"'
                     
             }).then(response => {
@@ -164,7 +162,13 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
                 if (!!response.data && response.data.length >= 0) {
     
                     pick.items = response.data.map((keyVault: any) => {
-                        return { label: keyVault.name };
+
+                        const subscription = subscriptions.find(s => s.subscription.subscriptionId === keyVault.subscriptionId);
+
+                        return {
+                            label: keyVault.name,
+                            detail: `${subscription?.subscription?.displayName} ${keyVault.subscriptionId}`
+                        };
                     });
     
                     pick.placeholder = response.data[0].name;

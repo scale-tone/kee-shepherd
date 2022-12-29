@@ -332,7 +332,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         if (!!saltEntity && saltEntity.keyVaultSecretName) {
 
             // Reading salt from Key Vault
-            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(saltEntity.subscriptionId, saltEntity.keyVaultName);
+            const keyVaultClient = await keyVaultProvider.getKeyVaultClient(saltEntity.keyVaultName);
             const saltSecret = await keyVaultClient.getSecret(saltEntity.keyVaultSecretName);
 
             return saltSecret.value!;
@@ -375,52 +375,46 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
         // Moving salt from Table to Key Vault
 
-        const subscription = await account.pickUpSubscription();
-        if (!!subscription) {
+        const keyVaultName = await keyVaultProvider.pickUpKeyVault();
+        if (!!keyVaultName) {
 
-            const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
-            if (!!keyVaultName) {
+            const saltSecretName = await vscode.window.showInputBox({
+                value: `KeeShepherdSalt`,
+                prompt: 'Give your salt secret a name'
+            });
+    
+            if (!!saltSecretName) {
 
-                const saltSecretName = await vscode.window.showInputBox({
-                    value: `KeeShepherdSalt`,
-                    prompt: 'Give your salt secret a name'
-                });
+                const saltValue = saltEntity?.value ?? Crypto.randomBytes(128).toString('hex');
+
+                const keyVaultClient = await keyVaultProvider.getKeyVaultClient(keyVaultName);
+                
+                await keyVaultClient.setSecret(saltSecretName, saltValue);
         
-                if (!!saltSecretName) {
+                if (!saltEntity) {
 
-                    const saltValue = saltEntity?.value ?? Crypto.randomBytes(128).toString('hex');
+                    saltEntity = { 
+                        partitionKey: SaltKey, 
+                        rowKey: SaltKey,
+                        keyVaultName: keyVaultName,
+                        keyVaultSecretName: saltSecretName
+                    };
+    
+                    await tableClient.createEntity(saltEntity);
 
-                    const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscription.subscription.subscriptionId, keyVaultName);
+                } else {
+
+                    saltEntity.value = '';
+                    saltEntity.keyVaultName = keyVaultName;
+                    saltEntity.keyVaultSecretName = saltSecretName;
                     
-                    await keyVaultClient.setSecret(saltSecretName, saltValue);
-            
-                    if (!saltEntity) {
+                    await tableClient.updateEntity(saltEntity, 'Replace');
+                }
 
-                        saltEntity = { 
-                            partitionKey: SaltKey, 
-                            rowKey: SaltKey,
-                            subscriptionId: subscription.subscription.subscriptionId,
-                            keyVaultName: keyVaultName,
-                            keyVaultSecretName: saltSecretName
-                        };
-        
-                        await tableClient.createEntity(saltEntity);
+                vscode.window.showInformationMessage(`KeeShepherd salt is now stored in ${keyVaultName} as ${saltSecretName} secret`);
 
-                    } else {
-
-                        saltEntity.value = '';
-                        saltEntity.subscriptionId = subscription.subscription.subscriptionId;
-                        saltEntity.keyVaultName = keyVaultName;
-                        saltEntity.keyVaultSecretName = saltSecretName;
-                        
-                        await tableClient.updateEntity(saltEntity, 'Replace');
-                    }
-
-                    vscode.window.showInformationMessage(`KeeShepherd salt is now stored in ${keyVaultName} as ${saltSecretName} secret`);
-
-                    return saltValue;
-                }        
-            }
+                return saltValue;
+            }        
         }
 
         if (!saltEntity?.value) {

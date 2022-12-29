@@ -871,7 +871,7 @@ export class KeeShepherd extends KeeShepherdBase {
         }
 
         const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.subscriptionId, treeItem.keyVaultName);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.keyVaultName);
 
         const secret = await keyVaultClient.getSecret(treeItem.label as string);
 
@@ -899,7 +899,6 @@ export class KeeShepherd extends KeeShepherdBase {
             length: secret.value!.length,
             timestamp: new Date(),
             properties: {
-                subscriptionId: treeItem.subscriptionId,
                 keyVaultName: treeItem.keyVaultName,
                 keyVaultSecretName: secret.name
             }
@@ -1049,28 +1048,22 @@ export class KeeShepherd extends KeeShepherdBase {
             
             case SecretTypeEnum.AzureKeyVault:
 
-                const subscription = await this._account.pickUpSubscription();
-                if (!subscription) {
-                    return false;
-                }
+                const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
                 
-                const subscriptionId = subscription.subscription.subscriptionId;
-                const keyVaultName = await KeyVaultSecretValueProvider.pickUpKeyVault(subscription);
+                const keyVaultName = await keyVaultProvider.pickUpKeyVault();
         
                 if (!keyVaultName) {
                     return false;
                 }
 
                 secretProperties = {
-                    subscriptionId: subscriptionId,
                     keyVaultName: keyVaultName,
                     keyVaultSecretName: secretName
                 };
 
                 persistRoutine = async () => { 
 
-                    const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-                    const keyVaultClient = await keyVaultProvider.getKeyVaultClient(subscriptionId, keyVaultName);
+                    const keyVaultClient = await keyVaultProvider.getKeyVaultClient(keyVaultName);
         
                     await keyVaultClient.setSecret(secretName, secretValue);        
                 };
