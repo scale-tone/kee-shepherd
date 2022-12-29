@@ -1018,78 +1018,30 @@ export class KeeShepherd extends KeeShepherdBase {
 
     private async persistSecretValue(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
 
-        const storageChoice = await vscode.window.showQuickPick([
+        // Asking user where to store this secret's value
+        const storageUserChoice = await this._valuesProvider.askUserWhereToStoreSecret(secretName);
 
-            {
-                label: 'VsCode SecretStorage (aka locally on this machine)',
-                whereToStore: SecretTypeEnum.VsCodeSecretStorage
-            },
-            {
-                label: 'Azure Key Vault',
-                whereToStore: SecretTypeEnum.AzureKeyVault
-            }
-
-        ], { title: `Where to store this secret's value` });
-
-
-        let secretProperties = undefined;
-        let persistRoutine = async () => {};
-
-        switch (storageChoice?.whereToStore)
-        {
-            case SecretTypeEnum.VsCodeSecretStorage:
-
-                persistRoutine = async () => {
-
-                    await this._context.secrets.store(secretName, secretValue);
-                };
-                
-                break;
-            
-            case SecretTypeEnum.AzureKeyVault:
-
-                const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-                
-                const keyVaultName = await keyVaultProvider.pickUpKeyVault();
-        
-                if (!keyVaultName) {
-                    return false;
-                }
-
-                secretProperties = {
-                    keyVaultName: keyVaultName,
-                    keyVaultSecretName: secretName
-                };
-
-                persistRoutine = async () => { 
-
-                    const keyVaultClient = await keyVaultProvider.getKeyVaultClient(keyVaultName);
-        
-                    await keyVaultClient.setSecret(secretName, secretValue);        
-                };
-                
-                break;
-            default:
-                return false;
+        if (!storageUserChoice) {
+            return false;
         }
-
+        
         // First adding the metadata
 
         await this._repo.addSecret({
             name: secretName,
-            type: storageChoice.whereToStore,
+            type: storageUserChoice.secretType,
             controlType,
             filePath: sourceFileName,
             hash: this._repo.calculateHash(secretValue),
             length: secretValue.length,
             timestamp: new Date(),
-            properties: secretProperties
+            properties: storageUserChoice.secretProperties
         });
 
         // Then adding this secret to KeyVault
         try {
 
-            await persistRoutine();
+            await storageUserChoice.persistRoutine(secretValue);
 
         } catch (err) {
             

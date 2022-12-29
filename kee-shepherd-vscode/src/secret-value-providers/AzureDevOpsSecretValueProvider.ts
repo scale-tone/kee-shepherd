@@ -5,7 +5,7 @@ import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum, AnchorPrefix, ControlTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { azureDevOpsScopeOptions } from './AzureDevOpsScopeOptions';
-import { KeyVaultSecretValueProvider } from './KeyVaultSecretValueProvider';
+import { SecretStorageUserChoice } from '../SecretValuesProvider';
 
 // Well-known resourceId (clientId) of Azure DevOps
 const azDoResourceId = '499b84ac-1321-427f-aa17-267ca6975798';
@@ -13,7 +13,10 @@ const azDoResourceId = '499b84ac-1321-427f-aa17-267ca6975798';
 // Implements picking and retrieving secret values from Azure DevOps
 export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
-    constructor(protected _account: AzureAccountWrapper) { 
+    constructor(
+        protected _account: AzureAccountWrapper,
+        private _askUserWhereToStoreSecret: (secretName: string) => Promise<SecretStorageUserChoice | undefined>
+    ) {
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
@@ -171,24 +174,15 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
         const patsEndpointUri = `https://vssps.dev.azure.com/${azDoOrg}/_apis/tokens/pats?api-version=7.1-preview.1`;
         await this.checkTokenWithThisNameExists(secretName, patsEndpointUri, accessToken);
 
-        let keyVaultClient;
-        let keyVaultName;
+        let storageUserChoice = undefined;
+
         if (controlType === ControlTypeEnum.Managed || controlType === ControlTypeEnum.EnvVariable) {
 
-            const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-            
-            // Need to immediately put managed PATs to KeyVault, because there's no way to retrieve a PAT after it was created.
-            // So asking user for a KeyVault name.
-            keyVaultName = await keyVaultProvider.pickUpKeyVault();
+            // Need to immediately put managed PATs to some storage, because there's no way to retrieve a PAT after it was created.
+            // So asking user where to store it.
+            storageUserChoice = await this._askUserWhereToStoreSecret(secretName);
 
-            if (!keyVaultName) {
-                return;
-            }
-
-            keyVaultClient = await keyVaultProvider.getKeyVaultClient(keyVaultName);
-
-            const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
-            if (checkResult === 'not-ok-to-overwrite') {
+            if (!storageUserChoice) {
                 return;
             }
         }
@@ -221,19 +215,18 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
             authorizationId: createTokenResponse?.data?.patToken?.authorizationId
         };
 
-        if (!!keyVaultClient) {
+        if (!!storageUserChoice) {
 
-            // Storing this PAT in the selected KeyVault
-            await keyVaultClient.setSecret(secretName, token);
+            // Storing this PAT in the selected storage
+            await storageUserChoice.persistRoutine(token);
 
             // Returning it as a KeyVault secret
             return {
-                type: SecretTypeEnum.AzureKeyVault,
+                type: storageUserChoice.secretType,
                 name: secretName,
                 value: token,
                 properties: {
-                    keyVaultName,
-                    keyVaultSecretName: secretName,
+                    ...storageUserChoice.secretProperties,
                     azDoPatProperties: tokenProperties
                 },
                 alreadyAskedForName: true

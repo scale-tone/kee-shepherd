@@ -26,24 +26,24 @@ export class SecretValuesProvider {
 
     private _providers: { [secretType: number]: ISecretValueProvider } = {};
 
-    constructor(context: vscode.ExtensionContext, account: AzureAccountWrapper, log: Log) {
+    constructor(private _context: vscode.ExtensionContext, private _account: AzureAccountWrapper, log: Log) {
         
-        this._providers[SecretTypeEnum.AzureKeyVault] = new KeyVaultSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureStorage] = new StorageSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureServiceBus] = new ServiceBusSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureEventHubs] = new EventHubSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureCosmosDb] = new CosmosDbSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureRedisCache] = new AzureRedisSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureAppInsights] = new AppInsightsSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureEventGrid] = new EventGridSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureMaps] = new AzureMapsSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureCognitiveServices] = new AzureCognitiveServicesSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureSearch] = new AzureSearchSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(account);
-        this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(account);
-        this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(account);
-        this._providers[SecretTypeEnum.Codespaces] = new CodespaceSecretValueProvider(account, log);
-        this._providers[SecretTypeEnum.VsCodeSecretStorage] = new VsCodeSecretStorageValueProvider(context, account);
+        this._providers[SecretTypeEnum.AzureKeyVault] = new KeyVaultSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureStorage] = new StorageSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureServiceBus] = new ServiceBusSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureEventHubs] = new EventHubSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureCosmosDb] = new CosmosDbSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureRedisCache] = new AzureRedisSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureAppInsights] = new AppInsightsSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureEventGrid] = new EventGridSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureMaps] = new AzureMapsSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureCognitiveServices] = new AzureCognitiveServicesSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureSearch] = new AzureSearchSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(_account);
+        this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(_account, (secretName: string) => this.askUserWhereToStoreSecret(secretName));
+        this._providers[SecretTypeEnum.Codespaces] = new CodespaceSecretValueProvider(_account, log);
+        this._providers[SecretTypeEnum.VsCodeSecretStorage] = new VsCodeSecretStorageValueProvider(_context, _account);
     }
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
@@ -104,4 +104,87 @@ export class SecretValuesProvider {
 
         return secret;
     }
+
+    async askUserWhereToStoreSecret(secretName: string): Promise<SecretStorageUserChoice | undefined> {
+
+        const storageChoice = await vscode.window.showQuickPick([
+
+            {
+                label: 'VsCode SecretStorage (aka locally on this machine)',
+                whereToStore: SecretTypeEnum.VsCodeSecretStorage
+            },
+            {
+                label: 'Azure Key Vault',
+                whereToStore: SecretTypeEnum.AzureKeyVault
+            }
+
+        ], { title: `Where to store this secret's value` });
+
+        switch (storageChoice?.whereToStore)
+        {
+            case SecretTypeEnum.VsCodeSecretStorage:
+
+                if (!!(await this._context.secrets.get(secretName))) {
+
+                    const userResponse = await vscode.window.showWarningMessage(
+                        `A secret named ${secretName} already exists in VsCode SecretStorage. Do you want to overwrite it?`,
+                        'Yes', 'No');
+           
+                    if (userResponse !== 'Yes') {
+                        return;
+                    }
+                }
+                
+                return {
+
+                    secretType: SecretTypeEnum.VsCodeSecretStorage,
+
+                    persistRoutine: async (secretValue: string) => {
+
+                        await this._context.secrets.store(secretName, secretValue);
+                    }
+                };
+                                
+            case SecretTypeEnum.AzureKeyVault:
+
+                const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+                
+                const keyVaultName = await keyVaultProvider.pickUpKeyVault();
+        
+                if (!keyVaultName) {
+                    return;
+                }
+
+                const keyVaultClient = await keyVaultProvider.getKeyVaultClient(keyVaultName);
+
+                const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
+                if (checkResult === 'not-ok-to-overwrite') {
+                    return;
+                }
+    
+                return {
+
+                    secretType: SecretTypeEnum.AzureKeyVault,
+
+                    secretProperties: {
+                        keyVaultName: keyVaultName,
+                        keyVaultSecretName: secretName
+                    },
+
+                    persistRoutine: async (secretValue: string) => {
+
+                        await keyVaultClient.setSecret(secretName, secretValue);        
+                    }
+                };
+        }
+
+        return undefined;
+    }
 }
+
+export type SecretStorageUserChoice = {
+
+    secretType: SecretTypeEnum,
+    secretProperties?: {},
+    persistRoutine: (secretValue: string) => Promise<void>
+};
