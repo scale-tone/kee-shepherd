@@ -5,7 +5,6 @@ import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure SignalR Services
 export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
@@ -14,12 +13,11 @@ export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const response = await axios.post(secret.properties.resourceManagerUri, undefined, {
             headers: {
-                'Authorization': `Bearer ${token.accessToken}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'                
             }
         });
@@ -36,21 +34,20 @@ export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const service = await this.pickUpService(subscriptionId, tokenCredentials);
+        const service = await this.pickUpService(subscriptionId);
 
         if (!service) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const keysUri = `https://management.azure.com${service.id}/listKeys?api-version=2021-09-01-preview`;
         const keysResponse = await axios.post(keysUri, undefined, {
             headers: {
-                'Authorization': `Bearer ${token.accessToken}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'                
             }
         });
@@ -85,8 +82,9 @@ export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
         };
     }
 
-    private async pickUpService(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<{ id: string, name: string } | undefined> {
+    private async pickUpService(subscriptionId: string): Promise<{ id: string, name: string } | undefined> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({

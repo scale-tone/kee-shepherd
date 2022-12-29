@@ -5,7 +5,6 @@ import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Event Grid
 export class EventGridSecretValueProvider implements ISecretValueProvider {
@@ -14,10 +13,9 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const key = response.data[secret.properties.keyName];
         return key;
@@ -31,19 +29,18 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const topic = await this.pickUpTopicId(subscriptionId, tokenCredentials);
+        const topic = await this.pickUpTopicId(subscriptionId);
 
         if (!topic) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const keysUri = `https://management.azure.com${topic.id}/listKeys?api-version=2021-12-01`;
-        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         const keys = keysResponse.data;
 
         if (!keys) {
@@ -74,8 +71,9 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
         }
     }
 
-    private async pickUpTopicId(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<{ id: string, name: string } | undefined> {
+    private async pickUpTopicId(subscriptionId: string): Promise<{ id: string, name: string } | undefined> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({

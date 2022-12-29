@@ -5,7 +5,6 @@ import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Redis Cache
 export class AzureRedisSecretValueProvider implements ISecretValueProvider {
@@ -14,10 +13,9 @@ export class AzureRedisSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const key = response.data[secret.properties.keyName];
 
@@ -36,19 +34,18 @@ export class AzureRedisSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const instanceId = await this.pickUpInstanceId(subscriptionId, tokenCredentials);
+        const instanceId = await this.pickUpInstanceId(subscriptionId);
 
         if (!instanceId) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const instanceUri = `https://management.azure.com${instanceId}?api-version=2020-06-01`;
-        const instanceResponse = await axios.get(instanceUri, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const instanceResponse = await axios.get(instanceUri, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const instanceName = instanceResponse.data?.name;
         const hostName = instanceResponse.data?.properties?.hostName;
@@ -57,7 +54,7 @@ export class AzureRedisSecretValueProvider implements ISecretValueProvider {
         const connString = `${hostName}:${sslPort},ssl=True,abortConnect=False,`;
 
         const keysUri = `https://management.azure.com${instanceId}/listKeys?api-version=2020-06-01`;
-        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         const keys = keysResponse.data;
 
         if (!keys) {
@@ -98,8 +95,9 @@ export class AzureRedisSecretValueProvider implements ISecretValueProvider {
         }
     }
 
-    private async pickUpInstanceId(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<string> {
+    private async pickUpInstanceId(subscriptionId: string): Promise<string> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({

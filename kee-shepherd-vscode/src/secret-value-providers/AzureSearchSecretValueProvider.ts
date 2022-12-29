@@ -5,7 +5,6 @@ import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Search
 export class AzureSearchSecretValueProvider implements ISecretValueProvider {
@@ -14,10 +13,9 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const keys = this.resourceManagerResponseToKeys(response.data);
 
@@ -37,19 +35,18 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const service = await this.pickUpService(subscriptionId, tokenCredentials);
+        const service = await this.pickUpService(subscriptionId);
 
         if (!service) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const keysUri = `https://management.azure.com${service.id}/${service.isAdminKey ? 'listAdminKeys' : 'listQueryKeys'}?api-version=2020-08-01`;
-        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const keys = this.resourceManagerResponseToKeys(keysResponse.data);
 
@@ -111,8 +108,9 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
         return Object.keys(data).map(n => { return { name: n, key: data[n] }; });
     }
 
-    private async pickUpService(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<{ id: string, name: string, isAdminKey: boolean } | undefined> {
+    private async pickUpService(subscriptionId: string): Promise<{ id: string, name: string, isAdminKey: boolean } | undefined> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({

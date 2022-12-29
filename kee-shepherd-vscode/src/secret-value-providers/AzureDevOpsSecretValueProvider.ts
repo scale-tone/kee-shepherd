@@ -25,7 +25,7 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
     async pickUpSecret(controlType: ControlTypeEnum): Promise<SelectedSecretType | undefined> {
 
         // Obtaining access token for Azure DevOps REST API
-        const accessToken = await this._account.getTokenWithScopes([azDoResourceId + '/user_impersonation']);
+        const accessToken = await this._account.getToken([azDoResourceId + '/user_impersonation']);
 
         const azDoBaseUri = 'https://app.vssps.visualstudio.com/_apis/';
 

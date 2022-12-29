@@ -12,7 +12,7 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
+        const tokenCredentials = await this._account.getTokenCredential();
         const storageManagementClient = new StorageManagementClient(tokenCredentials, secret.properties.subscriptionId);
 
         const storageKeys = await storageManagementClient.storageAccounts.listKeys(secret.properties.resourceGroupName, secret.properties.storageAccountName);
@@ -37,7 +37,7 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
         }
         
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
+        const tokenCredentials = await this._account.getTokenCredential();
 
         const storageManagementClient = new StorageManagementClient(tokenCredentials, subscriptionId);
 

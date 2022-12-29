@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
 
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
-import { Environment } from "@azure/ms-rest-azure-env";
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
 import { TokenCredential, GetTokenOptions } from "@azure/core-auth";
@@ -18,28 +16,6 @@ export interface TokenResponse {
     refreshToken?: string;
 }
 
-class SequentialDeviceTokenCredentials extends DeviceTokenCredentials {
-
-    public getToken(): Promise<TokenResponse> {
-
-        // Parallel execution of super.getToken() leads to https://github.com/microsoft/vscode-azure-account/issues/53
-        // Therefore we need to make sure this method is always invoked sequentially, and we're doing that with this simple Active Object pattern implementation
-        
-        return SequentialDeviceTokenCredentials.executeSequentially(() => super.getToken());
-    }
-
-    private static _workQueue: Promise<any> = Promise.resolve();
-
-    private static executeSequentially<T>(action: () => Promise<T>): Promise<T> {
-    
-        // What goes to _workQueue should never throw (otherwise that exception will always get re-thrown later).
-        // That's why we wrap it all with a new Promise(). This promise will resolve only _after_ action completes (or fails).
-        return new Promise((resolve, reject) => {
-    
-            this._workQueue = this._workQueue.then(() => action().then(resolve, reject));
-        });
-    }
-}
 // Wraps Azure Acccount extension
 export class AzureAccountWrapper {
 
@@ -129,38 +105,8 @@ export class AzureAccountWrapper {
         return this._account.filters;
     }
 
-    // Returns DeviceTokenCredentials object provided by Azure Account extension
-    async getTokenCredentials(subscriptionId: string): Promise<DeviceTokenCredentials> {
-
-        const subscription = (await this.getSubscriptions()).find(s => s.subscription.subscriptionId === subscriptionId);
-
-        if (!subscription) {
-            throw new Error(`Invalid subscriptionId '${subscriptionId}'`);
-        }
-
-        const tokenCredential = subscription.session.credentials2 as DeviceTokenCredentials;
-        const environment = tokenCredential.environment;
-
-        return new SequentialDeviceTokenCredentials(
-
-            tokenCredential.clientId,
-            tokenCredential.domain,
-            tokenCredential.username,
-            tokenCredential.tokenAudience,
-            new Environment({
-                name: environment.name,
-                portalUrl: environment.portalUrl,
-                managementEndpointUrl: environment.managementEndpointUrl,
-                resourceManagerEndpointUrl: environment.resourceManagerEndpointUrl,
-                activeDirectoryEndpointUrl: environment.activeDirectoryEndpointUrl,
-                activeDirectoryResourceId: environment.activeDirectoryResourceId
-            }),
-            tokenCredential.tokenCache
-        );
-    }
-
     // Uses vscode.authentication to get a token with custom scopes
-    async getTokenWithScopes(scopes: string[]): Promise<string> {
+    async getToken(scopes: string[] = ['https://management.core.windows.net/user_impersonation']): Promise<string> {
 
         // First trying silent mode
         let authSession = await vscode.authentication.getSession('microsoft', scopes, { silent: true });
@@ -177,9 +123,9 @@ export class AzureAccountWrapper {
     }
 
     // Uses vscode.authentication to get a TokenCredential object for custom scopes
-    async getTokenCredentialsWithScopes(scopes: string[]): Promise<TokenCredential> {
+    async getTokenCredential(scopes: string[] = ['https://management.core.windows.net/user_impersonation']): Promise<TokenCredential> {
 
-        const accessToken = await this.getTokenWithScopes(scopes);
+        const accessToken = await this.getToken(scopes);
 
         // Need to extract expiration time from token
         let expiresOnTimestamp = new Date().getTime() + 60 * 1000;

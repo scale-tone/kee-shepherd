@@ -13,7 +13,7 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     async getKeyVaultClient(subscriptionId: string, keyVaultName: string): Promise<SecretClient> {
 
-        const tokenCredential = await this._account.getTokenCredentialsWithScopes(['https://vault.azure.net/user_impersonation']);
+        const tokenCredential = await this._account.getTokenCredential(['https://vault.azure.net/user_impersonation']);
         
         return new SecretClient(`https://${keyVaultName}.vault.azure.net`, tokenCredential);
     }

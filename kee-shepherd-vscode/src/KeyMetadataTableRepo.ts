@@ -28,7 +28,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         // TokenCredential doesn't work with TableServiceClient, need to investigate exactly why
         // Until then using access keys
 
-        const credentials = await account.getTokenCredentials(subscriptionId);
+        const credentials = await account.getTokenCredential();
         
         const storageManagementClient = new StorageManagementClient(credentials, subscriptionId);
        

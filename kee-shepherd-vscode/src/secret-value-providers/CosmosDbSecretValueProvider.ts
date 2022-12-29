@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 import axios from "axios";
 
-import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
+import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Cosmos DB
 export class CosmosDbSecretValueProvider implements ISecretValueProvider {
@@ -14,10 +13,9 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const key = response.data[secret.properties.keyName];
 
@@ -36,19 +34,18 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const accountId = await this.pickUpDatabaseAccountId(subscriptionId, tokenCredentials);
+        const accountId = await this.pickUpDatabaseAccountId(subscriptionId);
 
         if (!accountId) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const accountUri = `https://management.azure.com${accountId}?api-version=2021-10-15`;
-        const accountResponse = await axios.get(accountUri, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const accountResponse = await axios.get(accountUri, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const accountName = accountResponse.data?.name;
         const documentEndpoint = accountResponse.data?.properties?.documentEndpoint;
@@ -56,7 +53,7 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         const connString = `AccountEndpoint=${documentEndpoint};`;
 
         const keysUri = `https://management.azure.com${accountId}/listKeys?api-version=2021-10-15`;
-        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         const keys = keysResponse.data;
 
         if (!keys) {
@@ -97,8 +94,9 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         }
     }
 
-    private async pickUpDatabaseAccountId(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<string> {
+    private async pickUpDatabaseAccountId(subscriptionId: string): Promise<string> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({

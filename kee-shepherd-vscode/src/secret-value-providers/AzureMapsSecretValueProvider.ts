@@ -14,10 +14,9 @@ export class AzureMapsSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const key = response.data[secret.properties.keyName];
         return key;
@@ -31,19 +30,18 @@ export class AzureMapsSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const mapsAccount = await this.pickUpAccount(subscriptionId, tokenCredentials);
+        const mapsAccount = await this.pickUpAccount(subscriptionId);
 
         if (!mapsAccount) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const keysUri = `https://management.azure.com${mapsAccount.id}/listKeys?api-version=2020-02-01-preview`;
-        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         const keys = keysResponse.data;
 
         if (!keys) {
@@ -76,8 +74,9 @@ export class AzureMapsSecretValueProvider implements ISecretValueProvider {
         };
     }
 
-    private async pickUpAccount(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<{ id: string, name: string } | undefined> {
+    private async pickUpAccount(subscriptionId: string): Promise<{ id: string, name: string } | undefined> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({

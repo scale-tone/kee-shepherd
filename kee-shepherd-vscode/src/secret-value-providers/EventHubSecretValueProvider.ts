@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 import axios from "axios";
 
-import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
+import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Event Hubs
 export class EventHubSecretValueProvider implements ISecretValueProvider {
@@ -14,10 +13,9 @@ export class EventHubSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const keys = this.resourceManagerResponseToKeys(response.data);
         const key = keys.find(k => k.label === secret.properties.keyName)?.value ?? '';
@@ -33,20 +31,19 @@ export class EventHubSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const namespace = await this.pickUpEventHubNamespaceId(subscriptionId, tokenCredentials);
+        const namespace = await this.pickUpEventHubNamespaceId(subscriptionId);
 
         if (!namespace) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const promise = Promise.all([
-            this.getRootAuthRules(namespace.id, token.accessToken),
-            this.getHubAuthRules (namespace.id, token.accessToken)
+            this.getRootAuthRules(namespace.id, token),
+            this.getHubAuthRules (namespace.id, token)
         ]);
 
         const authRules = (await promise).flat();
@@ -61,7 +58,7 @@ export class EventHubSecretValueProvider implements ISecretValueProvider {
         }
 
         const keysUri = `https://management.azure.com${namespace.id}/${authRule}/listKeys?api-version=2017-04-01`;
-        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         
         const keys = this.resourceManagerResponseToKeys(keysResponse.data);
         if (keys.length < 0) {
@@ -137,8 +134,9 @@ export class EventHubSecretValueProvider implements ISecretValueProvider {
         return Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
     }
 
-    private async pickUpEventHubNamespaceId(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<{ name: string, id: string } | undefined> {
+    private async pickUpEventHubNamespaceId(subscriptionId: string): Promise<{ name: string, id: string } | undefined> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({

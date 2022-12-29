@@ -12,10 +12,9 @@ export class ResourceManagerRestApiSecretValueProvider implements ISecretValuePr
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const keys = this.resourceManagerResponseToKeys(response.data);
         if (!keys) {
@@ -57,10 +56,9 @@ export class ResourceManagerRestApiSecretValueProvider implements ISecretValuePr
         const subscriptionId = match[1];
 
         // Obtaining default token
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(uri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(uri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         
         const keys = this.resourceManagerResponseToKeys(response.data);
         if (!keys) {

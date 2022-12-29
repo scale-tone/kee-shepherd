@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 import axios from "axios";
 
-import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
+import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Service Bus
 export class ServiceBusSecretValueProvider implements ISecretValueProvider {
@@ -14,10 +13,9 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
-        const tokenCredentials = await this._account.getTokenCredentials(secret.properties.subscriptionId);
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
-        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const response = await axios.post(secret.properties.resourceManagerUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const keys = this.resourceManagerResponseToKeys(response.data);
         const key = keys.find(k => k.label === secret.properties.keyName)?.value ?? '';
@@ -33,21 +31,20 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         }
 
         const subscriptionId = subscription.subscription.subscriptionId;
-        const tokenCredentials = await this._account.getTokenCredentials(subscriptionId);
 
-        const namespace = await this.pickUpServiceBusNamespace(subscriptionId, tokenCredentials);
+        const namespace = await this.pickUpServiceBusNamespace(subscriptionId);
 
         if (!namespace) {
             return;
         }
 
         // Obtaining default token
-        const token = await tokenCredentials.getToken();
+        const token = await this._account.getToken();
 
         const promise = Promise.all([
-            this.getRootAuthRules(namespace.id, token.accessToken),
-            this.getQueueAuthRules(namespace.id, token.accessToken),
-            this.getTopicAuthRules(namespace.id, token.accessToken)
+            this.getRootAuthRules(namespace.id, token),
+            this.getQueueAuthRules(namespace.id, token),
+            this.getTopicAuthRules(namespace.id, token)
         ]);
 
         const authRules = (await promise).flat();
@@ -62,7 +59,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         }
 
         const keysUri = `https://management.azure.com${namespace.id}/${authRule}/listKeys?api-version=2017-04-01`;
-        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token.accessToken}` } });
+        const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         
         const keys = this.resourceManagerResponseToKeys(keysResponse.data);
         if (keys.length < 0) {
@@ -116,7 +113,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
             const authRulesUri = `https://management.azure.com${namespaceId}/queues/${itemName}/authorizationRules?api-version=2017-04-01`;
             return axios
                 .get(authRulesUri, { headers: { 'Authorization': `Bearer ${accessToken}` } })
-                .then(authRulesResponse => { 
+                .then(authRulesResponse => {
 
                     if (!authRulesResponse.data?.value) {
                         return [];
@@ -124,7 +121,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
                     return authRulesResponse.data?.value?.map((r: any) => `queues/${itemName}/authorizationRules/${r.name}`) as string[];
                 });
-        })
+        });
 
         return (await Promise.all(promises)).flat().sort();
     }
@@ -144,7 +141,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
             const authRulesUri = `https://management.azure.com${namespaceId}/topics/${itemName}/authorizationRules?api-version=2017-04-01`;
             return axios
                 .get(authRulesUri, { headers: { 'Authorization': `Bearer ${accessToken}` } })
-                .then(authRulesResponse => { 
+                .then(authRulesResponse => {
 
                     if (!authRulesResponse.data?.value) {
                         return [];
@@ -152,7 +149,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
                     return authRulesResponse.data?.value?.map((r: any) => `topics/${itemName}/authorizationRules/${r.name}`) as string[];
                 });
-        })
+        });
 
         return (await Promise.all(promises)).flat().sort();
     }
@@ -166,8 +163,9 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         return Object.keys(data).filter(n => n !== 'keyName').map(n => { return { label: n, value: data[n] }; });
     }
 
-    private async pickUpServiceBusNamespace(subscriptionId: string, credentials: DeviceTokenCredentials): Promise<{ name: string, id: string } | undefined> {
+    private async pickUpServiceBusNamespace(subscriptionId: string): Promise<{ name: string, id: string } | undefined> {
 
+        const credentials = await this._account.getTokenCredential();
         const resourceGraphClient = new ResourceGraphClient(credentials);
     
         const response = await resourceGraphClient.resources({
@@ -199,7 +197,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
             return {
                 name: pickResult.label,
                 id: pickResult.id
-            }
+            };
         }
     }    
 } 
