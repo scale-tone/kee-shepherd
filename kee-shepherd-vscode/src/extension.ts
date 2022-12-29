@@ -34,13 +34,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     shepherd = await createKeeShepherd(context, log);
 
-    await shepherd.stashPendingFolders();
-    await shepherd.maskSecretsInThisFile(false);
-
-    const anchorCompletionProvider = new AnchorCompletionProvider(shepherd);
-    const menuCompletionProvider = new MenuCommandCompletionProvider(shepherd);
-    const existingSecretsCompletionProvider = new ExistingSecretsCompletionProvider(shepherd, log);
-
     // Chaining all incoming commands, to make sure they never interfere with each other
     let commandChain = Promise.resolve();
     let doAndShowError = async (todo: () => Promise<void>, errorMessage: string) => { 
@@ -57,6 +50,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
         return commandChain;
     };
+
+    await doAndShowError(() => shepherd.stashPendingFolders(), `KeeShepherd failed to stash pending folders at startup`);
+    await doAndShowError(() => shepherd.maskSecretsInThisFile(false), `KeeShepherd failed to mask secrets at startup`);
+
+    const anchorCompletionProvider = new AnchorCompletionProvider(shepherd);
+    const menuCompletionProvider = new MenuCommandCompletionProvider(shepherd);
+    const existingSecretsCompletionProvider = new ExistingSecretsCompletionProvider(shepherd, log);
 
     context.subscriptions.push(
 
@@ -148,9 +148,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => doAndShowError(async () => shepherd.codespacesTreeView.refresh(), 'KeeShepherd failed')),
 
-        vscode.window.onDidChangeActiveTextEditor((editor) => shepherd.maskSecretsInThisFile(true)),
+        vscode.window.onDidChangeActiveTextEditor((editor) => doAndShowError(() => shepherd.maskSecretsInThisFile(true), 'KeeShepherd failed to mask secrets')),
  
-        vscode.workspace.onDidSaveTextDocument((doc) => shepherd.maskSecretsInThisFile(true)),
+        vscode.workspace.onDidSaveTextDocument((doc) => doAndShowError(() => shepherd.maskSecretsInThisFile(true), 'KeeShepherd failed to mask secrets')),
 
         // Too powerful
 //        vscode.workspace.onDidChangeTextDocument(async (evt) => {
@@ -172,7 +172,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     if (autoUnstashMode === "When a workspace is opened") {
         
-        await shepherd.stashUnstashAllSecretsInThisProject(false);
+        await doAndShowError(() => shepherd.stashUnstashAllSecretsInThisProject(false), 'KeeShepherd failed to unstash secrets at startup');
     }
 }
 
@@ -184,8 +184,14 @@ export async function deactivate() {
 
     if (autoStashMode === "When a workspace is closed") {
         
-        await shepherd.stashUnstashAllSecretsInThisProject(true);
+        try {
 
+            await shepherd.stashUnstashAllSecretsInThisProject(true);
+            
+        } catch (err: any) {
+
+            console.log(`KeeShepherd failed to stash secrets at shutdown. ${err.message ?? err}`);
+        }
     }
 
     shepherd.dispose();
