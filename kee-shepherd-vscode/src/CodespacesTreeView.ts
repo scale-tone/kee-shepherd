@@ -234,7 +234,6 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
                     for (const repo of repos) {
 
-
                         const node = {
                             label: repo.fullName,
                             tooltip: `has access to ${parent.label} secret`,
@@ -291,7 +290,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             return;
         }
 
-        const selectedRepoIds = await this.pickUpPersonalRepoIds(treeItem.secretInfo?.selected_repositories_url, accessToken);
+        const selectedRepoIds = await CodespacesTreeView.pickUpPersonalRepoIds(treeItem.secretInfo?.selected_repositories_url, accessToken);
         if (!selectedRepoIds?.length) {
             return;
         }
@@ -377,7 +376,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
         if (selectedVisibilityOption.visibility === 'selected') {
 
-            selectedRepoIds = await this.pickUpOrgRepoIds(orgName, treeItem.secretInfo?.selected_repositories_url, accessToken);
+            selectedRepoIds = await CodespacesTreeView.pickUpOrgRepoIds(orgName, treeItem.secretInfo?.selected_repositories_url, accessToken, this._log);
             if (!selectedRepoIds?.length) {
                 return;
             }
@@ -529,7 +528,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         vscode.window.showInformationMessage(`KeeShepherd: value of ${treeItem.secretInfo.name} was copied to Clipboard`);
     }
 
-    private async pickUpPersonalRepoIds(selectedReposUrl: string | undefined, accessToken: string): Promise<number[]> {
+    static async pickUpPersonalRepoIds(selectedReposUrl: string | undefined, accessToken: string): Promise<number[]> {
 
         const repos = await CodespaceSecretValueProvider.getUserRepos(accessToken);
         const selectedRepos = await CodespaceSecretValueProvider.getReposByUrl(selectedReposUrl, accessToken);
@@ -558,7 +557,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         return selectedOptions.map(option => option.repoId);
     }
 
-    private pickUpOrgRepoIds(orgName: string, selectedReposUrl: string | undefined, accessToken: string): Promise<number[]> {
+    static pickUpOrgRepoIds(orgName: string, selectedReposUrl: string | undefined, accessToken: string, log: Log): Promise<number[]> {
         return new Promise<number[]>((resolve, reject) => {
 
             let selectedRepoIds: number[] = [];
@@ -659,7 +658,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 })
                 .catch(err => {
 
-                    this._log(`Failed to get selected repositories for a Codespaces secret. ${err.message ?? err}`, true, true);
+                    log(`Failed to get selected repositories for a Codespaces secret. ${err.message ?? err}`, true, true);
                 })
                 .finally(() => {
 

@@ -17,16 +17,17 @@ import { AzureCognitiveServicesSecretValueProvider } from './secret-value-provid
 import { AzureSearchSecretValueProvider } from './secret-value-providers/AzureSearchSecretValueProvider';
 import { AzureSignalRSecretValueProvider } from './secret-value-providers/AzureSignalRSecretValueProvider';
 import { AzureDevOpsSecretValueProvider } from './secret-value-providers/AzureDevOpsSecretValueProvider';
-import { CodespaceSecretValueProvider } from './secret-value-providers/CodespaceSecretValueProvider';
+import { CodespaceSecretValueProvider, CodespaceSecretKind, CodespaceSecretVisibility } from './secret-value-providers/CodespaceSecretValueProvider';
 import { Log } from './helpers';
 import { VsCodeSecretStorageValueProvider } from './secret-value-providers/VsCodeSecretStorageValueProvider';
+import { CodespacesTreeView } from './CodespacesTreeView';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
 
     private _providers: { [secretType: number]: ISecretValueProvider } = {};
 
-    constructor(private _context: vscode.ExtensionContext, private _account: AzureAccountWrapper, log: Log) {
+    constructor(private _context: vscode.ExtensionContext, private _account: AzureAccountWrapper, private _log: Log) {
         
         this._providers[SecretTypeEnum.AzureKeyVault] = new KeyVaultSecretValueProvider(_account);
         this._providers[SecretTypeEnum.AzureStorage] = new StorageSecretValueProvider(_account);
@@ -42,7 +43,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.AzureSignalR] = new AzureSignalRSecretValueProvider(_account);
         this._providers[SecretTypeEnum.ResourceManagerRestApi] = new ResourceManagerRestApiSecretValueProvider(_account);
         this._providers[SecretTypeEnum.AzureDevOpsPAT] = new AzureDevOpsSecretValueProvider(_account, (secretName: string) => this.askUserWhereToStoreSecret(secretName));
-        this._providers[SecretTypeEnum.Codespaces] = new CodespaceSecretValueProvider(_account, log);
+        this._providers[SecretTypeEnum.Codespaces] = new CodespaceSecretValueProvider(_account, this._log);
         this._providers[SecretTypeEnum.VsCodeSecretStorage] = new VsCodeSecretStorageValueProvider(_context, _account);
     }
 
@@ -116,7 +117,19 @@ export class SecretValuesProvider {
             {
                 label: 'Azure Key Vault',
                 whereToStore: SecretTypeEnum.AzureKeyVault
-            }
+            },
+            {
+                label: 'GitHub Codespaces Personal Secret',
+                whereToStore: 'Personal' as CodespaceSecretKind
+            },
+            {
+                label: 'GitHub Codespaces Organization Secret',
+                whereToStore: 'Organization' as CodespaceSecretKind
+            },
+            {
+                label: 'GitHub Codespaces Repository Secret',
+                whereToStore: 'Repository' as CodespaceSecretKind
+            },
 
         ], { title: `Where to store this secret's value` });
 
@@ -176,9 +189,134 @@ export class SecretValuesProvider {
                         await keyVaultClient.setSecret(secretName, secretValue);        
                     }
                 };
-        }
+            
+            case 'Personal': {
 
-        return undefined;
+                // This should be at the beginning, since it might require the user to re-authenticate
+                const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecretsAndRepos();
+
+                const selectedRepoIds = await CodespacesTreeView.pickUpPersonalRepoIds(undefined, accessToken);
+                if (!selectedRepoIds?.length) {
+                    return;
+                }
+        
+                const selectedRepoIdsAsStrings = selectedRepoIds.map(id => id.toString());
+        
+                return {
+
+                    secretType: SecretTypeEnum.Codespaces,
+
+                    secretProperties: {
+                        name: secretName.toUpperCase(),
+                        kind: 'Personal' as CodespaceSecretKind,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        visibility: 'selected',
+                        selectedRepositoriesUri: `https://api.github.com/user/codespaces/secrets/${secretName}/repositories`
+                    },
+
+                    persistRoutine: async (secretValue: string) => {
+
+                        await CodespaceSecretValueProvider.setSecretValue('user', accessToken, secretName, secretValue, undefined, selectedRepoIdsAsStrings);
+                    }
+                };
+            }
+            
+            case 'Organization': {
+
+                // This should be at the beginning, since it might require the user to re-authenticate
+                const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgAndRepoSecrets();
+                
+                const orgs = await CodespaceSecretValueProvider.getUserOrgs(accessToken);
+
+                const orgName = await vscode.window.showQuickPick(orgs, { title: `Select GitHub Organization` });
+
+                if (!orgName) {
+                    return;
+                }
+    
+                const selectedVisibilityOption = await vscode.window.showQuickPick([
+
+                    {
+                        label: `All Repositories in ${orgName} organization`,
+                        visibility: 'all' as CodespaceSecretVisibility
+                    },
+                    {
+                        label: `All Private Repositories in ${orgName} organization`,
+                        visibility: 'private' as CodespaceSecretVisibility
+                    },
+                    {
+                        label: `Selected Repositories in ${orgName} organization`,
+                        visibility: 'selected' as CodespaceSecretVisibility
+                    },
+        
+                ], { title: `Select visibility level for your secret (which repositories should have access to it)` });
+        
+                if (!selectedVisibilityOption) {
+                    return;
+                }
+        
+                let selectedRepoIds: number[] | undefined = undefined;
+        
+                if (selectedVisibilityOption.visibility === 'selected') {
+        
+                    selectedRepoIds = await CodespacesTreeView.pickUpOrgRepoIds(orgName, undefined, accessToken, this._log);
+                    if (!selectedRepoIds?.length) {
+                        return;
+                    }
+                }
+        
+                return {
+
+                    secretType: SecretTypeEnum.Codespaces,
+
+                    secretProperties: {
+                        name: secretName.toUpperCase(),
+                        kind: 'Organization' as CodespaceSecretKind,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        visibility: selectedVisibilityOption.visibility,
+                        selectedRepositoriesUri: `https://api.github.com/orgs/${orgName}/codespaces/secrets/${secretName}/repositories`
+                    },
+
+                    persistRoutine: async (secretValue: string) => {
+
+                        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
+                    }
+                };
+            }
+            
+            case 'Repository': {
+            
+                // This should be at the beginning, since it might require the user to re-authenticate
+                const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+
+                const repos = await CodespaceSecretValueProvider.getUserRepos(accessToken);
+
+                const repoName = await vscode.window.showQuickPick(repos.map(repo => repo.fullName), { title: `Select repository` });
+        
+                if (!repoName) {
+                    return;
+                }
+
+                return {
+
+                    secretType: SecretTypeEnum.Codespaces,
+
+                    secretProperties: {
+                        name: secretName.toUpperCase(),
+                        kind: 'Repository' as CodespaceSecretKind,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    },
+
+                    persistRoutine: async (secretValue: string) => {
+
+                        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}`, accessToken, secretName, secretValue);
+                    }
+                };
+            }
+        }
     }
 }
 

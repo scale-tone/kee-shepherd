@@ -87,3 +87,19 @@ export async function askUserForSecretName(defaultSecretName: string | undefined
 
     return secretName;
 }
+
+export async function getAuthSession(providerId: string, scopes: string[]): Promise<vscode.AuthenticationSession> {
+
+    // First trying silent mode
+    let authSession = await vscode.authentication.getSession(providerId, scopes, { silent: true });
+
+    if (!!authSession) {
+        
+        return authSession;
+    }
+
+    // Now asking to authenticate, if needed
+    authSession = await vscode.authentication.getSession(providerId, scopes, { createIfNone: true });
+
+    return authSession;        
+}

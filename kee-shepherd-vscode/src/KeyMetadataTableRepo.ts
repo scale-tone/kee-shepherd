@@ -76,7 +76,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             const secret = this.fromTableEntity(entity as any);
 
             if (secret.name === name) {
-                secrets.push(secret)
+                secrets.push(secret);
             }
         }
 
@@ -85,7 +85,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     async getMachineNames(): Promise<string[]> {
 
-        const response = await this._tableClient.listEntities({
+        const response = this._tableClient.listEntities({
             queryOptions: {
                 filter: `PartitionKey ne '${SaltKey}'`
             }
@@ -237,7 +237,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             const rowKey = (filePath === EnvVariableSpecialPath ? EnvVariableSpecialPath : encodePathSegment(filePath)) + '|' + encodePathSegment(secretName);
             try {
 
-                await this._tableClient.deleteEntity(encodePathSegment(machineName!), rowKey)
+                await this._tableClient.deleteEntity(encodePathSegment(machineName!), rowKey);
 
             } catch (err) {
                 if ((err as any).statusCode !== 404) {

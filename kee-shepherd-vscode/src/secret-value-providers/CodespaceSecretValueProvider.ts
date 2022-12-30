@@ -12,7 +12,7 @@ const execAsync = util.promisify(cp.exec);
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
-import { Log } from '../helpers';
+import { getAuthSession, Log } from '../helpers';
 
 export const CodespaceSecretKinds = ['Personal', 'Organization', 'Repository'] as const;
 export type CodespaceSecretKind = typeof CodespaceSecretKinds[number];
@@ -29,8 +29,10 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     async getSecretValue(secret: ControlledSecret): Promise<string> {
 
+        const name = secret.properties?.name ?? secret.name;
+
         // Codespace Secrets appear as env variables, so we just take the value from there
-        return process.env[secret.name] as string;
+        return process.env[name] as string;
     }
 
     async pickUpSecret(): Promise<SelectedSecretType | undefined> {
@@ -100,6 +102,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
             name: secretName,
             value: secretValue!,
             properties: {
+                name: secretName,
                 kind: secretKind,
                 createdAt: selectedOption.secretInfo?.created_at,
                 updatedAt: selectedOption.secretInfo?.updated_at,
@@ -138,25 +141,25 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     static async getGithubAccessTokenForPersonalSecrets(): Promise<string> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets'], { createIfNone: true } );
+        const githubSession = await getAuthSession('github', ['codespace:secrets'] );
         return githubSession.accessToken;        
     }
 
     static async getGithubAccessTokenForPersonalSecretsAndRepos(): Promise<string> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['codespace:secrets repo'], { createIfNone: true } );
+        const githubSession = await getAuthSession('github', ['codespace:secrets repo'] );
         return githubSession.accessToken;        
     }
 
     static async getGithubAccessTokenForOrgSecrets(): Promise<string> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['user admin:org'], { createIfNone: true });
+        const githubSession = await getAuthSession('github', ['user admin:org']);
         return githubSession.accessToken;        
     }
 
     static async getGithubAccessTokenForRepoSecrets(): Promise<string> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['repo'], { createIfNone: true } );
+        const githubSession = await getAuthSession('github', ['repo'] );
         return githubSession.accessToken;        
     }
 
@@ -276,7 +279,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         selectedRepoIds?: (string | number)[]
     ): Promise<void> {
 
-        const publicKeyUrl = `https://api.github.com/${url}/codespaces/secrets/public-key`
+        const publicKeyUrl = `https://api.github.com/${url}/codespaces/secrets/public-key`;
         const publicKeyResponse = await axios.get(publicKeyUrl, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
         const publicKey: { key_id: string, key: string } = publicKeyResponse.data;
 

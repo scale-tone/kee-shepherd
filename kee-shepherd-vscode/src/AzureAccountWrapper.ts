@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
 import { TokenCredential, GetTokenOptions } from "@azure/core-auth";
+import { getAuthSession } from './helpers';
 
 // Full typings for this can be found here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
 export type AzureSubscription = { session: { credentials2: any }, subscription: { subscriptionId: string, displayName: string } };
@@ -108,17 +109,8 @@ export class AzureAccountWrapper {
     // Uses vscode.authentication to get a token with custom scopes
     async getToken(scopes: string[] = ['https://management.core.windows.net/user_impersonation']): Promise<string> {
 
-        // First trying silent mode
-        let authSession = await vscode.authentication.getSession('microsoft', scopes, { silent: true });
-
-        if (!!authSession) {
-            
-            return authSession.accessToken;
-        }
-
-        // Now asking to authenticate, if needed
-        authSession = await vscode.authentication.getSession('microsoft', scopes, { createIfNone: true });
-
+        const authSession = await getAuthSession('microsoft', scopes);
+        
         return authSession.accessToken;
     }
 
