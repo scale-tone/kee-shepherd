@@ -38,6 +38,7 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         }
 
         return this._secrets
+            .filter(s => s.controlType !== ControlTypeEnum.EnvVariable)
             .map(s => path.dirname(s.filePath))
             // deduplicating folder names
             .filter((folder, index, folders) => folders.indexOf(folder) === index);
@@ -134,10 +135,11 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
             return res;
         }
 
-        return this._secrets.filter(s => !!exactMatch ?
+        return this._secrets.filter(s => s.controlType !== ControlTypeEnum.EnvVariable && (
+            !!exactMatch ?
             s.filePath.toLowerCase() === path.toLowerCase() :
             s.filePath.toLowerCase().startsWith(path.toLowerCase())
-        );
+        ));
     }
 
     async addSecret(secret: ControlledSecret): Promise<void> {
@@ -220,7 +222,11 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
         } else {
 
-            this._secrets = this._secrets.filter(s => !(s.filePath === filePath && names.includes(s.name)));
+            this._secrets = this._secrets.filter(s => !(
+
+                s.controlType !== ControlTypeEnum.EnvVariable &&
+                (s.filePath === filePath && names.includes(s.name))
+            ));
         }
     }
 
