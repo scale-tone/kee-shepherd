@@ -187,9 +187,11 @@ export class ShortcutsTreeView implements vscode.TreeDataProvider<vscode.TreeIte
 
         if (!!secretNames.length) {
 
-            const userResponse = await vscode.window.showWarningMessage(
-                `Secret${secretNames.length > 1 ? `s [${secretNames.join(', ')}]` : ` ${secretNames[0]}`} will be dropped from secret metadata storage. If they were mounted as global environment variables, those will be removed as well. Do you want to proceed?`,
-                'Yes', 'No');
+            let msg = secretNames.length > 1 ?
+                `${secretNames.length} secrets will be dropped from metadata storage. If they were mounted as global environment variables on any other machine, their values will remain there. Do you want to proceed?` :
+                `Secret ${secretNames[0]}. If it was mounted as global environment variable on any other machine, its value will remain there. Do you want to proceed?`;
+
+            const userResponse = await vscode.window.showWarningMessage(msg, 'Yes', 'No');
     
             if (userResponse !== 'Yes') {
                 return;

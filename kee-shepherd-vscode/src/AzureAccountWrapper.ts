@@ -102,7 +102,11 @@ export class AzureAccountWrapper {
     }
 
     async getSubscriptions(): Promise<AzureSubscription[]> {
-        await this.checkSignIn();
+
+        if (!(await this.isSignedIn())) {
+            throw new Error(`You need to be signed in to Azure for this. Execute 'Azure: Sign In' command.`);
+        }
+        
         return this._account.filters;
     }
 
@@ -148,12 +152,10 @@ export class AzureAccountWrapper {
         return !!this._account && !!(await this._account.waitForFilters());
     }
 
-    private readonly _account: any;
+    async subscriptionsAvailable(): Promise<boolean> {
 
-    private async checkSignIn(): Promise<void> {
-
-        if (!(await this.isSignedIn())) {
-            throw new Error(`You need to be signed in to Azure for this. Execute 'Azure: Sign In' command.`);
-        }
+        return !!this._account && !!(await this._account.waitForFilters()) && (this._account.filters.length > 0);
     }
+
+    private readonly _account: any;
 }

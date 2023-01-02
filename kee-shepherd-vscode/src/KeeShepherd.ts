@@ -770,10 +770,34 @@ export class KeeShepherd extends KeeShepherdBase {
         } else {
 
             if (!accountName || !tableName || !subscriptionId || !resourceGroupName) {
+
+                if (!await account.isSignedIn()) {
+                    
+                    await vscode.commands.executeCommand('azure-account.login');
+
+                    const progressOptions = {
+                        location: vscode.ProgressLocation.Notification,
+                        title: `Waiting for Azure sign-in... `,
+                        cancellable: true
+                    };
+            
+                    await vscode.window.withProgress(progressOptions, async (progress, token) => {
+
+                        do {
+                            
+                            await new Promise(r => setTimeout(r, 500));
+
+                            if (token.isCancellationRequested) {
+                                throw new Error('Cancelled by user');
+                            }
+                        }
+                        while (!await account.subscriptionsAvailable());
+                    });
+                }
             
                 const subscription = await account.pickUpSubscription();
                 if (!subscription) {
-                    throw new Error('Failed to initialize metadata storage');
+                    throw new Error('No Azure subscription selected');
                 }
                 
                 subscriptionId = subscription.subscription.subscriptionId;
@@ -782,7 +806,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 const storageAccount = await account.picUpStorageAccount(storageManagementClient);
     
                 if (!storageAccount) {
-                    throw new Error('Failed to initialize metadata storage');
+                    throw new Error('No Azure Storage account selected');
                 }
     
                 accountName = storageAccount.name;
@@ -790,13 +814,13 @@ export class KeeShepherd extends KeeShepherdBase {
                 // Extracting resource group name
                 const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
                 if (!match || match.length <= 0) {
-                    throw new Error('Failed to initialize metadata storage');
+                    throw new Error('Failed to extract resource group name');
                 }
                 resourceGroupName = match[1];
     
                 tableName = await vscode.window.showInputBox({ title: 'Enter table name to store secret metadata in', value: 'KeeShepherdMetadata' });
                 if (!tableName) {
-                    throw new Error('Failed to initialize metadata storage');
+                    throw new Error('No metadata table selected');
                 }    
             }
     
