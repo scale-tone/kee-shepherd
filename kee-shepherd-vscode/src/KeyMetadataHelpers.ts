@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as Crypto from 'crypto';
 
-export const EnvVariableSpecialPath = '|KeeShepherdEnvironmentVariables';
+export const ShortcutsSpecialMachineName = '|KeeShepherdSecretShortcuts|';
 
 export const AnchorPrefix = '@KeeShepherd';
 

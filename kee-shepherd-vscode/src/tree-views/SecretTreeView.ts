@@ -1,21 +1,18 @@
 import * as os from 'os';
-import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
 
-import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName, EnvVariableSpecialPath } from './KeyMetadataHelpers';
-import { IKeyMetadataRepo } from './IKeyMetadataRepo';
-import { KeeShepherdBase } from './KeeShepherdBase';
-import { Log, timestampToString } from './helpers';
-import { AzureAccountWrapper } from './AzureAccountWrapper';
+import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName } from '../KeyMetadataHelpers';
+import { IKeyMetadataRepo } from '../metadata-repositories/IKeyMetadataRepo';
+import { KeeShepherdBase } from '../KeeShepherdBase';
+import { Log, timestampToString } from '../helpers';
+import { AzureAccountWrapper } from '../AzureAccountWrapper';
 
 export enum KeeShepherdNodeTypeEnum {
     Machine = 1,
     Folder,
     File,
     Secret,
-    EnvVariables,
     InitialCommand
 }
 
@@ -123,14 +120,7 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
                         var label = decodeURIComponent(folderUri);
 
-                        if (folderUri === EnvVariableSpecialPath) {
-
-                            label = 'Environment Variables';
-                            nodeType = KeeShepherdNodeTypeEnum.EnvVariables;
-                            icon = 'env-var.svg';
-                            contextValue = 'tree-env-variables';
-                            
-                        } else if (label.startsWith('file:///')) {
+                        if (label.startsWith('file:///')) {
                             
                             label = label.substr(8);
                         }
@@ -151,27 +141,13 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             }
                         };
 
-                        // Sorting by name on the fly, but keeping Env Variables node on top
-                        const index = result.findIndex(n =>
-                            (n.nodeType !== KeeShepherdNodeTypeEnum.EnvVariables && n.label! > node.label) ||
-                            node.nodeType === KeeShepherdNodeTypeEnum.EnvVariables);
+                        // Sorting by name on the fly
+                        const index = result.findIndex(n => n.label! > node.label);
 
                         result.splice(index < 0 ? result.length : index, 0, node);
                     }
 
                     if (!!parent.isLocal && result.length <= 0) {
-
-                        // Some initial nodes for a quick start
-                        result.push({
-                            label: 'Register Secret as an Environment Variable...',
-                            nodeType: KeeShepherdNodeTypeEnum.InitialCommand,
-                            isLocal: true,
-                            command: {
-                                title: 'Register Secret as an Environment Variable...',
-                                command: 'kee-shepherd-vscode.registerSecretAsEnvVariable',
-                                arguments: []
-                            }
-                        });
 
                         result.push({
                             label: 'Insert a Supervised Secret...',
@@ -193,18 +169,6 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                             command: {
                                 title: 'Insert a Managed Secret...',
                                 command: 'kee-shepherd-vscode.editor-context.insertManagedSecret',
-                                arguments: []
-                            }
-                        });
-
-                        result.push({
-                            label: 'Create from Clipboard...',
-                            tooltip: 'Put current text from Clipboard to Key Vault and register it as an Environment Variable',
-                            nodeType: KeeShepherdNodeTypeEnum.InitialCommand,
-                            isLocal: true,
-                            command: {
-                                title: 'Create from Clipboard...',
-                                command: 'kee-shepherd-vscode.view-context.createEnvVariableFromClipboard',
                                 arguments: []
                             }
                         });
@@ -341,50 +305,6 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
                     }
                 }
                 break;
-                case KeeShepherdNodeTypeEnum.EnvVariables: {
-
-                    const secrets = await this._getRepo().getSecrets(EnvVariableSpecialPath, true, parent.machineName);
-
-                    const existingEnvVars = await this.areEnvVariablesSet(secrets.map(s => s.name));
-
-                    for (const secret of secrets) {
-
-                        const description = `${ControlTypeEnum[secret.controlType]}, ${SecretTypeEnum[secret.type]}`;
-        
-                        var icon = 'secret.svg';
-                        var tooltip = timestampToString(secret.timestamp);
-
-                        if (!existingEnvVars[secret.name]) {
-                            
-                            icon = 'secret-stashed.svg';
-                            
-                        } else {
-
-                            icon = 'secret-unstashed.svg';
-                            tooltip = 'mounted as Global Env Variable' + (!tooltip ? '' : ', ') + tooltip;
-                        }
-
-                        const node = {
-                            label: secret.name,
-                            description,
-                            tooltip,
-                            nodeType: KeeShepherdNodeTypeEnum.Secret,
-                            collapsibleState: vscode.TreeItemCollapsibleState.None,
-                            secret,
-                            isLocal: parent.isLocal,
-                            contextValue: parent.isLocal ? 'tree-env-variable-local' : 'tree-env-variable',
-                            iconPath: {
-                                light: path.join(this._resourcesFolder, 'light', icon),
-                                dark: path.join(this._resourcesFolder, 'dark', icon),
-                            }
-                        };
-
-                        // Sorting by name on the fly
-                        const index = result.findIndex(n => n.label! > node.label);
-                        result.splice(index < 0 ? result.length : index, 0, node);
-                    }
-                }
-                break;
             }
                 
         } catch (err) {
@@ -396,54 +316,4 @@ export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> 
 
     private _secretNodes: { [id: string]: { iconPath: { light: string, dark: string } } } = {};
 
-    private async areEnvVariablesSet(names: string[]): Promise<{ [n: string]: boolean }> {
-
-        const result: { [n: string]: boolean } = {};
-
-        if (process.platform === "win32") {
-
-            const promises = names.map(name => new Promise<void>((resolve) => {
-
-                // On Windows reading directly from registry
-                exec(`reg query HKCU\\Environment /v ${name}`, (err, stdout) => {
-
-                    if (!err) {
-
-                        var value = stdout.trim();
-                        if (value !== `%${name}%`) {
-
-                            result[name] = true;
-                        }
-                    }
-
-                    resolve();
-               });
-
-            }));
-
-            await Promise.all(promises);
-
-        } else {
-
-            // Didn't find any better way to determine the current state of the variable, other than reading ~/.bashrc directly
-            const filePath = os.homedir() + '/.bashrc';
-            var fileText = '';
-            try {
-
-                fileText = Buffer.from(await fs.promises.readFile(filePath)).toString();
-                
-            } catch (err) {
-
-                this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
-            }
-
-            for (const name of names) {
-
-                const regex = new RegExp(`export ${name}=.*`, 'g');
-                result[name] = !!regex.exec(fileText);
-            }
-        }
-
-        return result;
-    }
 }

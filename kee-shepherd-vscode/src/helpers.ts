@@ -1,5 +1,9 @@
+import * as os from 'os';
+import * as fs from 'fs';
+import { exec } from 'child_process';
 import * as vscode from 'vscode';
-import { AnchorPrefix } from "./KeyMetadataHelpers";
+import { AnchorPrefix, SecretTypeEnum } from "./KeyMetadataHelpers";
+import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
 
 export type Log = (s: string, withEof: boolean, withTimestamp: boolean) => void;
 
@@ -102,4 +106,103 @@ export async function getAuthSession(providerId: string, scopes: string[]): Prom
     authSession = await vscode.authentication.getSession(providerId, scopes, { createIfNone: true });
 
     return authSession;        
+}
+
+export async function askUserForDifferentNonEmptySecretName(defaultSecretName: string): Promise<string> {
+
+    while (true) {
+
+        const secretName = await vscode.window.showInputBox({
+            value: defaultSecretName,
+            prompt: `Secret named ${defaultSecretName} already exists. Provide a different name.`,
+
+            ignoreFocusOut: true,
+            validateInput: (n: string) => {
+
+                if (!n) {
+                    return 'Provide a non-empty secret name';
+                }
+
+                if (n.startsWith(AnchorPrefix)) {
+                    return `Secret name should not start with ${AnchorPrefix}`;
+                }
+
+                if (n === defaultSecretName) {
+                    return 'Secret with that name already exists. Provide a different name.';
+                }
+
+                return null;
+            }
+        });
+
+        if (!!secretName) {
+            
+            return secretName;
+        }                
+    }
+}
+
+export async function areEnvVariablesSet(names: string[], log: Log): Promise<{ [n: string]: boolean }> {
+
+    const result: { [n: string]: boolean } = {};
+
+    if (process.platform === "win32") {
+
+        const promises = names.map(name => new Promise<void>((resolve) => {
+
+            // On Windows reading directly from registry
+            exec(`reg query HKCU\\Environment /v ${name}`, (err, stdout) => {
+
+                if (!err) {
+
+                    var value = stdout.trim();
+                    if (value !== `%${name}%`) {
+
+                        result[name] = true;
+                    }
+                }
+
+                resolve();
+           });
+
+        }));
+
+        await Promise.all(promises);
+
+    } else {
+
+        // Didn't find any better way to determine the current state of the variable, other than reading ~/.bashrc directly
+        const filePath = os.homedir() + '/.bashrc';
+        var fileText = '';
+        try {
+
+            fileText = Buffer.from(await fs.promises.readFile(filePath)).toString();
+            
+        } catch (err) {
+
+            log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
+        }
+
+        for (const name of names) {
+
+            const regex = new RegExp(`export ${name}=.*`, 'g');
+            result[name] = !!regex.exec(fileText);
+        }
+    }
+
+    return result;
+}
+
+export async function removeSecrets(context: vscode.ExtensionContext, repo: IKeyMetadataRepo, filePath: string, secretNames: string[], machineName?: string): Promise<void> {
+
+    // Need to also drop VsCodeSecretStorage secrets from VsCodeSecretStorage
+    const vsCodeSecretStorageSecrets = (await repo.getSecrets(filePath, true, machineName))
+        .filter(s => s.type === SecretTypeEnum.VsCodeSecretStorage && secretNames.includes(s.name));
+
+    for (const secret of vsCodeSecretStorageSecrets) {
+     
+        await context.secrets.delete(secret.name);
+    }
+
+    await repo.removeSecrets(filePath, secretNames, machineName);
 }

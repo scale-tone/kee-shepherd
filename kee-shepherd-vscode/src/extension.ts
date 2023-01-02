@@ -5,7 +5,7 @@ import { KeeShepherd } from './KeeShepherd';
 import { AnchorCompletionProvider, MenuCommandCompletionProvider, ExistingSecretsCompletionProvider } from './CompletionProviders';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
 import { Log } from './helpers';
-import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import path = require('path');
 
@@ -70,6 +70,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.window.registerTreeDataProvider('kee-shepherd-tree-view', shepherd.treeView),
         vscode.window.registerTreeDataProvider('kee-shepherd-key-vault-tree-view', shepherd.keyVaultTreeView),
+        vscode.window.registerTreeDataProvider('kee-shepherd-shortcuts-tree-view', shepherd.shortcutsTreeView),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.superviseSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Supervised), 'KeeShepherd failed to add a secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.controlSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Managed), 'KeeShepherd failed to add a secret')),
@@ -101,27 +102,9 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.stashSecrets', (item) => doAndShowError(() => shepherd.stashUnstashSecretsInFolder(item, true), 'KeeShepherd failed')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.unstashSecrets', (item) => doAndShowError(() => shepherd.stashUnstashSecretsInFolder(item, false), 'KeeShepherd failed')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.registerSecretAsEnvVariable', () => doAndShowError(() => shepherd.registerSecretAsEnvVariable(), 'KeeShepherd failed to register secret as env variable')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.registerSecretAsEnvVariable', () => doAndShowError(() => shepherd.registerSecretAsEnvVariable(), 'KeeShepherd failed to register secret as env variable')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.createEnvVariableFromClipboard', () => doAndShowError(() => shepherd.createEnvVariableFromClipboard(), 'KeeShepherd failed to create an env variable')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createEnvVariableFromClipboard', () => doAndShowError(() => shepherd.createEnvVariableFromClipboard(), 'KeeShepherd failed to create an env variable')),
-        
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeEnvVariables', (item) => doAndShowError(() => shepherd.removeEnvVariables(item), 'KeeShepherd failed to forget secrets')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeEnvVariable', (item) => doAndShowError(() => shepherd.removeEnvVariables(item), 'KeeShepherd failed to forget secrets')),
-
-        vscode.commands.registerCommand('kee-shepherd-vscode.openTerminal', () => doAndShowError(() => shepherd.openTerminal(), 'KeeShepherd failed to open terminal window')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.openTerminal', () => doAndShowError(() => shepherd.openTerminal(), 'KeeShepherd failed to open terminal window')),
-
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copySecretValue', (item) => doAndShowError(() => shepherd.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.forgetAllSecrets', (item) => doAndShowError(() => shepherd.forgetAllSecrets(item), 'KeeShepherd failed to forget secrets')),
-
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable', (item) => doAndShowError(() => shepherd.mountAsGlobalEnv(item), 'KeeShepherd failed to mount secret as global environment variable')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable', (item) => doAndShowError(() => shepherd.unmountAsGlobalEnv(item), 'KeeShepherd failed to unmount secret from global environment variables')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.mountAsGlobalEnvVariables', (item) => doAndShowError(() => shepherd.mountAsGlobalEnv(item), 'KeeShepherd failed to mount secret as global environment variable')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariables', (item) => doAndShowError(() => shepherd.unmountAsGlobalEnv(item), 'KeeShepherd failed to unmount secret from global environment variables')),
-
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine', (item) => doAndShowError(() => shepherd.registerEnvVariablesOnLocalMachine(item), 'KeeShepherd failed to register secrets as environment variables')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createKeyVaultSecret', (item) => doAndShowError(() => shepherd.keyVaultTreeView.createKeyVaultSecret(item), 'KeeShepherd failed to add secret to Key Vault')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createKeyVaultSecretFrom', (item) => doAndShowError(() => shepherd.keyVaultTreeView.createKeyVaultSecret(item, true), 'KeeShepherd failed to add secret to Key Vault')),
@@ -147,6 +130,23 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyCodespacesSecretValue', (item) => doAndShowError(() => shepherd.codespacesTreeView.copyCodespacesSecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => doAndShowError(async () => shepherd.codespacesTreeView.refresh(), 'KeeShepherd failed')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.shortcuts-refresh', () => doAndShowError(async () => shepherd.shortcutsTreeView.refresh(), 'KeeShepherd failed')),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.createSecretShortcutFromClipboard', () => doAndShowError(() => shepherd.shortcutsTreeView.createFromClipboard(), 'KeeShepherd failed to create a secret from Clipboard')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createSecretShortcutFromClipboard', (item) => doAndShowError(() => shepherd.shortcutsTreeView.createFromClipboard(item), 'KeeShepherd failed to create a secret from Clipboard')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createShortcutsFolder', () => doAndShowError(async () => shepherd.shortcutsTreeView.createShortcutsFolder(), 'KeeShepherd failed to create shortcuts folder')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeShortcutsFolder', (item) => doAndShowError(async () => shepherd.shortcutsTreeView.removeShortcutsFolder(item), 'KeeShepherd failed to remove shortcuts folder')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.addSecretShortcut', (item) => doAndShowError(() => shepherd.shortcutsTreeView.createSecretShortcut(item), 'KeeShepherd failed')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeSecretShortcut', (item) => doAndShowError(async () => shepherd.shortcutsTreeView.removeShortcutsFolder(item), 'KeeShepherd failed to remove shortcut')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyShortcutSecretValue', (item) => doAndShowError(async () => shepherd.shortcutsTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable', (item) => doAndShowError(() => shepherd.shortcutsTreeView.mountAsGlobalEnv(item), 'KeeShepherd failed to mount secret as global environment variable')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable', (item) => doAndShowError(() => shepherd.shortcutsTreeView.unmountAsGlobalEnv(item), 'KeeShepherd failed to unmount secret from global environment variables')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.mountAsGlobalEnvVariables', (item) => doAndShowError(() => shepherd.shortcutsTreeView.mountAsGlobalEnv(item), 'KeeShepherd failed to mount secret as global environment variable')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariables', (item) => doAndShowError(() => shepherd.shortcutsTreeView.unmountAsGlobalEnv(item), 'KeeShepherd failed to unmount secret from global environment variables')),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.openTerminal', () => doAndShowError(() => shepherd.shortcutsTreeView.openTerminal(), 'KeeShepherd failed to open terminal window')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.openTerminal', (item) => doAndShowError(() => shepherd.shortcutsTreeView.openTerminal(item), 'KeeShepherd failed to open terminal window')),
 
         vscode.window.onDidChangeActiveTextEditor((editor) => doAndShowError(() => shepherd.maskSecretsInThisFile(true), 'KeeShepherd failed to mask secrets')),
  

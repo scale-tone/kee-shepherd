@@ -5,25 +5,31 @@ import * as Crypto from 'crypto';
 
 import { TableServiceClient, TableClient, TableEntity } from '@azure/data-tables';
 
-import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength, EnvVariableSpecialPath, SecretNameConflictError } from './KeyMetadataHelpers';
+import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength, SecretNameConflictError, ShortcutsSpecialMachineName } from '../KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
-import { AzureAccountWrapper } from './AzureAccountWrapper';
+import { AzureAccountWrapper } from '../AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
-import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
+import { KeyVaultSecretValueProvider } from '../secret-value-providers/KeyVaultSecretValueProvider';
+import { SettingNames } from '../KeeShepherd';
 
 export const SaltKey = '|KeeShepherdSalt|';
+export const ShortcutsFolderPartitionKey = '|KeeShepherdSecretShortcutsFolder|';
+const SecretEntityFilter = `PartitionKey ne '${SaltKey}' and PartitionKey ne '${encodePathSegment(ShortcutsSpecialMachineName)}' and PartitionKey ne '${ShortcutsFolderPartitionKey}'`;
 
 // Stores secret metadata in an Azure Table
 export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     private constructor(private _tableClient: TableClient, private _salt: string) { }
 
-    static async create(subscriptionId: string,
+    static async create(
+        subscriptionId: string,
         resourceGroupName: string,
         storageAccountName: string,
         tableName: string,
-        account: AzureAccountWrapper): Promise<KeyMetadataTableRepo> {
+        account: AzureAccountWrapper,
+        context: vscode.ExtensionContext,
+    ): Promise<KeyMetadataTableRepo> {
         
         // TokenCredential doesn't work with TableServiceClient, need to investigate exactly why
         // Until then using access keys
@@ -58,7 +64,24 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
         const salt = await KeyMetadataTableRepo.getSalt(account, tableClient);
 
-        return new KeyMetadataTableRepo(tableClient, salt);
+        const repo = new KeyMetadataTableRepo(tableClient, salt);
+
+        // Migrating old machine-specific Env Variables, if needed
+        if (!context.globalState.get(SettingNames.EnvVarsAlreadyMigrated)) {
+            
+            try {
+
+                await repo.migrateEnvVariables();
+                
+            } catch (err: any) {
+
+                console.log(`Failed to migrate Env Variables. ${err?.message ?? err}`);
+            }
+
+            context.globalState.update(SettingNames.EnvVarsAlreadyMigrated, true);
+        }
+
+        return repo;
     }
 
     async findBySecretName(name: string): Promise<ControlledSecret[]> {
@@ -85,11 +108,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     async getMachineNames(): Promise<string[]> {
 
-        const response = this._tableClient.listEntities({
-            queryOptions: {
-                filter: `PartitionKey ne '${SaltKey}'`
-            }
-        });
+        const response = this._tableClient.listEntities({ queryOptions: { filter: SecretEntityFilter } });
 
         const machines: any = {};
         var localMachineExists = false;
@@ -112,6 +131,23 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     async getFolders(machineName: string): Promise<string[]> {
 
+        if (machineName === ShortcutsSpecialMachineName) {
+            
+            const response = await this._tableClient.listEntities({
+                queryOptions: {
+                    filter: `PartitionKey eq '${ShortcutsFolderPartitionKey}'`
+                }
+            });
+
+            const folders = [];
+            for await (const entity of response) {
+
+                folders.push(decodeURIComponent(entity.rowKey!));
+            }
+
+            return folders;
+        }
+
         const response = await this._tableClient.listEntities({
             queryOptions: {
                 filter: `PartitionKey eq '${encodePathSegment(machineName)}'`
@@ -120,12 +156,6 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
         const folders: any = {};
         for await (const entity of response) {
-
-            // If it is an environment
-            if (entity.rowKey?.startsWith(EnvVariableSpecialPath)) {
-                folders[EnvVariableSpecialPath] = '';
-                continue;
-            }
 
             const secret = this.fromTableEntity(entity as any);
             folders[path.dirname(secret.filePath)] = '';
@@ -166,17 +196,8 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             throw new Error(`Secret should be at least ${MinSecretLength} symbols long`);
         }
 
-        const partitionKey = encodePathSegment(os.hostname());
-        var rowKey;
-
-        if (secret.controlType === ControlTypeEnum.EnvVariable) {
-            
-            rowKey = EnvVariableSpecialPath + '|' + encodePathSegment(secret.name);
-
-        } else {
-
-            rowKey = encodePathSegment(secret.filePath) + '|' + encodePathSegment(secret.name);
-        }
+        const partitionKey = encodePathSegment(secret.controlType === ControlTypeEnum.EnvVariable ? ShortcutsSpecialMachineName : os.hostname());
+        const rowKey = encodePathSegment(secret.filePath) + '|' + encodePathSegment(secret.name);
 
         try {
 
@@ -205,10 +226,19 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             machineName = os.hostname();
         }
 
-        const greaterOrEqual = path === EnvVariableSpecialPath ? EnvVariableSpecialPath : encodePathSegment(path);
-        const lessThan = greaterOrEqual.substr(0, greaterOrEqual.length - 1) + String.fromCharCode( greaterOrEqual.charCodeAt(greaterOrEqual.length - 1) + 1 );
+        let filter;
 
-        const filter = `PartitionKey eq '${encodePathSegment(machineName)}' and RowKey ge '${greaterOrEqual}' and RowKey lt '${lessThan}'`;
+        if (!path) {
+            
+            filter = `PartitionKey eq '${encodePathSegment(machineName)}'`;
+
+        } else {
+
+            const greaterOrEqual = encodePathSegment(path);
+            const lessThan = greaterOrEqual.substr(0, greaterOrEqual.length - 1) + String.fromCharCode( greaterOrEqual.charCodeAt(greaterOrEqual.length - 1) + 1 );
+    
+            filter = `PartitionKey eq '${encodePathSegment(machineName)}' and RowKey ge '${greaterOrEqual}' and RowKey lt '${lessThan}'`;
+        }
 
         const response = await this._tableClient.listEntities({ queryOptions: { filter } });
 
@@ -217,7 +247,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
             const secret = this.fromTableEntity(entity as any);
 
-            if (!exactMatch || path === EnvVariableSpecialPath || secret.filePath.toLowerCase() === path.toLowerCase()) {
+            if (!exactMatch || (secret.filePath ?? '').toLowerCase() === (path ?? '').toLowerCase()) {
                
                 secrets.push(secret);
             }
@@ -234,7 +264,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
         const promises = names.map(async secretName => {
 
-            const rowKey = (filePath === EnvVariableSpecialPath ? EnvVariableSpecialPath : encodePathSegment(filePath)) + '|' + encodePathSegment(secretName);
+            const rowKey = encodePathSegment(filePath) + '|' + encodePathSegment(secretName);
             try {
 
                 await this._tableClient.deleteEntity(encodePathSegment(machineName!), rowKey);
@@ -292,6 +322,25 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
         return await this._cachedSecretsPromise;
     }
 
+    async createFolder(name: string): Promise<void> {
+
+        await this._tableClient.createEntity({
+            partitionKey: ShortcutsFolderPartitionKey,
+            rowKey: encodePathSegment(name)
+        });
+    }
+
+    async removeFolder(name: string): Promise<void> {
+
+        const existingSecrets = await this.getSecrets(name, true, ShortcutsSpecialMachineName);
+
+        if (!!existingSecrets.length) {
+            throw new Error(`Folder is not empty`);
+        }
+
+        await this._tableClient.deleteEntity(ShortcutsFolderPartitionKey, encodePathSegment(name));
+    }
+
     refreshCache(): void {
         this._cachedSecretsPromise = this.loadAllSecrets();
     }
@@ -301,7 +350,7 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
     private async loadAllSecrets(): Promise<ControlledSecret[]> {
 
-        const response = await this._tableClient.listEntities();
+        const response = this._tableClient.listEntities({ queryOptions: { filter: SecretEntityFilter } });
 
         const result: ControlledSecret[] = [];
         for await (const entity of response) {
@@ -451,5 +500,37 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
             length: entity.length as number,
             properties: !!entity.properties ? JSON.parse(entity.properties as string) : undefined
         };
+    }
+
+    private async migrateEnvVariables(): Promise<void> {
+
+        const response = await this._tableClient.listEntities({
+            queryOptions: {
+                filter: `${SecretEntityFilter} and controlType eq ${ControlTypeEnum.EnvVariable}`
+            }
+        });
+
+        const promises: Promise<any>[] = [];
+
+        for await (const entity of response) {
+
+            const secret = this.fromTableEntity(entity as any);
+
+            secret.filePath = `Env Variables from ${decodeURIComponent(entity.partitionKey!)}`;
+
+            const newPartitionKey = encodePathSegment(ShortcutsSpecialMachineName);
+            const newRowKey = encodePathSegment(secret.filePath) + '|' + encodePathSegment(secret.name);
+
+            // Creating folder
+            promises.push(this._tableClient.upsertEntity({
+                partitionKey: ShortcutsFolderPartitionKey,
+                rowKey: encodePathSegment(secret.filePath)
+            }));
+
+            promises.push(this._tableClient.upsertEntity(this.toTableEntity(secret, newPartitionKey, newRowKey)));
+            promises.push(this._tableClient.deleteEntity(entity.partitionKey!, entity.rowKey!));
+        }
+
+        await Promise.all(promises);
     }
 }

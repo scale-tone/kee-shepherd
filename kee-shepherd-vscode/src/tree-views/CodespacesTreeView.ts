@@ -1,8 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { askUserForSecretName, Log } from './helpers';
-import { CodespaceSecretKind, CodespaceSecretKinds, CodespaceSecretInfo, CodespaceSecretValueProvider, CodespaceSecretVisibility } from './secret-value-providers/CodespaceSecretValueProvider';
+import { askUserForSecretName, Log } from '../helpers';
+import { CodespaceSecretKind, CodespaceSecretKinds, CodespaceSecretInfo, CodespaceSecretValueProvider, CodespaceSecretVisibility } from '../secret-value-providers/CodespaceSecretValueProvider';
 
 export enum CodespacesNodeTypeEnum {
     SecretKind = 1,

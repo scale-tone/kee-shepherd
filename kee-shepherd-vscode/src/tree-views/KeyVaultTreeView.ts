@@ -3,11 +3,11 @@ import * as vscode from 'vscode';
 
 import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { AzureAccountWrapper } from './AzureAccountWrapper';
-import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
-import { askUserForSecretName, Log, timestampToString } from './helpers';
-import { ControlTypeEnum } from './KeyMetadataHelpers';
-import { SecretValuesProvider } from './SecretValuesProvider';
+import { AzureAccountWrapper } from '../AzureAccountWrapper';
+import { KeyVaultSecretValueProvider } from '../secret-value-providers/KeyVaultSecretValueProvider';
+import { askUserForSecretName, Log, timestampToString } from '../helpers';
+import { ControlTypeEnum } from '../KeyMetadataHelpers';
+import { SecretValuesProvider } from '../SecretValuesProvider';
 
 export enum KeyVaultNodeTypeEnum {
     Subscription = 1,

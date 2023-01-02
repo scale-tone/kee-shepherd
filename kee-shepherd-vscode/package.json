@@ -61,6 +61,10 @@
                 {
                     "id": "kee-shepherd-codespaces-tree-view",
                     "name": "GitHub Codespaces Secrets"
+                },
+                {
+                    "id": "kee-shepherd-shortcuts-tree-view",
+                    "name": "Secret Shortcuts"
                 }
             ]
         },
@@ -98,12 +102,8 @@
                 "title": "KeeShepherd: Resolve Managed Secrets in Current File"
             },
             {
-                "command": "kee-shepherd-vscode.registerSecretAsEnvVariable",
-                "title": "KeeShepherd: Register Secret as an Environment Variable"
-            },
-            {
-                "command": "kee-shepherd-vscode.createEnvVariableFromClipboard",
-                "title": "KeeShepherd: Create Environment Variable from Clipboard"
+                "command": "kee-shepherd-vscode.createSecretShortcutFromClipboard",
+                "title": "KeeShepherd: Create Secret from Clipboard"
             },
             {
                 "command": "kee-shepherd-vscode.openTerminal",
@@ -174,20 +174,8 @@
                 "title": "Unstash Secrets in this Folder"
             },
             {
-                "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
-                "title": "Remove this Variable"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
-                "title": "Remove all Variables"
-            },
-            {
                 "command": "kee-shepherd-vscode.view-context.openTerminal",
                 "title": "Open Terminal"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
-                "title": "Register Secret as an Env Variable..."
             },
             {
                 "command": "kee-shepherd-vscode.view-context.copySecretValue",
@@ -214,11 +202,7 @@
                 "title": "Unmount all from Global Env Variables"
             },
             {
-                "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
-                "title": "Register as Env Variables on local machine"
-            },
-            {
-                "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
+                "command": "kee-shepherd-vscode.view-context.createSecretShortcutFromClipboard",
                 "title": "Create from Clipboard..."
             },
             {
@@ -300,6 +284,35 @@
                     "light": "resources/light/refresh.svg",
                     "dark": "resources/dark/refresh.svg"
                 }
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.shortcuts-refresh",
+                "title": "Refresh",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createShortcutsFolder",
+                "title": "Create Folder",
+                "icon": "$(add)"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.removeShortcutsFolder",
+                "title": "Remove this Folder"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.addSecretShortcut",
+                "title": "Add Secret Shortcut..."
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.removeSecretShortcut",
+                "title": "Remove this Shortcut"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.copyShortcutSecretValue",
+                "title": "Copy Value to Clipboard"
             }
         ],
         "submenus": [
@@ -371,19 +384,7 @@
                     "when": "never"
                 },
                 {
-                    "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
-                    "when": "never"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
-                    "when": "never"
-                },
-                {
                     "command": "kee-shepherd-vscode.view-context.openTerminal",
-                    "when": "never"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
                     "when": "never"
                 },
                 {
@@ -411,11 +412,7 @@
                     "when": "never"
                 },
                 {
-                    "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
-                    "when": "never"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
+                    "command": "kee-shepherd-vscode.view-context.createSecretShortcutFromClipboard",
                     "when": "never"
                 },
                 {
@@ -436,6 +433,30 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.codespaces-refresh",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.shortcuts-refresh",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createShortcutsFolder",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeShortcutsFolder",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.addSecretShortcut",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeSecretShortcut",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyShortcutSecretValue",
                     "when": "never"
                 },
                 {
@@ -551,6 +572,16 @@
                     "command": "kee-shepherd-vscode.view-context.codespaces-refresh",
                     "when": "view == kee-shepherd-codespaces-tree-view",
                     "group": "navigation"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createShortcutsFolder",
+                    "when": "view == kee-shepherd-shortcuts-tree-view",
+                    "group": "navigation"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.shortcuts-refresh",
+                    "when": "view == kee-shepherd-shortcuts-tree-view",
+                    "group": "navigation"
                 }
             ],
             "view/item/context": [
@@ -571,62 +602,13 @@
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-folder-local"
                 },
                 {
-                    "command": "kee-shepherd-vscode.view-context.openTerminal",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
-                    "group": "kee-shepherd-vscode.view-context-group@1"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.mountAsGlobalEnvVariables",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
-                    "group": "kee-shepherd-vscode.view-context-group@2"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariables",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
-                    "group": "kee-shepherd-vscode.view-context-group@3"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.registerSecretAsEnvVariable",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local || viewItem == tree-machine-local",
-                    "group": "kee-shepherd-vscode.view-context-group@4"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.createEnvVariableFromClipboard",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
-                    "group": "kee-shepherd-vscode.view-context-group@5"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.removeEnvVariables",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables-local",
-                    "group": "kee-shepherd-vscode.view-context-group@6"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.registerAsEnvVariablesOnLocalMachine",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variables"
-                },
-                {
                     "command": "kee-shepherd-vscode.view-context.forgetAllSecrets",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-machine || viewItem == tree-machine-local"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local",
-                    "group": "kee-shepherd-vscode.view-context-group@1"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local",
-                    "group": "kee-shepherd-vscode.view-context-group@2"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.copySecretValue",
                     "when": "view == kee-shepherd-tree-view && viewItem == tree-secret || viewItem == tree-secret-local || viewItem == tree-env-variable-local || viewItem == tree-env-variable-local",
                     "group": "kee-shepherd-vscode.view-context-group@3"
-                },
-                {
-                    "command": "kee-shepherd-vscode.view-context.removeEnvVariable",
-                    "when": "view == kee-shepherd-tree-view && viewItem == tree-env-variable-local",
-                    "group": "kee-shepherd-vscode.view-context-group@4"
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.createKeyVaultSecret",
@@ -697,6 +679,56 @@
                     "command": "kee-shepherd-vscode.view-context.removeSecretFromKeyVault",
                     "when": "view == kee-shepherd-key-vault-tree-view && viewItem == key-vault-secret",
                     "group": "kee-shepherd-vscode.view-context-group@6"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.openTerminal",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcuts-folder || viewItem == shortcuts-root-folder",
+                    "group": "kee-shepherd-vscode.view-context-group@1"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.mountAsGlobalEnvVariables",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcuts-folder || viewItem == shortcuts-root-folder",
+                    "group": "kee-shepherd-vscode.view-context-group@2"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariables",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcuts-folder || viewItem == shortcuts-root-folder",
+                    "group": "kee-shepherd-vscode.view-context-group@3"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.addSecretShortcut",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcuts-folder || viewItem == shortcuts-root-folder",
+                    "group": "kee-shepherd-vscode.view-context-group@4"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createSecretShortcutFromClipboard",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcuts-folder || viewItem == shortcuts-root-folder",
+                    "group": "kee-shepherd-vscode.view-context-group@5"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeShortcutsFolder",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcuts-folder",
+                    "group": "kee-shepherd-vscode.view-context-group@6"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyShortcutSecretValue",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcut",
+                    "group": "kee-shepherd-vscode.view-context-group@1"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcut",
+                    "group": "kee-shepherd-vscode.view-context-group@2"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcut",
+                    "group": "kee-shepherd-vscode.view-context-group@3"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeSecretShortcut",
+                    "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcut",
+                    "group": "kee-shepherd-vscode.view-context-group@4"
                 }
             ]
         },

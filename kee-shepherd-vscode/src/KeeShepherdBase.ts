@@ -2,18 +2,19 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
+import { execSync } from 'child_process';
 
-import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, AnchorPrefix, getAnchorName } from './KeyMetadataHelpers';
-import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName } from './KeyMetadataHelpers';
+import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { SecretMapEntry } from './KeyMapRepo';
-import { SecretTreeView } from './SecretTreeView';
-import { KeyVaultTreeView } from './KeyVaultTreeView';
+import { SecretTreeView } from './tree-views/SecretTreeView';
+import { KeyVaultTreeView } from './tree-views/KeyVaultTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
-import { execSync } from 'child_process';
-import { Log } from './helpers';
-import { CodespacesTreeView } from './CodespacesTreeView';
+import { Log, removeSecrets } from './helpers';
+import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
+import { ShortcutsTreeView } from './tree-views/ShortcutsTreeView';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
@@ -78,6 +79,7 @@ export abstract class KeeShepherdBase {
         public readonly treeView: SecretTreeView,
         public readonly keyVaultTreeView: KeyVaultTreeView,
         public readonly codespacesTreeView: CodespacesTreeView,
+        public readonly shortcutsTreeView: ShortcutsTreeView,
         protected readonly _log: Log
     ) { }
 
@@ -163,40 +165,6 @@ export abstract class KeeShepherdBase {
         this._log(` in ${editor.document.uri}`, true, false);
 
         return missingSecrets;
-    }
-
-    protected async askUserForDifferentNonEmptySecretName(defaultSecretName: string): Promise<string> {
-
-        while (true) {
-
-            const secretName = await vscode.window.showInputBox({
-                value: defaultSecretName,
-                prompt: `Secret named ${defaultSecretName} already exists. Provide a different name.`,
-    
-                ignoreFocusOut: true,
-                validateInput: (n: string) => {
-    
-                    if (!n) {
-                        return 'Provide a non-empty secret name';
-                    }
-    
-                    if (n.startsWith(AnchorPrefix)) {
-                        return `Secret name should not start with ${AnchorPrefix}`;
-                    }
-    
-                    if (n === defaultSecretName) {
-                        return 'Secret with that name already exists. Provide a different name.';
-                    }
-    
-                    return null;
-                }
-            });
-
-            if (!!secretName) {
-                
-                return secretName;
-            }                
-        }
     }
     
     protected async getSecretValuesAndCheckHashes(secrets: ControlledSecret[]): Promise<{ secret: ControlledSecret, value: string }[]> {
@@ -515,26 +483,12 @@ export abstract class KeeShepherdBase {
         
         if (userResponse === 'Yes') {
             
-            await this.removeSecrets(filePath, missingSecrets);
+            await removeSecrets(this._context, this._repo, filePath, missingSecrets);
 
             this._log(`${missingSecrets.length} secrets have been forgotten`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten from ${filePath}`);
             this.treeView.refresh();
         }
-    }
-
-    protected async removeSecrets(filePath: string, secretNames: string[]): Promise<void> {
-
-        // Need to also drop VsCodeSecretStorage secrets from VsCodeSecretStorage
-        const vsCodeSecretStorageSecrets = (await this._repo.getSecrets(filePath, true))
-            .filter(s => s.type === SecretTypeEnum.VsCodeSecretStorage && secretNames.includes(s.name));
-
-        for (const secret of vsCodeSecretStorageSecrets) {
-         
-            await this._context.secrets.delete(secret.name);
-        }
-
-        await this._repo.removeSecrets(filePath, secretNames);
     }
 
     protected async setGlobalEnvVariables(variables: { [n: string] : string | undefined }): Promise<void> {

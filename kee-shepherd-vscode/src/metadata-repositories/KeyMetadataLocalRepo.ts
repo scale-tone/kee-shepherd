@@ -3,9 +3,12 @@ import * as os from 'os';
 import * as path from 'path';
 import * as Crypto from 'crypto';
 import * as vscode from 'vscode';
-import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, EnvVariableSpecialPath, ControlTypeEnum, SecretNameConflictError } from './KeyMetadataHelpers';
+import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, ShortcutsSpecialMachineName, ControlTypeEnum, SecretNameConflictError } from '../KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './IKeyMetadataRepo';
 import { SaltKey } from './KeyMetadataTableRepo';
+
+// Older way to distinguish env variables, not used anymore.
+const EnvVariableSpecialPath = '|KeeShepherdEnvironmentVariables';
 
 // Stores secret metadata locally in JSON files
 export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
@@ -21,8 +24,22 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
     async getFolders(machineName: string): Promise<string[]> {
 
+        if (machineName === ShortcutsSpecialMachineName) {
+            
+            const shortcutsSpecialFolderPath = path.join(this._storageFolder, encodePathSegment(ShortcutsSpecialMachineName));
+
+            if (!fs.existsSync(shortcutsSpecialFolderPath)) {
+                return [];
+            }
+
+            const folders = await KeyMetadataLocalRepo.getSubFolders(shortcutsSpecialFolderPath);
+
+            return folders.map(f => decodeURIComponent(path.basename(f)));
+        }
+
         return this._secrets
-            .map(s => s.controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : path.dirname(s.filePath))
+            .map(s => path.dirname(s.filePath))
+            // deduplicating folder names
             .filter((folder, index, folders) => folders.indexOf(folder) === index);
     }
 
@@ -62,8 +79,15 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
             await fs.promises.mkdir(storageFolder, {recursive: true});
         }
 
+        // Migrating Env Variables folder
+        const envVariablesFolder = path.join(storageFolder, encodePathSegment(EnvVariableSpecialPath));
+        if (fs.existsSync(envVariablesFolder)) {
+
+            await fs.promises.rename(envVariablesFolder, path.join(storageFolder, encodePathSegment(ShortcutsSpecialMachineName)));
+        }
+
         // Getting list of folders
-        const folders = await KeyMetadataLocalRepo.getSubFolders(storageFolder);
+        const folders = await KeyMetadataLocalRepo.getSubFoldersRecursively(storageFolder);
 
         // Reading all secrets from those folders
         const secrets = await Promise.all(folders.map(KeyMetadataLocalRepo.readSecretFilesFromFolder));
@@ -73,10 +97,41 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         return new KeyMetadataLocalRepo(storageFolder, secrets.flat(), salt);
     }
 
+    async createFolder(name: string): Promise<void> {
+
+        const shortcutsSpecialFolderPath = path.join(this._storageFolder, encodePathSegment(ShortcutsSpecialMachineName));
+
+        if (!fs.existsSync(shortcutsSpecialFolderPath)) {
+            await fs.promises.mkdir(shortcutsSpecialFolderPath);
+        }
+
+        const folderPath = path.join(shortcutsSpecialFolderPath, encodePathSegment(name));
+
+        await fs.promises.mkdir(folderPath);
+    }
+
+    async removeFolder(name: string): Promise<void> {
+
+        const folderPath = path.join(this._storageFolder, encodePathSegment(ShortcutsSpecialMachineName), encodePathSegment(name));
+
+        await fs.promises.rmdir(folderPath);
+    }
+
     async getSecrets(path: string, exactMatch: boolean, machineName?: string): Promise<ControlledSecret[]> {
 
-        if (path === EnvVariableSpecialPath) {
-            return this._secrets.filter(s => s.controlType === ControlTypeEnum.EnvVariable );
+        if (machineName === ShortcutsSpecialMachineName) {
+
+            const res = this._secrets.filter(s =>
+                s.controlType === ControlTypeEnum.EnvVariable && (
+                    (!s.filePath && !path) || (
+                        !!exactMatch ?
+                            s.filePath === path :
+                            s.filePath.startsWith(path)
+                    )
+                )
+            );
+
+            return res;
         }
 
         return this._secrets.filter(s => !!exactMatch ?
@@ -98,10 +153,23 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
             throw new SecretNameConflictError('A secret with same name but different hash already exists');
         }
 
-        const secretFilePath = getFullPathThatFits(this._storageFolder,
-            encodePathSegment(secret.controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : secret.filePath),
-            `${encodePathSegment(secret.name)}.json`
-        );
+        let secretFilePath;
+
+        if (secret.controlType === ControlTypeEnum.EnvVariable) {
+            
+            secretFilePath = path.join(this._storageFolder,
+                encodePathSegment(ShortcutsSpecialMachineName),
+                encodePathSegment(secret.filePath),
+                `${encodePathSegment(secret.name)}.json`
+            );
+
+        } else {
+
+            secretFilePath = getFullPathThatFits(this._storageFolder,
+                encodePathSegment(secret.filePath),
+                `${encodePathSegment(secret.name)}.json`
+            );
+        }
 
         if (!fs.existsSync(path.dirname(secretFilePath))) {
             await fs.promises.mkdir(path.dirname(secretFilePath));
@@ -109,14 +177,31 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
 
         await fs.promises.writeFile(secretFilePath, JSON.stringify(secret, null, 3));
 
-        this._secrets.push(secret);
+        // Avoiding duplicates
+        if (!secretsWithSameName.length) {
+            
+            this._secrets.push(secret);
+        }
     }
 
     async removeSecrets(filePath: string, names: string[], machineName?: string): Promise<void> {
 
         const promises = names.map(secretName => {
 
-            const secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(filePath), `${encodePathSegment(secretName)}.json`);
+            let secretFilePath;
+
+            if (machineName === ShortcutsSpecialMachineName) {
+
+                secretFilePath = path.join(this._storageFolder,
+                    encodePathSegment(ShortcutsSpecialMachineName),
+                    encodePathSegment(filePath),
+                    `${encodePathSegment(secretName)}.json`
+                );
+                    
+            } else {
+
+                secretFilePath = getFullPathThatFits(this._storageFolder, encodePathSegment(filePath), `${encodePathSegment(secretName)}.json`);
+            }
 
             return fs.promises.rm(secretFilePath, { force: true });
         });
@@ -125,9 +210,13 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         
         await this.cleanupEmptyFolders();
 
-        if (filePath === EnvVariableSpecialPath) {
+        if (machineName === ShortcutsSpecialMachineName) {
             
-            this._secrets = this._secrets.filter(s => !(s.controlType === ControlTypeEnum.EnvVariable && names.includes(s.name)));
+            this._secrets = this._secrets.filter(s => !(
+                s.controlType === ControlTypeEnum.EnvVariable &&
+                ((!s.filePath && !filePath) || (s.filePath === filePath)) &&
+                names.includes(s.name)
+            ));
 
         } else {
 
@@ -140,7 +229,7 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         const folders = await KeyMetadataLocalRepo.getSubFolders(this._storageFolder);
 
         const promises = folders.map(async folderPath => {
-            await fs.promises.rm(folderPath, { recursive: true })
+            await fs.promises.rm(folderPath, { recursive: true });
         });
 
         await Promise.all(promises);
@@ -172,11 +261,29 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
                 const folderPath = path.join(parentFolderName, folderName);
 
                 return fs.promises.lstat(folderPath)
-                    .then(stat => stat.isDirectory() ? folderPath : '')
+                    .then(stat => stat.isDirectory() ? folderPath : '');
             });
 
         return (await Promise.all(folderPromises))
             .filter(f => !!f);
+    }
+
+    private static async getSubFoldersRecursively(parentFolderName: string): Promise<string[]> {
+
+        const result: string[] = [];
+
+        const folders = await KeyMetadataLocalRepo.getSubFolders(parentFolderName);
+
+        result.push(...folders);
+
+        for (const folder of folders) {
+            
+            const subFolders = await KeyMetadataLocalRepo.getSubFoldersRecursively(folder);
+            
+            result.push(...subFolders);
+        }
+
+        return result;
     }
 
     private async cleanupEmptyFolders(): Promise<void> {
@@ -186,7 +293,7 @@ export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
         const promises = folders.map(async folderPath => {
             try {
 
-                await fs.promises.rmdir(folderPath)
+                await fs.promises.rmdir(folderPath);
 
             } catch (err) {
             }

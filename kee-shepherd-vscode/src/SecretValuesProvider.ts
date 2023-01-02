@@ -20,7 +20,7 @@ import { AzureDevOpsSecretValueProvider } from './secret-value-providers/AzureDe
 import { CodespaceSecretValueProvider, CodespaceSecretKind, CodespaceSecretVisibility } from './secret-value-providers/CodespaceSecretValueProvider';
 import { Log } from './helpers';
 import { VsCodeSecretStorageValueProvider } from './secret-value-providers/VsCodeSecretStorageValueProvider';
-import { CodespacesTreeView } from './CodespacesTreeView';
+import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {

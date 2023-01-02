@@ -1,4 +1,4 @@
-import { ControlledSecret } from "./KeyMetadataHelpers";
+import { ControlledSecret } from "../KeyMetadataHelpers";
 
 // Generic interface for key metadata repo implementations
 export interface IKeyMetadataRepo {
@@ -24,4 +24,8 @@ export interface IKeyMetadataRepo {
     calculateHash(str: string): string;
 
     updateHashAndLength(oldHash: string, newHash: string, newLength: number): Promise<void>;
+
+    createFolder(name: string): Promise<void>;
+
+    removeFolder(name: string): Promise<void>;
 }

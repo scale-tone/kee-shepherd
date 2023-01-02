@@ -3,28 +3,30 @@ import * as vscode from 'vscode';
 
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, EnvVariableSpecialPath, toDictionary, SecretNameConflictError } from './KeyMetadataHelpers';
-import { IKeyMetadataRepo } from './IKeyMetadataRepo';
-import { KeyMetadataLocalRepo } from './KeyMetadataLocalRepo';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, toDictionary, SecretNameConflictError } from './KeyMetadataHelpers';
+import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
+import { KeyMetadataLocalRepo } from './metadata-repositories/KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { KeeShepherdBase } from './KeeShepherdBase';
 import { AzureAccountWrapper } from './AzureAccountWrapper';
-import { KeyMetadataTableRepo } from './KeyMetadataTableRepo';
-import { SecretTreeView, KeeShepherdTreeItem, KeeShepherdNodeTypeEnum } from './SecretTreeView';
-import { KeyVaultNodeTypeEnum, KeyVaultTreeItem, KeyVaultTreeView } from './KeyVaultTreeView';
+import { KeyMetadataTableRepo } from './metadata-repositories/KeyMetadataTableRepo';
+import { SecretTreeView, KeeShepherdTreeItem, KeeShepherdNodeTypeEnum } from './tree-views/SecretTreeView';
+import { KeyVaultNodeTypeEnum, KeyVaultTreeItem, KeyVaultTreeView } from './tree-views/KeyVaultTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 import { ISecretValueProvider, SelectedSecretType } from './secret-value-providers/ISecretValueProvider';
-import { Log, askUserForSecretName } from './helpers';
-import { CodespacesTreeView } from './CodespacesTreeView';
+import { Log, askUserForSecretName, askUserForDifferentNonEmptySecretName, removeSecrets } from './helpers';
+import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
+import { ShortcutsTreeView } from './tree-views/ShortcutsTreeView';
 
-const SettingNames = {
+export const SettingNames = {
     StorageType: 'KeeShepherdStorageType',
     SubscriptionId: 'KeeShepherdTableStorageSubscriptionId',
     ResourceGroupName: 'KeeShepherdTableStorageResourceGroupName',
     StorageAccountName: 'KeeShepherdTableStorageAccountName',
-    TableName: 'KeeShepherdTableName'
+    TableName: 'KeeShepherdTableName',
+    EnvVarsAlreadyMigrated: 'KeeShepherdEnvVarsAlreadyMigrated'
 };
 
 // Main functionality lies here
@@ -48,6 +50,15 @@ export class KeeShepherd extends KeeShepherdBase {
             new SecretTreeView(_account, () => this._repo, resourcesFolder, log),
             new KeyVaultTreeView(_account, valuesProvider, resourcesFolder, log),
             new CodespacesTreeView(resourcesFolder, log),
+            new ShortcutsTreeView(
+                context,
+                _account,
+                () => this._repo,
+                (secrets: ControlledSecret[]) => this.getSecretValuesAndCheckHashes(secrets),
+                valuesProvider,
+                resourcesFolder,
+                log
+            ),
             log
         );
     }
@@ -96,7 +107,7 @@ export class KeeShepherd extends KeeShepherdBase {
             return;
         }
         
-        await this.removeSecrets(filePath, secrets.map(s => s.name));
+        await removeSecrets(this._context, this._repo, filePath, secrets.map(s => s.name));
 
         this._log(`${secrets.length} secrets have been forgotten from ${filePath}`, true, true);
         vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);
@@ -594,7 +605,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 if (err instanceof SecretNameConflictError) {
 
                     // Demanding another name and trying again
-                    localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
+                    localSecretName = await askUserForDifferentNonEmptySecretName(localSecretName);
                     
                 } else {
                     throw err;
@@ -620,145 +631,6 @@ export class KeeShepherd extends KeeShepherdBase {
         vscode.window.showInformationMessage(`KeeShepherd: ${localSecretName} was added successfully.`);
     }
 
-    async registerSecretAsEnvVariable(): Promise<void> {
-
-        // Disallowing to register an env variable as an env variable
-        const secretTypesToExclude = [SecretTypeEnum.Codespaces];
-
-        const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.EnvVariable, secretTypesToExclude);
-
-        if (!secret) {
-            return;
-        }
-        
-        let localSecretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
-        if (!localSecretName) {
-            return;
-        }
-
-        // Adding metadata to the repo
-        const secretHash = this._repo.calculateHash(secret.value);
-
-        while (true) {
-
-            try {
-
-                await this._repo.addSecret({
-                    name: localSecretName,
-                    type: secret.type,
-                    controlType: ControlTypeEnum.EnvVariable,
-                    filePath: '',
-                    hash: secretHash,
-                    length: secret.value.length,
-                    timestamp: new Date(),
-                    properties: secret.properties
-                });
-                
-                break;
-                
-            } catch (err) {
-
-                // This indicates that a secret with same name but different hash already exists
-                if (err instanceof SecretNameConflictError) {
-
-                    // Demanding another name and trying again
-                    localSecretName = await this.askUserForDifferentNonEmptySecretName(localSecretName);
-                    
-                } else {
-                    throw err;
-                }
-            }
-        }
-
-        this.treeView.refresh();
-
-        vscode.window.showInformationMessage(`KeeShepherd registered ${localSecretName} as an environment variable.`);
-    }
-
-    async createEnvVariableFromClipboard(): Promise<void> {
-
-        const secretValue = await vscode.env.clipboard.readText();
-
-        if (!secretValue) {
-            throw new Error('No text found in Clipboard');
-        }
-
-        const secretName = await askUserForSecretName();
-        if (!secretName) {
-            return;
-        }
-
-        if (!await this.persistSecretValue(secretName, secretValue, ControlTypeEnum.EnvVariable, '')) {
-            return;
-        }
-
-        this.treeView.refresh();
-
-        vscode.window.showInformationMessage(`KeeShepherd registered ${secretName} as an environment variable.`);
-    }
-
-    async removeEnvVariables(treeItem: KeeShepherdTreeItem): Promise<void>{
-
-        var secretNames: string[] = [];
-
-        if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
-
-            secretNames = (await this._repo.getSecrets(EnvVariableSpecialPath, true)).map(s => s.name);
-            
-        } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && treeItem.contextValue?.startsWith('tree-env-variable')) {
-            
-            secretNames = [treeItem.label as string];
-
-        } else {
-            return;
-        }
-        
-        const userResponse = await vscode.window.showWarningMessage(
-            `Secrets ${secretNames.join(', ')} will be dropped from secret metadata storage. If they were mounted as global environment variables, those will be removed as well. Do you want to proceed?`,
-            'Yes', 'No');
-
-        if (userResponse !== 'Yes') {
-            return;
-        }
-
-        try {
-            
-            // Unmounting global env variables, if any
-            await this.setGlobalEnvVariables(toDictionary(secretNames, () => ''));
-
-        } catch (err) {
-
-            this._log(`Failed to unmount secrets from global env variables. ${(err as any).message ?? err}`, true, true);
-        }
-        
-        // Now removing secrets themselves
-        await this.removeSecrets(EnvVariableSpecialPath, secretNames);
-
-        this._log(`${secretNames.length} secrets have been removed`, true, true);
-        vscode.window.showInformationMessage(`KeeShepherd: ${secretNames.length} secrets have been removed`);
-        this.treeView.refresh();
-    }
-
-    async openTerminal(): Promise<void> {
-
-        const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
-        const secretValues = await this.getSecretValuesAndCheckHashes(secrets);
-
-        const env: { [name: string]: string } = {};
-        for (const pair of secretValues) {
-
-            env[pair.secret.name] = pair.value;
-        }
-
-        const terminal = vscode.window.createTerminal({
-            name: 'KeeShepherd',
-            env
-        });
-        this._context.subscriptions.push(terminal);
-
-        terminal.show();
-    }
-
     async copySecretValue(treeItem: KeeShepherdTreeItem): Promise<void> {
 
         const secret = treeItem.secret;
@@ -775,79 +647,6 @@ export class KeeShepherd extends KeeShepherdBase {
         vscode.env.clipboard.writeText(secretValue);
 
         vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
-    }
-
-    async mountAsGlobalEnv(treeItem: KeeShepherdTreeItem): Promise<void> {
-
-        var secrets: ControlledSecret[];
-
-        if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
-
-            secrets = (await this._repo.getSecrets(EnvVariableSpecialPath, true));
-            
-        } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
-            
-            secrets = [treeItem.secret];
-
-        } else {
-            return;
-        }
-
-        const secretValues = (await this.getSecretValuesAndCheckHashes(secrets));
-
-        const variables: { [n: string]: string } = {};
-        for (const pair of secretValues) {
-
-            if (!pair.value) {
-                throw new Error(`Failed to get secret value`);
-            }
-
-            variables[pair.secret.name] = pair.value;
-        }
-
-        await this.setGlobalEnvVariables(variables);
-
-        vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were set as global environment variables. Restart your shell to see the effect.`);
-        this.treeView.refresh();
-    }
-
-    async unmountAsGlobalEnv(treeItem: KeeShepherdTreeItem): Promise<void> {
-
-        var secrets: ControlledSecret[];
-
-        if (treeItem.nodeType === KeeShepherdNodeTypeEnum.EnvVariables) {
-
-            secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true);
-            
-        } else if (treeItem.nodeType === KeeShepherdNodeTypeEnum.Secret && !!treeItem.isLocal && !!treeItem.secret) {
-            
-            secrets = [treeItem.secret];
-
-        } else {
-            return;
-        }
-        
-        await this.setGlobalEnvVariables(toDictionary(secrets.map(s => s.name), () => ''));
-
-        vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were removed from global environment variables. Restart your shell to see the effect.`);
-        this.treeView.refresh();
-    }
-
-    async registerEnvVariablesOnLocalMachine(treeItem: KeeShepherdTreeItem): Promise<void> {
-
-        if (treeItem.nodeType !== KeeShepherdNodeTypeEnum.EnvVariables || !!treeItem.isLocal) {
-            return;
-        }
-
-        const secrets = await this._repo.getSecrets(EnvVariableSpecialPath, true, treeItem.machineName);
-
-        for (const secret of secrets) {
-            
-            await this._repo.addSecret(secret);
-        }
-
-        vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets were added.`);
-        this.treeView.refresh();
     }
 
     async insertKeyVaultSecretAsManaged(treeItem: KeyVaultTreeItem): Promise<void> {
@@ -1001,7 +800,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 }    
             }
     
-            result = await KeyMetadataTableRepo.create(subscriptionId as any, resourceGroupName as any, accountName as any, tableName as any, account);
+            result = await KeyMetadataTableRepo.create(subscriptionId as any, resourceGroupName as any, accountName as any, tableName as any, account, context);
 
             log(`Metadata storage: Azure Table (${accountName}/${tableName})`, true, true);
         }
@@ -1046,7 +845,7 @@ export class KeeShepherd extends KeeShepherdBase {
         } catch (err) {
             
             // Dropping the just created secret upon failure
-            this._repo.removeSecrets(controlType === ControlTypeEnum.EnvVariable ? EnvVariableSpecialPath : sourceFileName, [secretName]);
+            this._repo.removeSecrets(sourceFileName, [secretName]);
 
             throw err;
         }
