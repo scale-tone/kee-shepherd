@@ -4,9 +4,8 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import { execSync } from 'child_process';
 
-import { AzureAccountWrapper } from '../AzureAccountWrapper';
-import { areEnvVariablesSet, askUserForDifferentNonEmptySecretName, askUserForSecretName, Log, removeSecrets, timestampToString } from '../helpers';
-import { ControlledSecret, ControlTypeEnum, SecretNameConflictError, SecretTypeEnum, ShortcutsSpecialMachineName, toDictionary } from '../KeyMetadataHelpers';
+import { areEnvVariablesSet, askUserForSecretName, Log, timestampToString } from '../helpers';
+import { ControlledSecret, ControlTypeEnum, SecretTypeEnum, ShortcutsSpecialMachineName, toDictionary } from '../KeyMetadataHelpers';
 import { SecretValuesProvider } from '../SecretValuesProvider';
 import { IKeyMetadataRepo } from '../metadata-repositories/IKeyMetadataRepo';
 
@@ -25,7 +24,6 @@ export class ShortcutsTreeView implements vscode.TreeDataProvider<vscode.TreeIte
 
     constructor(
         protected readonly _context: vscode.ExtensionContext,
-        private readonly _account: AzureAccountWrapper,
         private readonly _getRepo: () => IKeyMetadataRepo,
         private readonly _getSecretValuesAndCheckHashes: (secrets: ControlledSecret[]) => Promise<{ secret: ControlledSecret, value: string }[]>,
         private readonly _valuesProvider: SecretValuesProvider,
@@ -209,7 +207,7 @@ export class ShortcutsTreeView implements vscode.TreeDataProvider<vscode.TreeIte
             
             // Now removing secrets themselves
 
-            await removeSecrets(this._context, this._getRepo(), treeItem.folderName!, secretNames, ShortcutsSpecialMachineName);
+            await this._getRepo().removeSecrets(treeItem.folderName!, secretNames, ShortcutsSpecialMachineName);
         }
 
         if (treeItem.contextValue === 'shortcuts-folder') {
@@ -421,7 +419,7 @@ export class ShortcutsTreeView implements vscode.TreeDataProvider<vscode.TreeIte
         } catch (err) {
             
             // Dropping the just created secret upon failure
-            await removeSecrets(this._context, this._getRepo(), treeItem?.folderName ?? '', [secretName], ShortcutsSpecialMachineName);
+            await this._getRepo().removeSecrets(treeItem?.folderName ?? '', [secretName], ShortcutsSpecialMachineName);
 
             throw err;
         }

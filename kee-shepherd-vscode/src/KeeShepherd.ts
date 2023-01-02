@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, toDictionary, SecretNameConflictError } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, SecretNameConflictError } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './metadata-repositories/KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -16,9 +16,10 @@ import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 import { ISecretValueProvider, SelectedSecretType } from './secret-value-providers/ISecretValueProvider';
-import { Log, askUserForSecretName, askUserForDifferentNonEmptySecretName, removeSecrets } from './helpers';
+import { Log, askUserForSecretName, askUserForDifferentNonEmptySecretName } from './helpers';
 import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
 import { ShortcutsTreeView } from './tree-views/ShortcutsTreeView';
+import { VsCodeSecretStorageTreeView } from './tree-views/VsCodeSecretStorageTreeView';
 
 export const SettingNames = {
     StorageType: 'KeeShepherdStorageType',
@@ -26,7 +27,8 @@ export const SettingNames = {
     ResourceGroupName: 'KeeShepherdTableStorageResourceGroupName',
     StorageAccountName: 'KeeShepherdTableStorageAccountName',
     TableName: 'KeeShepherdTableName',
-    EnvVarsAlreadyMigrated: 'KeeShepherdEnvVarsAlreadyMigrated'
+    EnvVarsAlreadyMigrated: 'KeeShepherdEnvVarsAlreadyMigrated',
+    VsCodeSecretStorageSecretNames: 'KeeShepherdVsCodeSecretStorageSecretNames'
 };
 
 // Main functionality lies here
@@ -52,13 +54,13 @@ export class KeeShepherd extends KeeShepherdBase {
             new CodespacesTreeView(resourcesFolder, log),
             new ShortcutsTreeView(
                 context,
-                _account,
                 () => this._repo,
                 (secrets: ControlledSecret[]) => this.getSecretValuesAndCheckHashes(secrets),
                 valuesProvider,
                 resourcesFolder,
                 log
             ),
+            new VsCodeSecretStorageTreeView(context),
             log
         );
     }
@@ -107,7 +109,7 @@ export class KeeShepherd extends KeeShepherdBase {
             return;
         }
         
-        await removeSecrets(this._context, this._repo, filePath, secrets.map(s => s.name));
+        await this._repo.removeSecrets(filePath, secrets.map(s => s.name));
 
         this._log(`${secrets.length} secrets have been forgotten from ${filePath}`, true, true);
         vscode.window.showInformationMessage(`KeeShepherd: ${secrets.length} secrets have been forgotten`);

@@ -71,6 +71,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.registerTreeDataProvider('kee-shepherd-tree-view', shepherd.treeView),
         vscode.window.registerTreeDataProvider('kee-shepherd-key-vault-tree-view', shepherd.keyVaultTreeView),
         vscode.window.registerTreeDataProvider('kee-shepherd-shortcuts-tree-view', shepherd.shortcutsTreeView),
+        vscode.window.registerTreeDataProvider('kee-shepherd-vscode-secret-storage-tree-view', shepherd.secretStorageTreeView),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.superviseSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Supervised), 'KeeShepherd failed to add a secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.controlSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Managed), 'KeeShepherd failed to add a secret')),
@@ -131,6 +132,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => doAndShowError(async () => shepherd.codespacesTreeView.refresh(), 'KeeShepherd failed')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.shortcuts-refresh', () => doAndShowError(async () => shepherd.shortcutsTreeView.refresh(), 'KeeShepherd failed')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.vscode-secret-storage-refresh', () => doAndShowError(async () => shepherd.secretStorageTreeView.refresh(), 'KeeShepherd failed')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.createSecretShortcutFromClipboard', () => doAndShowError(() => shepherd.shortcutsTreeView.createFromClipboard(), 'KeeShepherd failed to create a secret from Clipboard')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createSecretShortcutFromClipboard', (item) => doAndShowError(() => shepherd.shortcutsTreeView.createFromClipboard(item), 'KeeShepherd failed to create a secret from Clipboard')),
@@ -147,6 +149,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.openTerminal', () => doAndShowError(() => shepherd.shortcutsTreeView.openTerminal(), 'KeeShepherd failed to open terminal window')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.openTerminal', (item) => doAndShowError(() => shepherd.shortcutsTreeView.openTerminal(item), 'KeeShepherd failed to open terminal window')),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret', () => doAndShowError(() => shepherd.secretStorageTreeView.createSecret(), 'KeeShepherd failed to create VsCode SecretStorage secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret', (item) => doAndShowError(() => shepherd.secretStorageTreeView.removeSecret(item), 'KeeShepherd failed to remove VsCode SecretStorage secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue', (item) => doAndShowError(async () => shepherd.secretStorageTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.window.onDidChangeActiveTextEditor((editor) => doAndShowError(() => shepherd.maskSecretsInThisFile(true), 'KeeShepherd failed to mask secrets')),
  

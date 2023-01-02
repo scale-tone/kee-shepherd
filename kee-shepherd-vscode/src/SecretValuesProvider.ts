@@ -1,3 +1,4 @@
+import * as os from 'os';
 import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "./AzureAccountWrapper";
@@ -21,6 +22,7 @@ import { CodespaceSecretValueProvider, CodespaceSecretKind, CodespaceSecretVisib
 import { Log } from './helpers';
 import { VsCodeSecretStorageValueProvider } from './secret-value-providers/VsCodeSecretStorageValueProvider';
 import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
+import { SettingNames } from './KeeShepherd';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
@@ -73,6 +75,7 @@ export class SecretValuesProvider {
                 { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },
                 { label: 'Custom (Azure Resource Manager REST API)', type: SecretTypeEnum.ResourceManagerRestApi },
                 { label: 'GitHub Codespaces Secret', type: SecretTypeEnum.Codespaces },
+                { label: 'VsCode Secret Storage', type: SecretTypeEnum.VsCodeSecretStorage },
             ];
     
             if (!!excludedSecretTypes) {
@@ -152,9 +155,22 @@ export class SecretValuesProvider {
 
                     secretType: SecretTypeEnum.VsCodeSecretStorage,
 
+                    secretProperties: {
+                        name: secretName,
+                        machineName: os.hostname()
+                    },
+
                     persistRoutine: async (secretValue: string) => {
 
+                        const secretNames = this._context.globalState.get(SettingNames.VsCodeSecretStorageSecretNames) as string[] ?? [];
+
                         await this._context.secrets.store(secretName, secretValue);
+
+                        if (!secretNames.includes(secretName)) {
+                            secretNames.push(secretName);
+                        }
+
+                        await this._context.globalState.update(SettingNames.VsCodeSecretStorageSecretNames, secretNames);
                     }
                 };
                                 

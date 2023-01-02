@@ -12,9 +12,10 @@ import { SecretTreeView } from './tree-views/SecretTreeView';
 import { KeyVaultTreeView } from './tree-views/KeyVaultTreeView';
 import { SecretValuesProvider } from './SecretValuesProvider';
 import { updateGitHooksForFile } from './GitHooksForUnstashedSecrets';
-import { Log, removeSecrets } from './helpers';
+import { Log } from './helpers';
 import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
 import { ShortcutsTreeView } from './tree-views/ShortcutsTreeView';
+import { VsCodeSecretStorageTreeView } from './tree-views/VsCodeSecretStorageTreeView';
 
 // Low-level tools and helpers for KeeShepherd, just to split the code somehow
 export abstract class KeeShepherdBase {
@@ -80,6 +81,7 @@ export abstract class KeeShepherdBase {
         public readonly keyVaultTreeView: KeyVaultTreeView,
         public readonly codespacesTreeView: CodespacesTreeView,
         public readonly shortcutsTreeView: ShortcutsTreeView,
+        public readonly secretStorageTreeView: VsCodeSecretStorageTreeView,
         protected readonly _log: Log
     ) { }
 
@@ -483,7 +485,7 @@ export abstract class KeeShepherdBase {
         
         if (userResponse === 'Yes') {
             
-            await removeSecrets(this._context, this._repo, filePath, missingSecrets);
+            await this._repo.removeSecrets(filePath, missingSecrets);
 
             this._log(`${missingSecrets.length} secrets have been forgotten`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten from ${filePath}`);

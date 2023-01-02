@@ -192,17 +192,3 @@ export async function areEnvVariablesSet(names: string[], log: Log): Promise<{ [
 
     return result;
 }
-
-export async function removeSecrets(context: vscode.ExtensionContext, repo: IKeyMetadataRepo, filePath: string, secretNames: string[], machineName?: string): Promise<void> {
-
-    // Need to also drop VsCodeSecretStorage secrets from VsCodeSecretStorage
-    const vsCodeSecretStorageSecrets = (await repo.getSecrets(filePath, true, machineName))
-        .filter(s => s.type === SecretTypeEnum.VsCodeSecretStorage && secretNames.includes(s.name));
-
-    for (const secret of vsCodeSecretStorageSecrets) {
-     
-        await context.secrets.delete(secret.name);
-    }
-
-    await repo.removeSecrets(filePath, secretNames, machineName);
-}

@@ -63,6 +63,10 @@
                     "name": "GitHub Codespaces Secrets"
                 },
                 {
+                    "id": "kee-shepherd-vscode-secret-storage-tree-view",
+                    "name": "VsCode Secret Storage"
+                },
+                {
                     "id": "kee-shepherd-shortcuts-tree-view",
                     "name": "Secret Shortcuts"
                 }
@@ -294,8 +298,16 @@
                 }
             },
             {
+                "command": "kee-shepherd-vscode.view-context.vscode-secret-storage-refresh",
+                "title": "Refresh",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.createShortcutsFolder",
-                "title": "Create Folder",
+                "title": "Create new Folder",
                 "icon": "$(add)"
             },
             {
@@ -312,6 +324,19 @@
             },
             {
                 "command": "kee-shepherd-vscode.view-context.copyShortcutSecretValue",
+                "title": "Copy Value to Clipboard"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret",
+                "title": "Create new Secret",
+                "icon": "$(add)"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret",
+                "title": "Remove this Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue",
                 "title": "Copy Value to Clipboard"
             }
         ],
@@ -440,6 +465,10 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.vscode-secret-storage-refresh",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createShortcutsFolder",
                     "when": "never"
                 },
@@ -509,6 +538,18 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.setKeyVaultSecretValueFrom",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue",
                     "when": "never"
                 }
             ],
@@ -581,6 +622,16 @@
                 {
                     "command": "kee-shepherd-vscode.view-context.shortcuts-refresh",
                     "when": "view == kee-shepherd-shortcuts-tree-view",
+                    "group": "navigation"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret",
+                    "when": "view == kee-shepherd-vscode-secret-storage-tree-view",
+                    "group": "navigation"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.vscode-secret-storage-refresh",
+                    "when": "view == kee-shepherd-vscode-secret-storage-tree-view",
                     "group": "navigation"
                 }
             ],
@@ -729,6 +780,16 @@
                     "command": "kee-shepherd-vscode.view-context.removeSecretShortcut",
                     "when": "view == kee-shepherd-shortcuts-tree-view && viewItem == shortcut",
                     "group": "kee-shepherd-vscode.view-context-group@4"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue",
+                    "when": "view == kee-shepherd-vscode-secret-storage-tree-view",
+                    "group": "kee-shepherd-vscode.view-context-group@1"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret",
+                    "when": "view == kee-shepherd-vscode-secret-storage-tree-view",
+                    "group": "kee-shepherd-vscode.view-context-group@2"
                 }
             ]
         },
