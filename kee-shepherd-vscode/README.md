@@ -2,7 +2,7 @@
 
 Keeps an eye on credentials (secrets, access keys, connection strings etc.), that are spread across numerous config files on your devbox(es). Gives you centralized access to them. Hides (masks) them whenever possible.
 
-Now also comes with a UI for Azure Key Vault secrets and GitHub Codespaces Secrets.
+Now also comes with a UI for Azure Key Vault and GitHub Codespaces/Actions secrets.
 
 <img src="https://user-images.githubusercontent.com/5447190/210344942-d2a905c8-7732-434d-9f97-44ee59034e08.png" width="900">
 
@@ -11,8 +11,9 @@ Now also comes with a UI for Azure Key Vault secrets and GitHub Codespaces Secre
 * Quickly get secrets from various supported sources ([see below](#supported-secret-sources)).
 * Remember where you left them.
 * Mask/unmask and stash/unstash them.
+* Create shortcuts to them, for quick access.
 * Mount them as Environment Variables.
-* Manage your Azure Key Vault and GitHub Codespaces secrets from within VsCode.
+* Manage your Azure Key Vault and GitHub Codespaces/Actions secrets from within VsCode.
 
 ## Features
 
@@ -26,9 +27,9 @@ To put a secret under KeeShepherd's control, you can either **insert** it via Ke
 
 <img src="https://user-images.githubusercontent.com/5447190/142854551-a3be452e-95e8-407d-90c2-dbdebad33773.png" width="600">
 
-or **register it as an environment variable**:
+or **create a shortcut to it**:
 
-<img src="https://user-images.githubusercontent.com/5447190/149216698-65302427-e20d-4d95-afd1-18ff7a7dfd14.png" width="400">
+<img src="https://user-images.githubusercontent.com/5447190/210440871-4c316e33-7ea7-4b8f-8a76-863b2ffc027c.png" width="400">
 
 
 **Insert** operation lets you pick up a secret from Azure Key Vault or directly from an Azure resource (Azure Storage, Azure Service Bus, Azure Cosmos DB etc.). 
@@ -50,7 +51,7 @@ Three types of secrets are supported:
   
   When **unstashing**, KeeShepherd will install a [Git Hook](https://www.atlassian.com/git/tutorials/git-hooks), that prevents your secret values from being accidentally committed. When **stashing** back, these hooks will be removed. This allows you to commit your config files with **stashed** secrets in them and not be afraid of accidentally committing their unstashed values.
   
-* **Environment Variables**. These can be mounted into terminal windows and/or installed as global environment variables. See [more details on this below](https://github.com/scale-tone/kee-shepherd/blob/main/kee-shepherd-vscode/README.md#use-secrets-as-environment-variables).
+* **Secret Shortcuts**. These can be organized into folders, mounted into terminal windows and/or installed as global environment variables. See [more details on this below](https://github.com/scale-tone/kee-shepherd/blob/main/kee-shepherd-vscode/README.md#use-secret-shortcuts).
 
 It's perfectly fine to mix both **supervised** and **managed** secrets in the same config file. A good strategy could be to mark real secrets (access keys, connection strings etc.) as **managed** (to keep them safe) and leave less important values like user names, application ids etc. as **supervised** (to make it easy to find them later).
 
@@ -67,25 +68,36 @@ On a fresh new devbox you can also quickly restore all your secrets with `Resolv
 
 It will collect all `@KeeShepherd(secret-name)` anchors in a file and try to match those secrets by name. If a secret with that name exists in the metadata storage, then a copy of it will be created for the current file. Then you can do a normal **unstash** process to get the actual secret values.
 
-### Use secrets as environment variables
+### User interface and clients to various secret sources
 
-To add a secret as an environment variable either use the `KeeShepherd: Register Secret as an Environment Variable` command or use context menu on the 'Environment Variables' tree node:
+KeeShepherd comes with its own view container, where its various views are organized by default:
 
-  <img src="https://user-images.githubusercontent.com/5447190/149216698-65302427-e20d-4d95-afd1-18ff7a7dfd14.png" width="400">
+  <img src="https://user-images.githubusercontent.com/5447190/210448623-db9a4811-be97-4f96-aff6-18943cc96b30.png" width="400">
 
-Once you have a list of environment variables configured, you can then:
+Those views are:
 
-* **Open a Terminal** (shell) window with those environment variables and their values mounted to it:
+* **MANAGED/SUPERVISED SECRETS** shows all your **supervised** and **managed** secrets and the files containing them. Provides an overview of all your local secret usages and allows to quickly navigate back to them.
+* **AZURE KEY VAULT SECRETS/CERTIFICATES** is a client for Azure Key Vault. Shows all Key Vault instances accessible to you, allows to quickly get secret/certificate values and versions, and to create/remove (soft-delete) secrets. Certificates appear along with secrets, copying a certificate value gives you a BASE64-encoded string of it.
+* **GITHUB SECRETS** is a client for GitHub Codespaces and Actions secrets. Shows existing secrets, allows to create/update/remove them. Codespaces secret **values** are only accessible on their respective Codespaces instances, Actions secret values are not accessible (you can only create/update them, but not read them).
+* **VSCODE SECRET STORAGE** is a user interface for those secrets stored in [VsCode Secret Storage](https://code.visualstudio.com/api/references/vscode-api#SecretStorage) (which in turn is an API to local OS-specific secret vaults). Provides a secure way to store secret values **locally** on a devbox, allows to create/read/update/remove them.
+* **SECRET SHORTCUTS** allows you to create/manage **links** (shortcuts) to your most frequently used secrets.  See [more details on this below](https://github.com/scale-tone/kee-shepherd/blob/main/kee-shepherd-vscode/README.md#use-secret-shortcuts).
 
-    <img src="https://user-images.githubusercontent.com/5447190/149218651-82ec09c5-b8f0-4949-8908-a3495f996420.png" width="400">
+### Use Secret Shortcuts
 
-* **Mount them as global environment variables**:
+**Secret Shortcuts** give you quick access to your most frequently used secrets. They can be organized in folders, with one default folder pre-existing:
 
-    <img src="https://user-images.githubusercontent.com/5447190/149219139-8fa87ee1-f944-4cbe-ba09-91b001a0786c.png" width="400">
+  <img src="https://user-images.githubusercontent.com/5447190/210454020-e3a67785-876a-40a7-9fee-e65314dfcab2.png" width="400">
 
-    On Windows this option adds the secret and its value into `HKEY_CURRENT_USER\Environment` registry key.
-    
-    On other platforms a command for setting that variable value is added into `$HOME/.bashrc` script.
+Secret shortcuts can be mounted as **global environment variables**:
+
+  <img src="https://user-images.githubusercontent.com/5447190/210454789-d66dc48b-2b36-40a9-8917-cd8e7686fc0b.png" width="300">
+
+On Windows this option adds the secret and its value into `HKEY_CURRENT_USER\Environment` registry key. On other platforms a command for setting that variable value is added into `$HOME/.bashrc` script.
+
+
+For a given secret shortcut **folder** you can open a custom terminal window, with all those secret values mounted as environment variables:
+
+  <img src="https://user-images.githubusercontent.com/5447190/210455585-1586e20b-99ea-4aba-9f6d-df9ac2f6db5f.png" width="300">
 
 
 ### Configure and use secret metadata storage
@@ -107,25 +119,6 @@ You can always change the storage type later on with `Switch to Another Metadata
 You can see, navigate to and manage all your secrets via `SECRETS` view that appears on the `EXPLORER` tab:
 
 <img src="https://user-images.githubusercontent.com/5447190/142772847-a38158cc-01d0-4d44-9961-5199c2736d7d.png" width="400">
-
-
-### View, create, remove and use Azure Key Vault secrets
-
-Once signed in into Azure, a `KEY VAULT (VIA KEESHEPHERD)` view should appear on the `AZURE` tab:
-
-![image](https://user-images.githubusercontent.com/5447190/169872192-67d368a6-1a7b-4afd-a5e8-086253008f79.png)
-
-, which shows all accessible secrets in all accessible Key Vaults in all visible subscriptions. 
-
-You can add and remove ("soft-delete") secrets, and for each secret you can get its value or insert it as **Managed** to the current text cursor position.
-
-### View, create, remove and use GitHub Codespaces secrets
-
-Once signed in into GitHub, a `CODESPACES SECRETS (VIA KEESHEPHERD)` view should appear on the `GITHUB` tab:
-
-<img src="https://user-images.githubusercontent.com/5447190/192107512-a94cb245-df3c-494d-8bd3-d0327202d174.png" width="400">
-
-All Personal, Organization and Repository secrets should be accessible and editable from there.
 
 
 
