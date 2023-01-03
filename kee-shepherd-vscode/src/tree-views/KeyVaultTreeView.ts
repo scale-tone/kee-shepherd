@@ -14,7 +14,8 @@ export enum KeyVaultNodeTypeEnum {
     KeyVault,
     Secret,
     SecretVersion,
-    ErrorNode
+    ErrorNode,
+    InitialCommand
 }
 
 export type KeyVaultTreeItem = vscode.TreeItem & {
@@ -57,23 +58,38 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                 
                 case undefined: {
 
-                    const subscriptions = await this._account.getSubscriptions();
+                    if (!!await this._account.isSignedIn()) {
+                     
+                        const subscriptions = await this._account.getSubscriptions();
 
-                    for (const subscription of subscriptions) {
+                        for (const subscription of subscriptions) {
+    
+                            const node = {
+                                label: subscription.subscription.displayName,
+                                nodeType: KeyVaultNodeTypeEnum.Subscription,
+                                credentials: subscription.session.credentials2,
+                                subscriptionId: subscription.subscription.subscriptionId,
+                                tooltip: subscription.subscription.subscriptionId,
+                                collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                                iconPath: path.join(this._resourcesFolder, 'azureSubscription.svg')
+                            };
+    
+                            // Sorting by name on the fly
+                            const index = result.findIndex(n => n.label! > node.label);
+                            result.splice(index < 0 ? result.length : index, 0, node);
+                        }
+                            
+                    } else {
 
-                        const node = {
-                            label: subscription.subscription.displayName,
-                            nodeType: KeyVaultNodeTypeEnum.Subscription,
-                            credentials: subscription.session.credentials2,
-                            subscriptionId: subscription.subscription.subscriptionId,
-                            tooltip: subscription.subscription.subscriptionId,
-                            collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
-                            iconPath: path.join(this._resourcesFolder, 'azureSubscription.svg')
-                        };
-
-                        // Sorting by name on the fly
-                        const index = result.findIndex(n => n.label! > node.label);
-                        result.splice(index < 0 ? result.length : index, 0, node);
+                        result.push({
+                            label: 'Sign in to Azure...',
+                            nodeType: KeyVaultNodeTypeEnum.InitialCommand,
+                            command: {
+                                title: 'Sign in to Azure...',
+                                command: 'azure-account.login',
+                                arguments: []
+                            }
+                        });
                     }
                 }
                 break;
