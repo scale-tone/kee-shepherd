@@ -112,9 +112,6 @@ You can always change the storage type later on with `Switch to Another Metadata
 
 **IMPORTANT: KeeShepherd does not store your actual secret values, only links to them and cryptographically strong salted SHA256 hashes of them (plus secret lengths and positions in files).** Yet still, even this information might be somewhat useful for a potential attacker, so please make sure that secret metadata never gets leaked.
 
-You can see, navigate to and manage all your secrets via `SECRETS` view that appears on the `EXPLORER` tab:
-
-<img src="https://user-images.githubusercontent.com/5447190/142772847-a38158cc-01d0-4d44-9961-5199c2736d7d.png" width="400">
 
 
 
