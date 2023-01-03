@@ -19,17 +19,13 @@ Now also comes with a UI for Azure Key Vault and GitHub Codespaces/Actions secre
 
 ### Insert/add, stash/unstash, mask/unmask, resolve
 
-To put a secret under KeeShepherd's control, you can either **insert** it via KeeShepherd:
+To put a secret under KeeShepherd's control, you can either **insert** it into your text file via KeeShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142854298-f1cf92bd-561d-45ab-a11a-97be5047caf2.png" width="600">
 
-, select an existing secret in the text editor and **add** it to KeeShepherd:
+or select an existing secret in the text editor and **add** it to KeeShepherd:
 
 <img src="https://user-images.githubusercontent.com/5447190/142854551-a3be452e-95e8-407d-90c2-dbdebad33773.png" width="600">
-
-or **create a shortcut to it**:
-
-<img src="https://user-images.githubusercontent.com/5447190/210440871-4c316e33-7ea7-4b8f-8a76-863b2ffc027c.png" width="400">
 
 
 **Insert** operation lets you pick up a secret from Azure Key Vault or directly from an Azure resource (Azure Storage, Azure Service Bus, Azure Cosmos DB etc.). 
@@ -138,11 +134,13 @@ You can see, navigate to and manage all your secrets via `SECRETS` view that app
 * [Azure SignalR Services](https://docs.microsoft.com/en-us/rest/api/signalr/signalr/list-keys)
 * [Azure DevOps Personal Access Tokens](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate)
 * [GitHub Codespaces secrets](https://docs.github.com/en/codespaces/managing-your-codespaces/managing-encrypted-secrets-for-your-codespaces)
+* [VsCode SecretStorage](https://code.visualstudio.com/api/references/vscode-api#SecretStorage) aka locally on a devbox
 * [Custom (Azure Resource Manager REST API)](https://docs.microsoft.com/en-us/rest/api/azure/)
 
 ## Requirements
 
 For most features to work you need to have [Azure Account](https://marketplace.visualstudio.com/items?itemName=ms-vscode.azure-account) extension installed and be signed in into Azure.
+For GitHub secrets you need to have [GitHub](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) extension installed and be signed in into GitHub. On a GitHub Codespaces instance this happens automatically.
 
 ## Extension Settings
 
