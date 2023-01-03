@@ -233,7 +233,7 @@ export class SecretValuesProvider {
 
                     persistRoutine: async (secretValue: string) => {
 
-                        await CodespaceSecretValueProvider.setSecretValue('user', accessToken, secretName, secretValue, undefined, selectedRepoIdsAsStrings);
+                        await CodespaceSecretValueProvider.setSecretValue('user/codespaces', accessToken, secretName, secretValue, undefined, selectedRepoIdsAsStrings);
                     }
                 };
             }
@@ -297,7 +297,7 @@ export class SecretValuesProvider {
 
                     persistRoutine: async (secretValue: string) => {
 
-                        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
+                        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}/codespaces`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
                     }
                 };
             }
@@ -328,7 +328,7 @@ export class SecretValuesProvider {
 
                     persistRoutine: async (secretValue: string) => {
 
-                        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}`, accessToken, secretName, secretValue);
+                        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}/codespaces`, accessToken, secretName, secretValue);
                     }
                 };
             }

@@ -118,16 +118,23 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.key-vault-refresh', () => doAndShowError(async () => shepherd.keyVaultTreeView.refresh(), 'KeeShepherd failed')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save Codespaces secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespacePersonalSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesPersonalSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createGitHubActionsEnvironmentSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsEnvironmentSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateGitHubActionsEnvironmentSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsEnvironmentSecret(item), 'KeeShepherd failed to save secret')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save Codespaces secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesOrgSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createGitHubActionsOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsOrgSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateGitHubActionsOrgSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsOrgSecret(item), 'KeeShepherd failed to save secret')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save Codespaces secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateCodespaceRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateCodespacesRepoSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createGitHubActionsRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsRepoSecret(item), 'KeeShepherd failed to save secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateGitHubActionsRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsRepoSecret(item), 'KeeShepherd failed to save secret')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeCodespacesSecret(item), 'KeeShepherd failed to remove Codespaces secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeCodespacesSecret(item), 'KeeShepherd failed to remove secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeGitHubActionsSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeActionsSecret(item), 'KeeShepherd failed to remove secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyCodespacesSecretValue', (item) => doAndShowError(() => shepherd.codespacesTreeView.copyCodespacesSecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => doAndShowError(async () => shepherd.codespacesTreeView.refresh(), 'KeeShepherd failed')),

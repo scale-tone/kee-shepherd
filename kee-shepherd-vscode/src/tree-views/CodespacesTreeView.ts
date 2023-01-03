@@ -1,25 +1,40 @@
+import axios from 'axios';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { askUserForSecretName, Log } from '../helpers';
-import { CodespaceSecretKind, CodespaceSecretKinds, CodespaceSecretInfo, CodespaceSecretValueProvider, CodespaceSecretVisibility } from '../secret-value-providers/CodespaceSecretValueProvider';
+import { CodespaceSecretKind, CodespaceSecretKinds, CodespaceSecretInfo, CodespaceSecretValueProvider, CodespaceSecretVisibility, GitHubActionsSecretKinds, GitHubActionsSecretKind } from '../secret-value-providers/CodespaceSecretValueProvider';
 
 export enum CodespacesNodeTypeEnum {
-    SecretKind = 1,
-    Organization,
-    Repository,
+    CodespacesSecrets = 1,
+    ActionsSecrets,
+
+    CodespaceSecretKind,
+    ActionsSecretKind,
+
+    CodespacesOrganizationSecrets,
+    CodespacesRepositorySecrets,
+
+    ActionsOrganizationSecrets,
+    ActionsRepositorySecrets,
+    ActionsEnvironmentRepository,
+
     Secret,
+    ActionsEnvironment,
     SecretRepository
 }
 
 export type CodespacesTreeItem = vscode.TreeItem & {
     
     nodeType: CodespacesNodeTypeEnum,
-    secretKind?: CodespaceSecretKind,
+    secretKind?: CodespaceSecretKind | GitHubActionsSecretKind,
     secrets?: CodespaceSecretInfo[],
     orgName?: string,
     repoName?: string,
-    secretInfo?: CodespaceSecretInfo
+    repoId?: number,
+    envName?: string,
+    secretInfo?: CodespaceSecretInfo,
+    environments?: string[]
 };
 
 // Renders the 'Codespaces Secrets' TreeView
@@ -51,20 +66,50 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 
                 case undefined: {
 
+                    result.push({
+                        label: `Codespaces`,
+                        nodeType: CodespacesNodeTypeEnum.CodespacesSecrets,
+                        collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                    });
+
+                    result.push({
+                        label: `Actions`,
+                        nodeType: CodespacesNodeTypeEnum.ActionsSecrets,
+                        collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                    });
+                }
+                break;
+                case CodespacesNodeTypeEnum.CodespacesSecrets: {
+
                     result = CodespaceSecretKinds.map(secretKind => {
 
                         return {
                             label: `${secretKind} Secrets`,
                             secretKind,
                             contextValue: `codespaces-${secretKind.toLowerCase()}-secrets`,
-                            nodeType: CodespacesNodeTypeEnum.SecretKind,
+                            nodeType: CodespacesNodeTypeEnum.CodespaceSecretKind,
                             collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
                         };
                     });
 
                 }
                 break;
-                case CodespacesNodeTypeEnum.SecretKind: {
+                case CodespacesNodeTypeEnum.ActionsSecrets: {
+
+                    result = GitHubActionsSecretKinds.map(secretKind => {
+
+                        return {
+                            label: `${secretKind} Secrets`,
+                            secretKind,
+                            contextValue: `github-actions-${secretKind.toLowerCase()}-secrets`,
+                            nodeType: CodespacesNodeTypeEnum.ActionsSecretKind,
+                            collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                        };
+                    });
+
+                }
+                break;
+                case CodespacesNodeTypeEnum.CodespaceSecretKind: {
 
                     switch (parent.secretKind) {
                         case 'Personal': {
@@ -108,7 +153,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                                 const node = {
                                     label: org,
                                     orgName: org,
-                                    nodeType: CodespacesNodeTypeEnum.Organization,
+                                    nodeType: CodespacesNodeTypeEnum.CodespacesOrganizationSecrets,
                                     contextValue: 'codespaces-organization',
                                     collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
                                 };
@@ -142,7 +187,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                                 const node = {
                                     label: repo!.repoFullName,
                                     repoName: repo!.repoFullName,
-                                    nodeType: CodespacesNodeTypeEnum.Repository,
+                                    nodeType: CodespacesNodeTypeEnum.CodespacesRepositorySecrets,
                                     contextValue: 'codespaces-repository',
                                     collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
                                     secrets: repo!.secrets
@@ -157,7 +202,111 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                     }
                 }
                 break;
-                case CodespacesNodeTypeEnum.Organization: {
+                case CodespacesNodeTypeEnum.ActionsSecretKind: {
+
+                    switch (parent.secretKind) {
+                        case 'Organization': {
+
+                            const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
+                            const orgs = await CodespaceSecretValueProvider.getUserOrgs(accessToken);
+
+                            for (const org of orgs) {
+                                
+                                const node = {
+                                    label: org,
+                                    orgName: org,
+                                    nodeType: CodespacesNodeTypeEnum.ActionsOrganizationSecrets,
+                                    contextValue: 'github-actions-organization',
+                                    collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                                };
+        
+                                // Sorting by name on the fly
+                                const index = result.findIndex(n => n.label! > node.label);
+                                result.splice(index < 0 ? result.length : index, 0, node);
+                            }
+                        }
+                        break;
+                        case 'Repository': {
+
+                            const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+                            const repos = (await CodespaceSecretValueProvider.getUserRepos(accessToken));
+
+                            // Only showing repos with secrets in them, so need to load secrets for each repo right away
+                            const promises = repos.map(
+                                repo => CodespaceSecretValueProvider.getActionsSecrets(`repos/${repo.fullName}/actions`, accessToken)
+                                    .then(secrets => {
+                                        return {
+                                            repoFullName: repo.fullName,
+                                            repoId: repo.id,
+                                            secrets
+                                        };
+                                    }).catch(err => {
+                                        return undefined;
+                                    })
+                            );
+
+                            const reposAndSecrets = (await Promise.all(promises)).filter(res => !!(res?.secrets?.length));
+                            
+                            for (const repo of reposAndSecrets) {
+                                
+                                const node = {
+                                    label: repo!.repoFullName,
+                                    repoName: repo!.repoFullName,
+                                    repoId: repo!.repoId,
+                                    nodeType: CodespacesNodeTypeEnum.ActionsRepositorySecrets,
+                                    contextValue: 'github-actions-repository',
+                                    collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                                    secrets: repo!.secrets
+                                };
+        
+                                // Sorting by name on the fly
+                                const index = result.findIndex(n => n.label! > node.label);
+                                result.splice(index < 0 ? result.length : index, 0, node);
+                            }
+                        }
+                        break;
+                        case 'Environment': {
+
+                            const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+                            const repos = (await CodespaceSecretValueProvider.getUserRepos(accessToken));
+
+                            // Only showing repos with environments in them, so need to load environments for each repo right away
+                            const promises = repos.map(
+                                repo => this.getEnvironments(repo.fullName, accessToken)
+                                    .then(environments => {
+                                        return {
+                                            repoFullName: repo.fullName,
+                                            repoId: repo.id,
+                                            environments
+                                        };
+                                    }).catch(err => {
+                                        return undefined;
+                                    })
+                            );
+
+                            const reposAndEnvironments = (await Promise.all(promises)).filter(res => !!(res?.environments?.length));
+                            
+                            for (const repo of reposAndEnvironments) {
+                                
+                                const node = {
+                                    label: repo!.repoFullName,
+                                    repoName: repo!.repoFullName,
+                                    repoId: repo!.repoId,
+                                    nodeType: CodespacesNodeTypeEnum.ActionsEnvironmentRepository,
+                                    collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                                    environments: repo!.environments
+                                };
+        
+                                // Sorting by name on the fly
+                                const index = result.findIndex(n => n.label! > node.label);
+                                result.splice(index < 0 ? result.length : index, 0, node);
+                            }
+                        }
+                        break;
+                    }
+                }
+                break;
+                case CodespacesNodeTypeEnum.CodespacesOrganizationSecrets: {
 
                     const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
                     const secrets = await CodespaceSecretValueProvider.getCodespacesSecrets(`orgs/${parent.label}`, accessToken);
@@ -188,7 +337,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                     }
                 }
                 break;
-                case CodespacesNodeTypeEnum.Repository: {
+                case CodespacesNodeTypeEnum.CodespacesRepositorySecrets: {
 
                     if (!parent.secrets) {
                         return result;
@@ -220,6 +369,125 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                     }
                 }
                 break;
+                
+                case CodespacesNodeTypeEnum.ActionsOrganizationSecrets: {
+
+                    const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
+                    const secrets = await CodespaceSecretValueProvider.getActionsSecrets(`orgs/${parent.label}/actions`, accessToken);
+
+                    for (const secret of secrets) {
+
+                        const node = {
+                            label: secret.name,
+                            orgName: parent.orgName,
+                            secretInfo: secret,
+                            tooltip: `visibility: ${secret.visibility}, created ${secret.created_at.slice(0, 19)}`,
+                            nodeType: CodespacesNodeTypeEnum.Secret,
+                            secretKind: 'Organization' as CodespaceSecretKind,
+                            contextValue: 'github-actions-organization-secret',
+                            collapsibleState: !!secret.selected_repositories_url ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+
+                            iconPath: {
+                                light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
+                                dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                            }
+                        };
+
+                        // Sorting by name on the fly
+                        const index = result.findIndex(n => n.label! > node.label);
+                        result.splice(index < 0 ? result.length : index, 0, node);
+                    }
+                }
+                break;
+
+                case CodespacesNodeTypeEnum.ActionsRepositorySecrets: {
+
+                    if (!parent.secrets) {
+                        return result;
+                    }
+
+                    for (const secret of parent.secrets) {
+
+                        const node = {
+                            label: secret.name,
+                            repoName: parent.repoName,
+                            secretInfo: secret,
+                            tooltip: `created ${secret.created_at.slice(0, 19)}`,
+                            nodeType: CodespacesNodeTypeEnum.Secret,
+                            secretKind: 'Repository' as CodespaceSecretKind,
+                            contextValue: 'github-actions-repository-secret',
+                            collapsibleState: vscode.TreeItemCollapsibleState.None,
+
+                            iconPath: {
+                                light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
+                                dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                            }
+                        };
+
+                        // Sorting by name on the fly
+                        const index = result.findIndex(n => n.label! > node.label);
+                        result.splice(index < 0 ? result.length : index, 0, node);
+                    }
+                }
+                break;
+
+                case CodespacesNodeTypeEnum.ActionsEnvironmentRepository: {
+
+                    if (!parent.environments) {
+                        return result;
+                    }
+
+                    for (const environment of parent.environments) {
+
+                        const node = {
+                            label: environment,
+                            envName: environment,
+                            repoName: parent.repoName,
+                            repoId: parent.repoId,
+                            nodeType: CodespacesNodeTypeEnum.ActionsEnvironment,
+                            contextValue: 'github-actions-environment',
+                            collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                        };
+
+                        // Sorting by name on the fly
+                        const index = result.findIndex(n => n.label! > node.label);
+                        result.splice(index < 0 ? result.length : index, 0, node);
+                    }
+                }
+                break;
+
+                case CodespacesNodeTypeEnum.ActionsEnvironment: {
+
+                    const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+                    const secrets = await CodespaceSecretValueProvider.getActionsSecrets(`repositories/${parent.repoId}/environments/${parent.label}`, accessToken);
+
+                    for (const secret of secrets) {
+
+                        const node = {
+                            label: secret.name,
+                            repoName: parent.repoName,
+                            repoId: parent.repoId,
+                            envName: parent.envName,
+                            secretInfo: secret,
+                            tooltip: `visibility: ${secret.visibility}, created ${secret.created_at.slice(0, 19)}`,
+                            nodeType: CodespacesNodeTypeEnum.Secret,
+                            secretKind: 'Environment' as GitHubActionsSecretKind,
+                            contextValue: 'github-actions-environment-secret',
+                            collapsibleState: vscode.TreeItemCollapsibleState.None,
+
+                            iconPath: {
+                                light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
+                                dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                            }
+                        };
+
+                        // Sorting by name on the fly
+                        const index = result.findIndex(n => n.label! > node.label);
+                        result.splice(index < 0 ? result.length : index, 0, node);
+                    }
+                }
+                break;
+                
                 case CodespacesNodeTypeEnum.Secret: {
 
                     if (!parent.secretInfo?.selected_repositories_url) {
@@ -259,7 +527,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
     async createOrUpdateCodespacesPersonalSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
         if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.SecretKind && treeItem.secretKind === 'Personal') ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.CodespaceSecretKind && treeItem.secretKind === 'Personal') ||
             (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
         )) {
             return;
@@ -297,7 +565,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
         const selectedRepoIdsAsStrings = selectedRepoIds.map(id => id.toString());
 
-        await CodespaceSecretValueProvider.setSecretValue('user', accessToken, secretName, secretValue, undefined, selectedRepoIdsAsStrings);
+        await CodespaceSecretValueProvider.setSecretValue('user/codespaces', accessToken, secretName, secretValue, undefined, selectedRepoIdsAsStrings);
         
         this.refresh();
 
@@ -311,6 +579,54 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         }
     }    
 
+    async createOrUpdateActionsEnvironmentSecret(treeItem: CodespacesTreeItem): Promise<void> {
+
+        if (!(
+            (treeItem.nodeType === CodespacesNodeTypeEnum.ActionsEnvironment) ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
+        )) {
+            return;
+        }
+
+        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
+
+        // This should be at the beginning, since it might require the user to re-authenticate
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+
+        let secretName = treeItem.secretInfo?.name;
+
+        if (!secretName) {
+            
+            secretName = await askUserForSecretName();
+        }
+
+        if (!secretName) {
+            return;
+        }
+
+        const secretValue = await vscode.window.showInputBox({
+            prompt: 'Enter secret value',
+            password: true
+        });
+
+        if (!secretValue) {
+            return;
+        }
+
+        await CodespaceSecretValueProvider.setSecretValue(`repositories/${treeItem.repoId}/environments/${treeItem.envName}`, accessToken, secretName, secretValue, undefined);
+        
+        this.refresh();
+
+        if (!!isUpdating) {
+            
+            vscode.window.showInformationMessage(`Secret ${secretName} was updated`);
+
+        } else {
+
+            vscode.window.showInformationMessage(`Secret ${secretName} was added`);
+        }
+    }    
+    
     async createOrUpdateCodespacesOrgSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
         if (!treeItem.orgName) {
@@ -318,7 +634,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         }
 
         if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.Organization) ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.CodespacesOrganizationSecrets) ||
             (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
         )) {
             return;
@@ -382,7 +698,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             }
         }
 
-        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
+        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}/codespaces`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
         
         this.refresh();
 
@@ -396,10 +712,95 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         }
     }    
 
+    async createOrUpdateActionsOrgSecret(treeItem: CodespacesTreeItem): Promise<void> {
+
+        if (!treeItem.orgName) {
+            return;
+        }
+
+        if (!(
+            (treeItem.nodeType === CodespacesNodeTypeEnum.ActionsOrganizationSecrets) ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
+        )) {
+            return;
+        }
+
+        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
+
+        // This should be at the beginning, since it might require the user to re-authenticate
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgAndRepoSecrets();
+
+        let secretName = treeItem.secretInfo?.name;
+
+        if (!secretName) {
+            
+            secretName = await askUserForSecretName();
+        }
+
+        if (!secretName) {
+            return;
+        }
+
+        const secretValue = await vscode.window.showInputBox({
+            prompt: 'Enter secret value',
+            password: true
+        });
+
+        if (!secretValue) {
+            return;
+        }
+
+        const orgName = treeItem.orgName!;
+
+        const selectedVisibilityOption = await vscode.window.showQuickPick([
+
+            {
+                label: `All Repositories in ${orgName} organization`,
+                visibility: 'all' as CodespaceSecretVisibility
+            },
+            {
+                label: `All Private Repositories in ${orgName} organization`,
+                visibility: 'private' as CodespaceSecretVisibility
+            },
+            {
+                label: `Selected Repositories in ${orgName} organization`,
+                visibility: 'selected' as CodespaceSecretVisibility
+            },
+
+        ], { title: `Select visibility level for your secret (which repositories should have access to it)` });
+
+        if (!selectedVisibilityOption) {
+            return;
+        }
+
+        let selectedRepoIds: number[] | undefined = undefined;
+
+        if (selectedVisibilityOption.visibility === 'selected') {
+
+            selectedRepoIds = await CodespacesTreeView.pickUpOrgRepoIds(orgName, treeItem.secretInfo?.selected_repositories_url, accessToken, this._log);
+            if (!selectedRepoIds?.length) {
+                return;
+            }
+        }
+
+        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}/actions`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
+        
+        this.refresh();
+
+        if (!!isUpdating) {
+            
+            vscode.window.showInformationMessage(`Secret ${secretName} was updated`);
+
+        } else {
+
+            vscode.window.showInformationMessage(`Secret ${secretName} was added to ${orgName} organization`);
+        }
+    }    
+
     async createOrUpdateCodespacesRepoSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
         if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.SecretKind && treeItem.secretKind === 'Repository') ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.CodespaceSecretKind && treeItem.secretKind === 'Repository') ||
             (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
         )) {
             return;
@@ -454,7 +855,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             return;
         }
 
-        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}`, accessToken, secretName, secretValue);
+        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}/codespaces`, accessToken, secretName, secretValue);
         
         this.refresh();
 
@@ -468,6 +869,78 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         }
     }    
 
+    async createOrUpdateActionsRepoSecret(treeItem: CodespacesTreeItem): Promise<void> {
+
+        if (!(
+            (treeItem.nodeType === CodespacesNodeTypeEnum.ActionsSecretKind && treeItem.secretKind === 'Repository') ||
+            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
+        )) {
+            return;
+        }
+
+        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
+
+        // This should be at the beginning, since it might require the user to re-authenticate
+        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+
+        let repoName = '';
+        if (!!isUpdating) {
+            
+            repoName = treeItem.repoName!;
+
+        } else {
+
+            const repos = await CodespaceSecretValueProvider.getUserRepos(accessToken);
+
+            const selectedRepo = await vscode.window.showQuickPick(repos.map(repo => {
+
+                return { label: repo.fullName };
+    
+            }), {
+                title: `Select repository`
+            });
+    
+            if (!selectedRepo) {
+                return;
+            }
+
+            repoName = selectedRepo.label;
+        }
+
+        let secretName = treeItem.secretInfo?.name;
+
+        if (!secretName) {
+            
+            secretName = await askUserForSecretName();
+        }
+
+        if (!secretName) {
+            return;
+        }
+
+        const secretValue = await vscode.window.showInputBox({
+            prompt: 'Enter secret value',
+            password: true
+        });
+
+        if (!secretValue) {
+            return;
+        }
+
+        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}/actions`, accessToken, secretName, secretValue);
+        
+        this.refresh();
+
+        if (!!isUpdating) {
+            
+            vscode.window.showInformationMessage(`Secret ${secretName} was updated`);
+
+        } else {
+
+            vscode.window.showInformationMessage(`Secret ${secretName} was added`);
+        }
+    }    
+    
     async removeCodespacesSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
         if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret) {
@@ -504,11 +977,54 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
         }
 
-        await CodespaceSecretValueProvider.removeCodespacesSecret(secretsUri, secretName, accessToken);
+        await axios.delete(`https://api.github.com/${secretsUri}/codespaces/secrets/${secretName}`, CodespaceSecretValueProvider.getRequestHeaders(accessToken));        
 
         this.refresh();
         
         vscode.window.showInformationMessage(`Codespaces secret ${secretName} was removed`);
+    }
+
+    async removeActionsSecret(treeItem: CodespacesTreeItem): Promise<void> {
+
+        if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret) {
+            return;
+        }
+
+        let secretName = treeItem.label as string;
+
+        const userResponse = await vscode.window.showWarningMessage(
+            `Are you sure you want to remove secret ${secretName}?`,
+            'Yes', 'No');
+
+        if (userResponse !== 'Yes') {
+            return;
+        }
+
+        let secretsUri = '';
+        let accessToken = '';
+
+        switch (treeItem.secretKind) {
+            case 'Environment':
+                secretsUri = `repositories/${treeItem.repoId}/environments/${treeItem.envName}`;
+                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+            break;
+            case 'Organization':
+                secretsUri = `orgs/${treeItem.orgName}/actions`;
+                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
+            break;
+            case 'Repository':
+                secretsUri = `repos/${treeItem.repoName}/actions`;
+                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
+            break;
+            default:
+                return;
+        }
+
+        await axios.delete(`https://api.github.com/${secretsUri}/secrets/${secretName}`, CodespaceSecretValueProvider.getRequestHeaders(accessToken));        
+
+        this.refresh();
+        
+        vscode.window.showInformationMessage(`Secret ${secretName} was removed`);
     }
 
     async copyCodespacesSecretValue(treeItem: CodespacesTreeItem): Promise<void> {
@@ -668,5 +1184,27 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                     pick.show();
                 });
         });
+    }
+
+    private async getEnvironments(repoUri: string, accessToken: string): Promise<string[]> {
+
+        const result: string[] = [];
+
+        let pageNr = 0;
+        while (true) {
+
+            // Yes, page numbers start from _1_ there, not from 0
+            pageNr++;
+            const response = await axios.get(`https://api.github.com/repos/${repoUri}/environments?per_page=100&page=${pageNr}`, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
+
+            const nextBatch = response.data?.environments;
+            if (!nextBatch?.length) {
+                break;
+            }
+
+            result.push(...nextBatch.map((e: any) => e.name));
+        }
+
+        return result;
     }
 }

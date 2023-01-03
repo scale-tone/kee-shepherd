@@ -17,6 +17,9 @@ import { getAuthSession, Log } from '../helpers';
 export const CodespaceSecretKinds = ['Personal', 'Organization', 'Repository'] as const;
 export type CodespaceSecretKind = typeof CodespaceSecretKinds[number];
 
+export const GitHubActionsSecretKinds = ['Organization', 'Repository', 'Environment'] as const;
+export type GitHubActionsSecretKind = typeof GitHubActionsSecretKinds[number];
+
 export const CodespaceSecretVisibilities = ['all', 'private', 'selected'] as const;
 export type CodespaceSecretVisibility = typeof CodespaceSecretVisibilities[number];
 
@@ -112,11 +115,6 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         };
     }
 
-    static async removeCodespacesSecret(secretsUri: string, secretName: string, accessToken: string): Promise<void> {
-
-        await axios.delete(`https://api.github.com/${secretsUri}/codespaces/secrets/${secretName}`, this.getRequestHeaders(accessToken));        
-    }
-
     static async getCodespacesSecrets(secretsUri: string, accessToken: string): Promise<CodespaceSecretInfo[]> {
 
         const result: CodespaceSecretInfo[] = [];
@@ -127,6 +125,28 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
             // Yes, page numbers start from _1_ there, not from 0
             pageNr++;
             const response = await axios.get(`https://api.github.com/${secretsUri}/codespaces/secrets?per_page=100&page=${pageNr}`, this.getRequestHeaders(accessToken));
+
+            const nextBatch = response.data?.secrets;
+            if (!nextBatch?.length) {
+                break;
+            }
+
+            result.push(...nextBatch);
+        }
+
+        return result;
+    }
+
+    static async getActionsSecrets(secretsUri: string, accessToken: string): Promise<CodespaceSecretInfo[]> {
+
+        const result: CodespaceSecretInfo[] = [];
+
+        let pageNr = 0;
+        while (true) {
+
+            // Yes, page numbers start from _1_ there, not from 0
+            pageNr++;
+            const response = await axios.get(`https://api.github.com/${secretsUri}/secrets?per_page=100&page=${pageNr}`, this.getRequestHeaders(accessToken));
 
             const nextBatch = response.data?.secrets;
             if (!nextBatch?.length) {
@@ -165,7 +185,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     static async getGithubAccessTokenForOrgAndRepoSecrets(): Promise<string> {
 
-        const githubSession = await vscode.authentication.getSession('github', ['user admin:org repo'], { createIfNone: true });
+        const githubSession = await getAuthSession('github', ['user admin:org repo']);
         return githubSession.accessToken;        
     }    
 
@@ -279,7 +299,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         selectedRepoIds?: (string | number)[]
     ): Promise<void> {
 
-        const publicKeyUrl = `https://api.github.com/${url}/codespaces/secrets/public-key`;
+        const publicKeyUrl = `https://api.github.com/${url}/secrets/public-key`;
         const publicKeyResponse = await axios.get(publicKeyUrl, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
         const publicKey: { key_id: string, key: string } = publicKeyResponse.data;
 
@@ -304,7 +324,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
             putSecretBody.selected_repository_ids = selectedRepoIds;
         }
 
-        const putSecretUrl = `https://api.github.com/${url}/codespaces/secrets/${secretName}`;
+        const putSecretUrl = `https://api.github.com/${url}/secrets/${secretName}`;
         await axios.put(putSecretUrl, putSecretBody, CodespaceSecretValueProvider.getRequestHeaders(accessToken));
     }
 
@@ -344,7 +364,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
         });
     }
 
-    private static getRequestHeaders(accessToken: string): any {
+    static getRequestHeaders(accessToken: string): any {
         
         return { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github+json' } };
     }
