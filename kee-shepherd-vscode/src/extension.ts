@@ -133,8 +133,8 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createGitHubActionsRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsRepoSecret(item), 'KeeShepherd failed to save secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.updateGitHubActionsRepoSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.createOrUpdateActionsRepoSecret(item), 'KeeShepherd failed to save secret')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeCodespacesSecret(item), 'KeeShepherd failed to remove secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeGitHubActionsSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeActionsSecret(item), 'KeeShepherd failed to remove secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeCodespaceSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeSecret(item), 'KeeShepherd failed to remove secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeGitHubActionsSecret', (item) => doAndShowError(() => shepherd.codespacesTreeView.removeSecret(item), 'KeeShepherd failed to remove secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyCodespacesSecretValue', (item) => doAndShowError(() => shepherd.codespacesTreeView.copyCodespacesSecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.codespaces-refresh', () => doAndShowError(async () => shepherd.codespacesTreeView.refresh(), 'KeeShepherd failed')),
@@ -157,7 +157,8 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.openTerminal', () => doAndShowError(() => shepherd.shortcutsTreeView.openTerminal(), 'KeeShepherd failed to open terminal window')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.openTerminal', (item) => doAndShowError(() => shepherd.shortcutsTreeView.openTerminal(item), 'KeeShepherd failed to open terminal window')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret', () => doAndShowError(() => shepherd.secretStorageTreeView.createSecret(), 'KeeShepherd failed to create VsCode SecretStorage secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret', () => doAndShowError(() => shepherd.secretStorageTreeView.createSecret(false), 'KeeShepherd failed to create VsCode SecretStorage secret')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecretFrom', () => doAndShowError(() => shepherd.secretStorageTreeView.createSecret(true), 'KeeShepherd failed to create VsCode SecretStorage secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret', (item) => doAndShowError(() => shepherd.secretStorageTreeView.removeSecret(item), 'KeeShepherd failed to remove VsCode SecretStorage secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue', (item) => doAndShowError(async () => shepherd.secretStorageTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
 

@@ -360,6 +360,11 @@
                 "icon": "$(add)"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecretFrom",
+                "title": "Create new Secret From...",
+                "icon": "$(diff-added)"
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret",
                 "title": "Remove this Secret"
             },
@@ -601,6 +606,10 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecretFrom",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret",
                     "when": "never"
                 },
@@ -682,6 +691,11 @@
                 },
                 {
                     "command": "kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret",
+                    "when": "view == kee-shepherd-vscode-secret-storage-tree-view",
+                    "group": "navigation"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecretFrom",
                     "when": "view == kee-shepherd-vscode-secret-storage-tree-view",
                     "group": "navigation"
                 },

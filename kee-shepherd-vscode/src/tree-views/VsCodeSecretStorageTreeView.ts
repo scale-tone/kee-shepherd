@@ -2,11 +2,16 @@ import * as vscode from 'vscode';
 
 import { askUserForSecretName } from '../helpers';
 import { SettingNames } from '../KeeShepherd';
+import { ControlTypeEnum } from '../KeyMetadataHelpers';
+import { SecretValuesProvider } from '../SecretValuesProvider';
 
 // Renders the 'VsCode Secret Storage' TreeView
 export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(protected readonly _context: vscode.ExtensionContext) { }
+    constructor(
+        protected readonly _context: vscode.ExtensionContext,
+        private readonly _valuesProvider: SecretValuesProvider,
+    ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -46,10 +51,37 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
         return result;
     }
 
-    async createSecret(): Promise<void> {
+    async createSecret(pickUpSecretValue: boolean = false): Promise<void> {
 
-        const secretName = await askUserForSecretName();
+        let secretName;
+        let secretValue;
+
+        if (!!pickUpSecretValue) {
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
+                return;
+            }
+
+            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            
+            secretValue = secret.value;
+            
+        } else {
+
+            secretName = await askUserForSecretName();
+
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
+        }
+
         if (!secretName) {
+            return;
+        }
+
+        if (!secretValue) {
             return;
         }
 
@@ -64,15 +96,6 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
             }
         }
 
-        const secretValue = await vscode.window.showInputBox({
-            prompt: 'Enter secret value',
-            password: true
-        });
-
-        if (!secretValue) {
-            return;
-        }
-
         await this._context.secrets.store(secretName, secretValue);
 
         const secretNames = this._context.globalState.get(SettingNames.VsCodeSecretStorageSecretNames) as string[] ?? [];
@@ -84,11 +107,20 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
         await this._context.globalState.update(SettingNames.VsCodeSecretStorageSecretNames, secretNames);
 
         this.refresh();
+        vscode.window.showInformationMessage(`KeeShepherd: secret ${secretName} was created`);
     }
 
     async removeSecret(treeItem: vscode.TreeItem): Promise<void> {
 
         const secretName = treeItem.label as string;
+
+        const userResponse = await vscode.window.showWarningMessage(
+            `Are you sure you want to remove secret ${secretName}?`,
+            'Yes', 'No');
+
+        if (userResponse !== 'Yes') {
+            return;
+        }
 
         await this._context.secrets.delete(secretName);
 
@@ -102,6 +134,7 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
         await this._context.globalState.update(SettingNames.VsCodeSecretStorageSecretNames, secretNames);
 
         this.refresh();
+        vscode.window.showInformationMessage(`KeeShepherd: secret ${secretName} was removed`);
     }
 
     async copySecretValue(treeItem: vscode.TreeItem): Promise<void> {

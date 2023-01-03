@@ -526,13 +526,6 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
     async createOrUpdateCodespacesPersonalSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.CodespaceSecretKind && treeItem.secretKind === 'Personal') ||
-            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-        )) {
-            return;
-        }
-
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
@@ -581,13 +574,6 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
     async createOrUpdateActionsEnvironmentSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.ActionsEnvironment) ||
-            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-        )) {
-            return;
-        }
-
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
@@ -628,17 +614,6 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
     }    
     
     async createOrUpdateCodespacesOrgSecret(treeItem: CodespacesTreeItem): Promise<void> {
-
-        if (!treeItem.orgName) {
-            return;
-        }
-
-        if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.CodespacesOrganizationSecrets) ||
-            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-        )) {
-            return;
-        }
 
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
@@ -714,17 +689,6 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
     async createOrUpdateActionsOrgSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        if (!treeItem.orgName) {
-            return;
-        }
-
-        if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.ActionsOrganizationSecrets) ||
-            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-        )) {
-            return;
-        }
-
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
@@ -799,13 +763,6 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
     async createOrUpdateCodespacesRepoSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.CodespaceSecretKind && treeItem.secretKind === 'Repository') ||
-            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-        )) {
-            return;
-        }
-
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
@@ -871,13 +828,6 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
     async createOrUpdateActionsRepoSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
-        if (!(
-            (treeItem.nodeType === CodespacesNodeTypeEnum.ActionsSecretKind && treeItem.secretKind === 'Repository') ||
-            (treeItem.nodeType === CodespacesNodeTypeEnum.Secret && !!treeItem.secretInfo)
-        )) {
-            return;
-        }
-
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
@@ -941,54 +891,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         }
     }    
     
-    async removeCodespacesSecret(treeItem: CodespacesTreeItem): Promise<void> {
-
-        if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret) {
-            return;
-        }
-
-        let secretName = treeItem.label as string;
-
-        const userResponse = await vscode.window.showWarningMessage(
-            `Are you sure you want to remove Codespaces secret ${secretName}?`,
-            'Yes', 'No');
-
-        if (userResponse !== 'Yes') {
-            return;
-        }
-
-        let secretsUri = '';
-        let accessToken = '';
-
-        switch (treeItem.secretKind) {
-            case 'Personal':
-                secretsUri = 'user';
-                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecrets();
-            break;
-            case 'Organization':
-                secretsUri = `orgs/${treeItem.orgName}`;
-                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
-            break;
-            case 'Repository':
-                secretsUri = `repos/${treeItem.repoName}`;
-                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
-            break;
-            default:
-                return;
-        }
-
-        await axios.delete(`https://api.github.com/${secretsUri}/codespaces/secrets/${secretName}`, CodespaceSecretValueProvider.getRequestHeaders(accessToken));        
-
-        this.refresh();
-        
-        vscode.window.showInformationMessage(`Codespaces secret ${secretName} was removed`);
-    }
-
-    async removeActionsSecret(treeItem: CodespacesTreeItem): Promise<void> {
-
-        if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret) {
-            return;
-        }
+    async removeSecret(treeItem: CodespacesTreeItem): Promise<void> {
 
         let secretName = treeItem.label as string;
 
@@ -1000,6 +903,8 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             return;
         }
 
+        const isCodespacesSecret = treeItem.contextValue?.startsWith('codespaces');
+
         let secretsUri = '';
         let accessToken = '';
 
@@ -1008,12 +913,16 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 secretsUri = `repositories/${treeItem.repoId}/environments/${treeItem.envName}`;
                 accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
             break;
+            case 'Personal':
+                secretsUri = `user/codespaces`;
+                accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecrets();
+            break;
             case 'Organization':
-                secretsUri = `orgs/${treeItem.orgName}/actions`;
+                secretsUri = `orgs/${treeItem.orgName}/${isCodespacesSecret ? 'codespaces' : 'actions'}`;
                 accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgSecrets();
             break;
             case 'Repository':
-                secretsUri = `repos/${treeItem.repoName}/actions`;
+                secretsUri = `repos/${treeItem.repoName}/${isCodespacesSecret ? 'codespaces' : 'actions'}`;
                 accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
             break;
             default:
@@ -1029,7 +938,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
     async copyCodespacesSecretValue(treeItem: CodespacesTreeItem): Promise<void> {
 
-        if (treeItem.nodeType !== CodespacesNodeTypeEnum.Secret || !treeItem.secretInfo?.name) {
+        if (!treeItem.secretInfo?.name) {
             return;
         }
 
