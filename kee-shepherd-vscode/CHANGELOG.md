@@ -1,5 +1,29 @@
 # Change Log
 
+## Version 2.0
+
+- KeeShepherd now has its own view container, where its various views congregate by default:
+
+  <img src="https://user-images.githubusercontent.com/5447190/210448623-db9a4811-be97-4f96-aff6-18943cc96b30.png" width="400">
+
+- Env Variables have been converted into **Secret Shortcuts**:
+
+  <img src="https://user-images.githubusercontent.com/5447190/210454020-e3a67785-876a-40a7-9fee-e65314dfcab2.png" width="400">
+
+    which is now a convenient way to organize your most frequently used secrets. Note that (when storing secret metadata in an Azure Table) secret shortcuts are **not** machine-specific, so you get the same list on every devbox or Codespaces instance. Useful.
+    
+- Support for [GitHub Actions secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets): 
+
+  <img src="https://user-images.githubusercontent.com/5447190/210458273-fe0884b7-0237-46fa-bdc9-1dc020427ede.png" width="400">
+
+- [VsCode Secret Storage](https://code.visualstudio.com/api/references/vscode-api#SecretStorage) as yet another way to securely store secret values:
+
+  <img src="https://user-images.githubusercontent.com/5447190/210458413-e6e1a2d6-bc10-4aaa-b328-fce8090de96a.png" width="300">
+
+- Migrated to [vscode.authentication API](https://code.visualstudio.com/api/references/vscode-api#authentication). This might result in you being asked to (re)login to Azure/GitHub.
+
+
+
 ## Version 1.6
 
 - UI for [GitHub Codespaces Secrets](https://docs.github.com/en/codespaces/managing-your-codespaces/managing-encrypted-secrets-for-your-codespaces):
