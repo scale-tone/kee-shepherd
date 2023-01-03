@@ -91,7 +91,7 @@ Secret shortcuts can be mounted as **global environment variables**:
 On Windows this option adds the secret and its value into `HKEY_CURRENT_USER\Environment` registry key. On other platforms a command for setting that variable value is added into `$HOME/.bashrc` script.
 
 
-For a given secret shortcut **folder** you can open a custom terminal window, with all those secret values mounted as environment variables:
+For a given **Secret Shortcut Folder** you can open a custom terminal window, with all those secret values mounted as environment variables:
 
   <img src="https://user-images.githubusercontent.com/5447190/210455585-1586e20b-99ea-4aba-9f6d-df9ac2f6db5f.png" width="300">
 
