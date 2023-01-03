@@ -1,3 +1,4 @@
+import path = require('path');
 import * as vscode from 'vscode';
 
 import { askUserForSecretName } from '../helpers';
@@ -10,7 +11,8 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
 
     constructor(
         protected readonly _context: vscode.ExtensionContext,
-        private readonly _valuesProvider: SecretValuesProvider
+        private readonly _valuesProvider: SecretValuesProvider,
+        private readonly _resourcesFolder: string
     ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
@@ -36,7 +38,11 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
                 
                 const node = {
                     label: secretName,
-                    collapsibleState: vscode.TreeItemCollapsibleState.None
+                    collapsibleState: vscode.TreeItemCollapsibleState.None,
+                    iconPath: {
+                        light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
+                        dark: path.join(this._resourcesFolder, 'dark', 'secret.svg')
+                    }
                 };
 
                 // Sorting by name on the fly
