@@ -3,7 +3,9 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { askUserForSecretName, Log } from '../helpers';
+import { ControlTypeEnum } from '../KeyMetadataHelpers';
 import { CodespaceSecretKind, CodespaceSecretKinds, CodespaceSecretInfo, CodespaceSecretValueProvider, CodespaceSecretVisibility, GitHubActionsSecretKinds, GitHubActionsSecretKind } from '../secret-value-providers/CodespaceSecretValueProvider';
+import { SecretValuesProvider } from '../SecretValuesProvider';
 
 export enum CodespacesNodeTypeEnum {
     CodespacesSecrets = 1,
@@ -41,6 +43,7 @@ export type CodespacesTreeItem = vscode.TreeItem & {
 export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
 
     constructor(
+        private readonly _valuesProvider: SecretValuesProvider,
         private readonly _resourcesFolder: string,
         private readonly _log: Log
     ) { }
@@ -524,28 +527,42 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         return result;
     }
 
-    async createOrUpdateCodespacesPersonalSecret(treeItem: CodespacesTreeItem): Promise<void> {
+    async createOrUpdateCodespacesPersonalSecret(treeItem: CodespacesTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
 
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecretsAndRepos();
 
-        let secretName = treeItem.secretInfo?.name;
+        let secretName;
+        let secretValue;
 
-        if (!secretName) {
+        if (!!pickUpSecretValue) {
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
+                return;
+            }
+
+            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                return;
+            }
             
+            secretValue = secret.value;
+            
+        } else {
+
             secretName = await askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+    
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
         }
-
-        if (!secretName) {
-            return;
-        }
-
-        const secretValue = await vscode.window.showInputBox({
-            prompt: 'Enter secret value',
-            password: true
-        });
 
         if (!secretValue) {
             return;
@@ -564,36 +581,50 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
 
         if (!!isUpdating) {
             
-            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
+            vscode.window.showInformationMessage(`Secret ${secretName} was updated`);
 
         } else {
 
-            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added`);
+            vscode.window.showInformationMessage(`Secret ${secretName} was added`);
         }
     }    
 
-    async createOrUpdateActionsEnvironmentSecret(treeItem: CodespacesTreeItem): Promise<void> {
+    async createOrUpdateActionsEnvironmentSecret(treeItem: CodespacesTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
 
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
 
-        let secretName = treeItem.secretInfo?.name;
+        let secretName;
+        let secretValue;
 
-        if (!secretName) {
+        if (!!pickUpSecretValue) {
+
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
+                return;
+            }
+
+            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                return;
+            }
             
+            secretValue = secret.value;
+            
+        } else {
+
             secretName = await askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+    
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
         }
-
-        if (!secretName) {
-            return;
-        }
-
-        const secretValue = await vscode.window.showInputBox({
-            prompt: 'Enter secret value',
-            password: true
-        });
 
         if (!secretValue) {
             return;
@@ -613,102 +644,42 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         }
     }    
     
-    async createOrUpdateCodespacesOrgSecret(treeItem: CodespacesTreeItem): Promise<void> {
+    async createOrUpdateOrgSecret(treeItem: CodespacesTreeItem, isCodespacesSecret: boolean, pickUpSecretValue: boolean = false): Promise<void> {
 
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
         // This should be at the beginning, since it might require the user to re-authenticate
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgAndRepoSecrets();
 
-        let secretName = treeItem.secretInfo?.name;
+        let secretName;
+        let secretValue;
 
-        if (!secretName) {
-            
-            secretName = await askUserForSecretName();
-        }
+        if (!!pickUpSecretValue) {
 
-        if (!secretName) {
-            return;
-        }
-
-        const secretValue = await vscode.window.showInputBox({
-            prompt: 'Enter secret value',
-            password: true
-        });
-
-        if (!secretValue) {
-            return;
-        }
-
-        const orgName = treeItem.orgName!;
-
-        const selectedVisibilityOption = await vscode.window.showQuickPick([
-
-            {
-                label: `All Repositories in ${orgName} organization`,
-                visibility: 'all' as CodespaceSecretVisibility
-            },
-            {
-                label: `All Private Repositories in ${orgName} organization`,
-                visibility: 'private' as CodespaceSecretVisibility
-            },
-            {
-                label: `Selected Repositories in ${orgName} organization`,
-                visibility: 'selected' as CodespaceSecretVisibility
-            },
-
-        ], { title: `Select visibility level for your secret (which repositories should have access to it)` });
-
-        if (!selectedVisibilityOption) {
-            return;
-        }
-
-        let selectedRepoIds: number[] | undefined = undefined;
-
-        if (selectedVisibilityOption.visibility === 'selected') {
-
-            selectedRepoIds = await CodespacesTreeView.pickUpOrgRepoIds(orgName, treeItem.secretInfo?.selected_repositories_url, accessToken, this._log);
-            if (!selectedRepoIds?.length) {
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
                 return;
             }
-        }
 
-        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}/codespaces`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
-        
-        this.refresh();
-
-        if (!!isUpdating) {
+            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                return;
+            }
             
-            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
-
+            secretValue = secret.value;
+            
         } else {
 
-            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added to ${orgName} organization`);
-        }
-    }    
-
-    async createOrUpdateActionsOrgSecret(treeItem: CodespacesTreeItem): Promise<void> {
-
-        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
-
-        // This should be at the beginning, since it might require the user to re-authenticate
-        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgAndRepoSecrets();
-
-        let secretName = treeItem.secretInfo?.name;
-
-        if (!secretName) {
-            
             secretName = await askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+    
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
         }
-
-        if (!secretName) {
-            return;
-        }
-
-        const secretValue = await vscode.window.showInputBox({
-            prompt: 'Enter secret value',
-            password: true
-        });
 
         if (!secretValue) {
             return;
@@ -747,7 +718,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             }
         }
 
-        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}/actions`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
+        await CodespaceSecretValueProvider.setSecretValue(`orgs/${orgName}/${isCodespacesSecret ? 'codespaces' : 'actions'}`, accessToken, secretName, secretValue, selectedVisibilityOption.visibility, selectedRepoIds);
         
         this.refresh();
 
@@ -761,7 +732,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         }
     }    
 
-    async createOrUpdateCodespacesRepoSecret(treeItem: CodespacesTreeItem): Promise<void> {
+    async createOrUpdateRepoSecret(treeItem: CodespacesTreeItem, isCodespacesSecret: boolean, pickUpSecretValue: boolean = false): Promise<void> {
 
         let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
 
@@ -792,92 +763,41 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             repoName = selectedRepo.label;
         }
 
-        let secretName = treeItem.secretInfo?.name;
+        let secretName;
+        let secretValue;
 
-        if (!secretName) {
-            
-            secretName = await askUserForSecretName();
-        }
+        if (!!pickUpSecretValue) {
 
-        if (!secretName) {
-            return;
-        }
-
-        const secretValue = await vscode.window.showInputBox({
-            prompt: 'Enter secret value',
-            password: true
-        });
-
-        if (!secretValue) {
-            return;
-        }
-
-        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}/codespaces`, accessToken, secretName, secretValue);
-        
-        this.refresh();
-
-        if (!!isUpdating) {
-            
-            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was updated`);
-
-        } else {
-
-            vscode.window.showInformationMessage(`Codespaces secret ${secretName} was added`);
-        }
-    }    
-
-    async createOrUpdateActionsRepoSecret(treeItem: CodespacesTreeItem): Promise<void> {
-
-        let isUpdating = treeItem.nodeType === CodespacesNodeTypeEnum.Secret;
-
-        // This should be at the beginning, since it might require the user to re-authenticate
-        const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
-
-        let repoName = '';
-        if (!!isUpdating) {
-            
-            repoName = treeItem.repoName!;
-
-        } else {
-
-            const repos = await CodespaceSecretValueProvider.getUserRepos(accessToken);
-
-            const selectedRepo = await vscode.window.showQuickPick(repos.map(repo => {
-
-                return { label: repo.fullName };
-    
-            }), {
-                title: `Select repository`
-            });
-    
-            if (!selectedRepo) {
+            const secret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!secret) {
                 return;
             }
 
-            repoName = selectedRepo.label;
-        }
-
-        let secretName = treeItem.secretInfo?.name;
-
-        if (!secretName) {
+            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                return;
+            }
             
+            secretValue = secret.value;
+            
+        } else {
+
             secretName = await askUserForSecretName();
+            if (!secretName) {
+                return;
+            }
+    
+            secretValue = await vscode.window.showInputBox({
+                prompt: 'Enter secret value',
+                password: true
+            });
         }
-
-        if (!secretName) {
-            return;
-        }
-
-        const secretValue = await vscode.window.showInputBox({
-            prompt: 'Enter secret value',
-            password: true
-        });
 
         if (!secretValue) {
             return;
         }
 
-        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}/actions`, accessToken, secretName, secretValue);
+        await CodespaceSecretValueProvider.setSecretValue(`repos/${repoName}/${isCodespacesSecret ? 'codespaces' : 'actions'}`, accessToken, secretName, secretValue);
         
         this.refresh();
 

@@ -10,7 +10,7 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
 
     constructor(
         protected readonly _context: vscode.ExtensionContext,
-        private readonly _valuesProvider: SecretValuesProvider,
+        private readonly _valuesProvider: SecretValuesProvider
     ) { }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();

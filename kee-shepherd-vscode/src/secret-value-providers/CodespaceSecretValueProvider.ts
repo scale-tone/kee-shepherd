@@ -17,7 +17,7 @@ import { getAuthSession, Log } from '../helpers';
 export const CodespaceSecretKinds = ['Personal', 'Organization', 'Repository'] as const;
 export type CodespaceSecretKind = typeof CodespaceSecretKinds[number];
 
-export const GitHubActionsSecretKinds = ['Organization', 'Repository', 'Environment'] as const;
+export const GitHubActionsSecretKinds = ['Environment', 'Organization', 'Repository'] as const;
 export type GitHubActionsSecretKind = typeof GitHubActionsSecretKinds[number];
 
 export const CodespaceSecretVisibilities = ['all', 'private', 'selected'] as const;

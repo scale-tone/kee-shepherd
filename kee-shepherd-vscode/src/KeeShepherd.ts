@@ -51,7 +51,7 @@ export class KeeShepherd extends KeeShepherdBase {
             mapRepo,
             new SecretTreeView(_account, () => this._repo, resourcesFolder, log),
             new KeyVaultTreeView(_account, valuesProvider, resourcesFolder, log),
-            new CodespacesTreeView(resourcesFolder, log),
+            new CodespacesTreeView(valuesProvider, resourcesFolder, log),
             new ShortcutsTreeView(
                 context,
                 () => this._repo,

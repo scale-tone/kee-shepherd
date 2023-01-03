@@ -234,8 +234,16 @@
                 "title": "Create new Secret"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.createCodespacePersonalSecretFrom",
+                "title": "Create new Secret From..."
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.createGitHubActionsEnvironmentSecret",
                 "title": "Create new Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createGitHubActionsEnvironmentSecretFrom",
+                "title": "Create new Secret From..."
             },
             {
                 "command": "kee-shepherd-vscode.view-context.updateCodespacePersonalSecret",
@@ -250,8 +258,16 @@
                 "title": "Create new Secret"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.createCodespaceOrgSecretFrom",
+                "title": "Create new Secret From..."
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.createGitHubActionsOrgSecret",
                 "title": "Create new Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createGitHubActionsOrgSecretFrom",
+                "title": "Create new Secret From..."
             },
             {
                 "command": "kee-shepherd-vscode.view-context.updateCodespaceOrgSecret",
@@ -266,8 +282,16 @@
                 "title": "Create new Secret"
             },
             {
+                "command": "kee-shepherd-vscode.view-context.createCodespaceRepoSecretFrom",
+                "title": "Create new Secret From..."
+            },
+            {
                 "command": "kee-shepherd-vscode.view-context.createGitHubActionsRepoSecret",
                 "title": "Create new Secret"
+            },
+            {
+                "command": "kee-shepherd-vscode.view-context.createGitHubActionsRepoSecretFrom",
+                "title": "Create new Secret From..."
             },
             {
                 "command": "kee-shepherd-vscode.view-context.updateCodespaceRepoSecret",
@@ -534,7 +558,15 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createCodespacePersonalSecretFrom",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createGitHubActionsEnvironmentSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createGitHubActionsEnvironmentSecretFrom",
                     "when": "never"
                 },
                 {
@@ -550,7 +582,15 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceOrgSecretFrom",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createGitHubActionsOrgSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createGitHubActionsOrgSecretFrom",
                     "when": "never"
                 },
                 {
@@ -566,7 +606,15 @@
                     "when": "never"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceRepoSecretFrom",
+                    "when": "never"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createGitHubActionsRepoSecret",
+                    "when": "never"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createGitHubActionsRepoSecretFrom",
                     "when": "never"
                 },
                 {
@@ -744,7 +792,15 @@
                     "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-personal-secrets"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createCodespacePersonalSecretFrom",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-personal-secrets"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createGitHubActionsEnvironmentSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == github-actions-environment"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createGitHubActionsEnvironmentSecretFrom",
                     "when": "view == kee-shepherd-codespaces-tree-view && viewItem == github-actions-environment"
                 },
                 {
@@ -760,7 +816,15 @@
                     "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-organization"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceOrgSecretFrom",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-organization"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createGitHubActionsOrgSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == github-actions-organization"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createGitHubActionsOrgSecretFrom",
                     "when": "view == kee-shepherd-codespaces-tree-view && viewItem == github-actions-organization"
                 },
                 {
@@ -776,7 +840,15 @@
                     "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-repository-secrets"
                 },
                 {
+                    "command": "kee-shepherd-vscode.view-context.createCodespaceRepoSecretFrom",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == codespaces-repository-secrets"
+                },
+                {
                     "command": "kee-shepherd-vscode.view-context.createGitHubActionsRepoSecret",
+                    "when": "view == kee-shepherd-codespaces-tree-view && viewItem == github-actions-repository-secrets"
+                },
+                {
+                    "command": "kee-shepherd-vscode.view-context.createGitHubActionsRepoSecretFrom",
                     "when": "view == kee-shepherd-codespaces-tree-view && viewItem == github-actions-repository-secrets"
                 },
                 {
