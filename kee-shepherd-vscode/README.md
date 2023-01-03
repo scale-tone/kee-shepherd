@@ -4,7 +4,7 @@ Keeps an eye on credentials (secrets, access keys, connection strings etc.), tha
 
 Now also comes with a UI for Azure Key Vault secrets and GitHub Codespaces Secrets.
 
-<img src="https://user-images.githubusercontent.com/5447190/142853710-85ef42f6-2e30-46f2-a1ed-7f56fde13ccb.png" width="900">
+<img src="https://user-images.githubusercontent.com/5447190/210344942-d2a905c8-7732-434d-9f97-44ee59034e08.png" width="900">
 
 ## TL;DR
 
