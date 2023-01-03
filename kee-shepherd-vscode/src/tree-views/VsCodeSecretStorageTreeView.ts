@@ -64,21 +64,23 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
             }
 
             secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
-            
+            if (!secretName) {
+                return;
+            }
+                
             secretValue = secret.value;
             
         } else {
 
             secretName = await askUserForSecretName();
-
+            if (!secretName) {
+                return;
+            }
+    
             secretValue = await vscode.window.showInputBox({
                 prompt: 'Enter secret value',
                 password: true
             });
-        }
-
-        if (!secretName) {
-            return;
         }
 
         if (!secretValue) {
