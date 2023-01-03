@@ -544,7 +544,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
 
-            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            }
             if (!secretName) {
                 return;
             }
@@ -553,7 +555,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             
         } else {
 
-            secretName = await askUserForSecretName();
+            if (!secretName) {
+                secretName = await askUserForSecretName();
+            }
             if (!secretName) {
                 return;
             }
@@ -596,7 +600,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         // This should be at the beginning, since it might require the user to re-authenticate
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForRepoSecrets();
 
-        let secretName;
+        let secretName = treeItem.secretInfo?.name;
         let secretValue;
 
         if (!!pickUpSecretValue) {
@@ -606,7 +610,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
 
-            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            }
             if (!secretName) {
                 return;
             }
@@ -615,7 +621,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             
         } else {
 
-            secretName = await askUserForSecretName();
+            if (!secretName) {
+                secretName = await askUserForSecretName();
+            }
             if (!secretName) {
                 return;
             }
@@ -651,7 +659,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
         // This should be at the beginning, since it might require the user to re-authenticate
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForOrgAndRepoSecrets();
 
-        let secretName;
+        let secretName = treeItem.secretInfo?.name;
         let secretValue;
 
         if (!!pickUpSecretValue) {
@@ -661,7 +669,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
 
-            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            }
             if (!secretName) {
                 return;
             }
@@ -670,7 +680,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             
         } else {
 
-            secretName = await askUserForSecretName();
+            if (!secretName) {
+                secretName = await askUserForSecretName();
+            }
             if (!secretName) {
                 return;
             }
@@ -763,7 +775,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             repoName = selectedRepo.label;
         }
 
-        let secretName;
+        let secretName = treeItem.secretInfo?.name;
         let secretValue;
 
         if (!!pickUpSecretValue) {
@@ -773,7 +785,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
 
-            secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            if (!secretName) {
+                secretName = !!secret.alreadyAskedForName ? secret.name : await askUserForSecretName(secret.name);
+            }
             if (!secretName) {
                 return;
             }
@@ -782,7 +796,9 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
             
         } else {
 
-            secretName = await askUserForSecretName();
+            if (!secretName) {
+                secretName = await askUserForSecretName();
+            }
             if (!secretName) {
                 return;
             }
