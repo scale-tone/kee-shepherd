@@ -1,9 +1,10 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import { exec } from 'child_process';
+
 import * as vscode from 'vscode';
-import { AnchorPrefix, SecretTypeEnum } from "./KeyMetadataHelpers";
-import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
+
+import { AnchorPrefix } from "./KeyMetadataHelpers";
 
 export type Log = (s: string, withEof: boolean, withTimestamp: boolean) => void;
 

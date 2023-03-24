@@ -8,6 +8,7 @@ import { areEnvVariablesSet, askUserForSecretName, Log, timestampToString } from
 import { ControlledSecret, ControlTypeEnum, SecretTypeEnum, ShortcutsSpecialMachineName, toDictionary } from '../KeyMetadataHelpers';
 import { SecretValuesProvider } from '../SecretValuesProvider';
 import { IKeyMetadataRepo } from '../metadata-repositories/IKeyMetadataRepo';
+import { TreeViewBase } from './TreeViewBase';
 
 type ShortcutsTreeNodeContextValues = 'shortcuts-root-folder' | 'shortcuts-folder' | 'shortcut';
 
@@ -20,16 +21,18 @@ export type ShortcutsTreeItem = vscode.TreeItem & {
 const DefaultShortcutsFolderName = '[Default Shortcuts Folder]';
 
 // Renders the 'Secret Shortcuts' TreeView
-export class ShortcutsTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class ShortcutsTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
 
     constructor(
         protected readonly _context: vscode.ExtensionContext,
         private readonly _getRepo: () => IKeyMetadataRepo,
         private readonly _getSecretValuesAndCheckHashes: (secrets: ControlledSecret[]) => Promise<{ secret: ControlledSecret, value: string }[]>,
         private readonly _valuesProvider: SecretValuesProvider,
-        private readonly _resourcesFolder: string,
-        private readonly _log: Log
-    ) { }
+        resourcesFolder: string,
+        log: Log
+    ) { 
+        super(resourcesFolder, log);
+    }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;

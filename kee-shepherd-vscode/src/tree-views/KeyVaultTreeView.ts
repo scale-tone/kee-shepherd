@@ -8,6 +8,7 @@ import { KeyVaultSecretValueProvider } from '../secret-value-providers/KeyVaultS
 import { askUserForSecretName, Log, timestampToString } from '../helpers';
 import { ControlTypeEnum } from '../KeyMetadataHelpers';
 import { SecretValuesProvider } from '../SecretValuesProvider';
+import { TreeViewBase } from './TreeViewBase';
 
 export enum KeyVaultNodeTypeEnum {
     Subscription = 1,
@@ -29,14 +30,11 @@ export type KeyVaultTreeItem = vscode.TreeItem & {
 };
 
 // Renders the 'Key Vault' TreeView
-export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(
-        private readonly _account: AzureAccountWrapper,
-        private readonly _valuesProvider: SecretValuesProvider,
-        private readonly _resourcesFolder: string,
-        private readonly _log: Log
-    ) { }
+    constructor(private readonly _account: AzureAccountWrapper,  private readonly _valuesProvider: SecretValuesProvider, resourcesFolder: string, log: Log) { 
+        super(resourcesFolder, log);
+    }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -276,10 +274,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
                 return;
             }
     
-            secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
+            secretValue = await this.askUserForSecretValue();
         }
 
         if (!secretValue) {
@@ -330,10 +325,7 @@ export class KeyVaultTreeView implements vscode.TreeDataProvider<vscode.TreeItem
             
         } else {
 
-            secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
+            secretValue = await this.askUserForSecretValue();
         }
 
         if (!secretValue) {

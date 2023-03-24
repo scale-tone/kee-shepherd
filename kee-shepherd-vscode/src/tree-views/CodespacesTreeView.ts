@@ -6,6 +6,7 @@ import { askUserForSecretName, Log } from '../helpers';
 import { ControlTypeEnum } from '../KeyMetadataHelpers';
 import { CodespaceSecretKind, CodespaceSecretKinds, CodespaceSecretInfo, CodespaceSecretValueProvider, CodespaceSecretVisibility, GitHubActionsSecretKinds, GitHubActionsSecretKind } from '../secret-value-providers/CodespaceSecretValueProvider';
 import { SecretValuesProvider } from '../SecretValuesProvider';
+import { TreeViewBase } from './TreeViewBase';
 
 export enum CodespacesNodeTypeEnum {
     CodespacesSecrets = 1,
@@ -40,13 +41,11 @@ export type CodespacesTreeItem = vscode.TreeItem & {
 };
 
 // Renders the 'Codespaces Secrets' TreeView
-export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class CodespacesTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(
-        private readonly _valuesProvider: SecretValuesProvider,
-        private readonly _resourcesFolder: string,
-        private readonly _log: Log
-    ) { }
+    constructor(private readonly _valuesProvider: SecretValuesProvider, resourcesFolder: string, log: Log ) {
+        super(resourcesFolder, log);
+    }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -562,10 +561,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
     
-            secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
+            secretValue = await this.askUserForSecretValue();
         }
 
         if (!secretValue) {
@@ -628,10 +624,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
     
-            secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
+            secretValue = await this.askUserForSecretValue();
         }
 
         if (!secretValue) {
@@ -687,10 +680,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
     
-            secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
+            secretValue = await this.askUserForSecretValue();
         }
 
         if (!secretValue) {
@@ -803,10 +793,7 @@ export class CodespacesTreeView implements vscode.TreeDataProvider<vscode.TreeIt
                 return;
             }
     
-            secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
+            secretValue = await this.askUserForSecretValue();
         }
 
         if (!secretValue) {

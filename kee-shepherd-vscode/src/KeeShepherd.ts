@@ -60,7 +60,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 resourcesFolder,
                 log
             ),
-            new VsCodeSecretStorageTreeView(context, valuesProvider, resourcesFolder),
+            new VsCodeSecretStorageTreeView(context, valuesProvider, resourcesFolder, log),
             log
         );
     }

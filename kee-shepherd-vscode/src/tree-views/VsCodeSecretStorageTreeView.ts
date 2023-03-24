@@ -1,19 +1,23 @@
-import path = require('path');
+import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { askUserForSecretName } from '../helpers';
+import { askUserForSecretName, Log } from '../helpers';
 import { SettingNames } from '../KeeShepherd';
 import { ControlTypeEnum } from '../KeyMetadataHelpers';
 import { SecretValuesProvider } from '../SecretValuesProvider';
+import { TreeViewBase } from './TreeViewBase';
 
 // Renders the 'VsCode Secret Storage' TreeView
-export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
 
     constructor(
         protected readonly _context: vscode.ExtensionContext,
         private readonly _valuesProvider: SecretValuesProvider,
-        private readonly _resourcesFolder: string
-    ) { }
+        resourcesFolder: string,
+        log: Log
+    ) { 
+        super(resourcesFolder, log);
+    }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -83,10 +87,7 @@ export class VsCodeSecretStorageTreeView implements vscode.TreeDataProvider<vsco
                 return;
             }
     
-            secretValue = await vscode.window.showInputBox({
-                prompt: 'Enter secret value',
-                password: true
-            });
+            secretValue = await this.askUserForSecretValue();
         }
 
         if (!secretValue) {

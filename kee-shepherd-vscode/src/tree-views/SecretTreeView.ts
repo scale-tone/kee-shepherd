@@ -7,6 +7,7 @@ import { IKeyMetadataRepo } from '../metadata-repositories/IKeyMetadataRepo';
 import { KeeShepherdBase } from '../KeeShepherdBase';
 import { Log, timestampToString } from '../helpers';
 import { AzureAccountWrapper } from '../AzureAccountWrapper';
+import { TreeViewBase } from './TreeViewBase';
 
 export enum KeeShepherdNodeTypeEnum {
     Machine = 1,
@@ -30,13 +31,11 @@ export type KeeShepherdTreeItem = vscode.TreeItem & {
 };
 
 // Renders the 'Secrets' TreeView
-export class SecretTreeView implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class SecretTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(private _account: AzureAccountWrapper,
-        private _getRepo: () => IKeyMetadataRepo,
-        private _resourcesFolder: string,
-        private _log: Log
-    ) { }
+    constructor(private _account: AzureAccountWrapper, private _getRepo: () => IKeyMetadataRepo, resourcesFolder: string, log: Log) { 
+        super(resourcesFolder, log);
+    }
 
     protected _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
