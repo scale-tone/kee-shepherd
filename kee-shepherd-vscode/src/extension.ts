@@ -8,6 +8,7 @@ import { Log } from './helpers';
 import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import path = require('path');
+import { ActionProvider } from './ActionProvider';
 
 var shepherd: KeeShepherd;
 
@@ -58,7 +59,11 @@ export async function activate(context: vscode.ExtensionContext) {
     const menuCompletionProvider = new MenuCommandCompletionProvider(shepherd);
     const existingSecretsCompletionProvider = new ExistingSecretsCompletionProvider(shepherd, log);
 
+    const actionProvider = new ActionProvider(shepherd);
+
     context.subscriptions.push(
+
+        vscode.languages.registerCodeActionsProvider('*', actionProvider),
 
         vscode.languages.registerCompletionItemProvider('*', anchorCompletionProvider, '@'),
         vscode.languages.registerCompletionItemProvider('*', menuCompletionProvider, '('),

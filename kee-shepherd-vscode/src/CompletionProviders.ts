@@ -148,7 +148,7 @@ export class ExistingSecretsCompletionProvider implements vscode.CompletionItemP
         let secrets: ControlledSecret[] = [];
         try {
 
-            secrets = await this._shepherd.metadataRepo.getAllCachedSecrets()
+            secrets = await this._shepherd.metadataRepo.getAllCachedSecrets();
 
         } catch (err) {
 
