@@ -1,8 +1,6 @@
-import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { execSync } from 'child_process';
 
 import { SecretTypeEnum, ControlTypeEnum, ControlledSecret, getAnchorName } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
@@ -491,79 +489,5 @@ export abstract class KeeShepherdBase {
             vscode.window.showInformationMessage(`KeeShepherd: ${missingSecrets.length} secrets have been forgotten from ${filePath}`);
             this.treeView.refresh();
         }
-    }
-
-    protected async setGlobalEnvVariables(variables: { [n: string] : string | undefined }): Promise<void> {
-
-        if (process.platform === "win32") {
-
-            for (const name of Object.keys(variables)) {
-                
-                var value = variables[name];
-               
-                if (!!value) {
-                    // Escaping double quotes
-                    value = value.replace(/\"/g, `\\"`);
-                }
-    
-                var cmd = `setx ${name} "${value ?? ''}"`;
-    
-                this._log(`Executing setx ${name} "xxx"`, true, true);
-                execSync(cmd);
-                this._log(`Succeeded setx ${name} "xxx"`, true, true);
-                
-                if (!value) {
-                    // Also need to remove from registry (otherwise the variable will be left as existing but empty)
-    
-                    cmd = `reg delete HKCU\\Environment /f /v ${name}`;
-    
-                    this._log(`Executing ${cmd}`, true, true);
-                    execSync(cmd);
-                    this._log(`Succeeded executing ${cmd}`, true, true);
-                }
-            }
-
-        } else {
-
-            await this.addSetEnvVariableCommands(os.homedir() + '/.bashrc', variables);
-        }
-    }
-
-    private async addSetEnvVariableCommands(filePath: string, variables: { [n: string] : string | undefined }): Promise<void> {
-
-        var fileText = '';
-        try {
-
-            fileText = Buffer.from(await fs.promises.readFile(filePath)).toString();
-            
-        } catch (err) {
-
-            this._log(`Failed to read ${filePath}. ${(err as any).message ?? err}`, true, true);
-        }
-
-        var secretsAdded = false;
-
-        for (const name of Object.keys(variables)) {
-            
-            fileText = fileText.replace(new RegExp(`(\r)?(\n)?export ${name}=.*`, 'g'), '');
-
-            var value = variables[name];
-            if (!!value) {
-    
-                // Escaping double quotes
-                value = value.replace(/\"/g, `\\"`);
-    
-                if (fileText.length > 0 && fileText[fileText.length - 1] != '\n') {
-                    fileText += '\n';
-                }
-                
-                fileText += `export ${name}="${value}"`;
-                
-                secretsAdded = true;
-            }
-        }
-        
-        await fs.promises.writeFile(filePath, Buffer.from(fileText));
-        this._log(`Secrets ${Object.keys(variables).join(', ')} were ${!!secretsAdded ? 'written to' : 'removed from'} ${filePath}`, true, true);
     }
 }
