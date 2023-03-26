@@ -6,7 +6,7 @@ import * as Crypto from 'crypto';
 import { TableServiceClient, TableClient, TableEntity } from '@azure/data-tables';
 
 import { ControlledSecret, encodePathSegment, getSha256Hash, SecretTypeEnum, ControlTypeEnum, MinSecretLength, SecretNameConflictError, ShortcutsSpecialMachineName } from '../KeyMetadataHelpers';
-import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { IKeyMetadataRepo, MetadataRepoType } from './IKeyMetadataRepo';
 import { AzureAccountWrapper } from '../AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
@@ -83,6 +83,8 @@ export class KeyMetadataTableRepo implements IKeyMetadataRepo {
 
         return repo;
     }
+
+    get type(): MetadataRepoType { return MetadataRepoType.AzureTable; }
 
     async findBySecretName(name: string): Promise<ControlledSecret[]> {
 

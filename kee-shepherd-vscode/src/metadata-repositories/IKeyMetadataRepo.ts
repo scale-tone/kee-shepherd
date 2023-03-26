@@ -28,4 +28,11 @@ export interface IKeyMetadataRepo {
     createFolder(name: string): Promise<void>;
 
     removeFolder(name: string): Promise<void>;
+
+    get type(): MetadataRepoType;
+}
+
+export enum MetadataRepoType {
+    LocalFiles = 0,
+    AzureTable
 }

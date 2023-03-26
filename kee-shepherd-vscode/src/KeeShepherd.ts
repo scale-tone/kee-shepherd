@@ -1,10 +1,11 @@
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, SecretNameConflictError } from './KeyMetadataHelpers';
-import { IKeyMetadataRepo } from './metadata-repositories/IKeyMetadataRepo';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, SecretNameConflictError, ShortcutsSpecialMachineName } from './KeyMetadataHelpers';
+import { IKeyMetadataRepo, MetadataRepoType } from './metadata-repositories/IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './metadata-repositories/KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
 import { KeeShepherdBase } from './KeeShepherdBase';
@@ -77,9 +78,97 @@ export class KeeShepherd extends KeeShepherdBase {
 
         await KeeShepherd.cleanupSettings(context);
 
+        const oldRepo = this._repo;
+
         this._repo = await KeeShepherd.getKeyMetadataRepo(context, this._account, this._log);
 
-        this.treeView.refresh();
+        // Also cleaning up the key map
+        await this._mapRepo.cleanup();
+
+        try {
+         
+            if (oldRepo.type === MetadataRepoType.LocalFiles && this._repo.type === MetadataRepoType.LocalFiles) {
+
+                // Don't import from file into files, just exiting
+                return;
+            }
+
+            const userResponse = await vscode.window.showWarningMessage(
+                `Do you want to import secrets from old Metadata Storage?`,
+                'Yes', 'No');
+    
+            if (userResponse !== 'Yes') {
+                return;
+            }
+
+            const progressOptions = {
+                location: vscode.ProgressLocation.Notification,
+                title: `Importing secrets...`
+            };
+    
+            await vscode.window.withProgress(progressOptions, async () => {
+
+                // First importing shortcut folders
+                try {
+
+                    const oldShortcutFolders = await oldRepo.getFolders(ShortcutsSpecialMachineName);
+
+                    for (const shortcutFolder of oldShortcutFolders) {
+                        
+                        this._repo.createFolder(shortcutFolder);
+                    }
+                        
+                } catch (err: any) {
+                    
+                    this._log(`Failed to import folders. ${err.message ?? err}`, true, true);
+                }
+        
+                let oldSecrets: ControlledSecret[];
+        
+                if (this._repo.type === MetadataRepoType.LocalFiles) {
+                    
+                    // If new repo is local, only importing secrets from local machine
+                    oldSecrets = await oldRepo.getSecrets('', false, os.hostname());
+        
+                } else {
+        
+                    oldRepo.refreshCache();
+                    oldSecrets = await oldRepo.getAllCachedSecrets();
+                }
+
+                // Don't forget shortcuts
+                const shortcutSecrets = await oldRepo.getSecrets('', false, ShortcutsSpecialMachineName);
+                oldSecrets = [...oldSecrets, ...shortcutSecrets];
+
+                let importedCount = 0, failedCount = 0;
+        
+                for (const secret of oldSecrets) {
+                    
+                    try {
+
+                        await this._repo.addSecret(secret);
+                        importedCount++;
+                        
+                    } catch (err: any) {
+                        
+                        failedCount++;
+                        this._log(`Failed to import secret ${secret.name}. ${err.message ?? err}`, true, true);
+                    }
+                }
+
+                let msg = `${importedCount} secrets imported`;
+                if (!!failedCount) {
+                    msg += `, ${failedCount} secrets failed to be imported`;
+                }
+
+                vscode.window.showInformationMessage(msg);
+            });    
+                
+        } finally {
+
+            this.treeView.refresh();
+            this.shortcutsTreeView.refresh();
+        }
     }
 
     async forgetSecrets(treeItem: KeeShepherdTreeItem): Promise<void>{

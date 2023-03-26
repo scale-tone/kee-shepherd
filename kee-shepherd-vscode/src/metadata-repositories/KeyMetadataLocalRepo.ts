@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as Crypto from 'crypto';
 import * as vscode from 'vscode';
 import { ControlledSecret, getFullPathThatFits, encodePathSegment, getSha256Hash, MinSecretLength, ShortcutsSpecialMachineName, ControlTypeEnum, SecretNameConflictError } from '../KeyMetadataHelpers';
-import { IKeyMetadataRepo } from './IKeyMetadataRepo';
+import { IKeyMetadataRepo, MetadataRepoType } from './IKeyMetadataRepo';
 import { SaltKey } from './KeyMetadataTableRepo';
 
 // Older way to distinguish env variables, not used anymore.
@@ -12,6 +12,8 @@ const EnvVariableSpecialPath = '|KeeShepherdEnvironmentVariables';
 
 // Stores secret metadata locally in JSON files
 export class KeyMetadataLocalRepo implements IKeyMetadataRepo {
+
+    get type(): MetadataRepoType { return MetadataRepoType.LocalFiles; }
 
     async findBySecretName(name: string): Promise<ControlledSecret[]> {
 
