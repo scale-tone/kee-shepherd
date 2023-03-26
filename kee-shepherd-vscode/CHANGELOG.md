@@ -1,5 +1,25 @@
 # Change Log
 
+## Version 2.1
+
+- Secret generator:
+
+  <img src="https://user-images.githubusercontent.com/5447190/227786969-80713c64-c676-4727-baaf-3cfff32db1d5.png" width="600">
+
+- Notifications about secrets that are about to expire (only Azure DevOps PATs currently supported):
+
+  <img src="https://user-images.githubusercontent.com/5447190/227787169-c123ee71-311f-4fdf-be34-646f24620419.png" width="600">
+
+- Code actions for operations like `Mask/Unmask` and `Stash/Unstash`:
+
+  <img src="https://user-images.githubusercontent.com/5447190/227787430-e5f9cb55-64d8-4e9d-bfa9-6421ed8dcb60.png" width="300">
+
+- Now when switching from one Metadata Storage to another secrets can be imported.
+    
+- Minor bugfixes.
+
+
+
 ## Version 2.0
 
 - KeeShepherd now has its own view container, where its various views congregate by default:
