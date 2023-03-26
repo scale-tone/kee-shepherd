@@ -87,6 +87,15 @@ export const azureDevOpsScopeOptions: vscode.QuickPickItem[] = [
         detail: 'Grants the ability to read and write commit and pull request status.'
     },
 
+    {
+        label: 'Connected Server',
+        kind: vscode.QuickPickItemKind.Separator
+    },
+    {
+        description: 'vso.connected_server',
+        label: 'Access endpoints',
+        detail: ''
+    },
 
     {
         label: 'Entitlements',
@@ -106,6 +115,17 @@ export const azureDevOpsScopeOptions: vscode.QuickPickItem[] = [
         description: 'vso.memberentitlementmanagement_write',
         label: 'MemberEntitlement Management (write)',
         detail: 'Grants the ability to manage users, their licenses as well as projects and extensions they can access.'
+    },
+
+
+    {
+        label: 'Environment',
+        kind: vscode.QuickPickItemKind.Separator
+    },
+    {
+        description: 'vso.environment_manage',
+        label: 'Read and manage environment',
+        detail: ''
     },
 
 
@@ -261,6 +281,24 @@ export const azureDevOpsScopeOptions: vscode.QuickPickItem[] = [
     },
 
 
+    
+    {
+        label: 'Pipeline Resources',
+        kind: vscode.QuickPickItemKind.Separator
+    },
+    {
+        description: 'vso.pipelineresources_use',
+        label: 'Use',
+        detail: ''
+    },
+    {
+        description: 'vso.pipelineresources_manage',
+        label: 'Use and manage',
+        detail: ''
+    },
+    
+
+
     {
         label: 'Project and Team',
         kind: vscode.QuickPickItemKind.Separator
@@ -282,6 +320,19 @@ export const azureDevOpsScopeOptions: vscode.QuickPickItem[] = [
     },
 
 
+    
+    {
+        label: 'Pull Request Threads',
+        kind: vscode.QuickPickItemKind.Separator
+    },
+    {
+        description: 'vso.threads_full',
+        label: 'Read & write',
+        detail: 'Grants the ability to read & write to pull request comment threads'
+    },
+
+
+
     {
         label: 'Release',
         kind: vscode.QuickPickItemKind.Separator
@@ -300,6 +351,28 @@ export const azureDevOpsScopeOptions: vscode.QuickPickItem[] = [
         description: 'vso.release_manage',
         label: 'Release (read, write, execute and manage)',
         detail: 'Grants the ability to read, update, and delete release artifacts, including releases, release definitions and release environment, and the ability to queue and approve a new release.'
+    },
+
+
+    
+    {
+        label: 'Secure Files',
+        kind: vscode.QuickPickItemKind.Separator
+    },
+    {
+        description: 'vso.securefiles_read',
+        label: 'Read',
+        detail: 'Grants the ability to read secure files'
+    },
+    {
+        description: 'vso.securefiles_write',
+        label: 'Read & Create',
+        detail: 'Grants the ability to read & create secure files'
+    },
+    {
+        description: 'vso.securefiles_manage',
+        label: 'Read, create & manage',
+        detail: 'Grants the ability to read, create, & manage secure files'
     },
 
 
