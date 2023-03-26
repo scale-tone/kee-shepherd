@@ -533,7 +533,7 @@ export class CodespacesTreeView extends TreeViewBase implements vscode.TreeDataP
         // This should be at the beginning, since it might require the user to re-authenticate
         const accessToken = await CodespaceSecretValueProvider.getGithubAccessTokenForPersonalSecretsAndRepos();
 
-        let secretName;
+        let secretName = treeItem.secretInfo?.name;
         let secretValue;
 
         if (!!pickUpSecretValue) {

@@ -9,6 +9,7 @@ import { askUserForSecretName, Log, timestampToString } from '../helpers';
 import { ControlTypeEnum } from '../KeyMetadataHelpers';
 import { SecretValuesProvider } from '../SecretValuesProvider';
 import { TreeViewBase } from './TreeViewBase';
+import { SecretProperties } from '@azure/keyvault-secrets';
 
 export enum KeyVaultNodeTypeEnum {
     Subscription = 1,
@@ -131,12 +132,15 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                      
                         const secretProvider = new KeyVaultSecretValueProvider(this._account);
                         const secrets = await secretProvider.getSecrets(parent.label as string);
-    
+
                         for (const secret of secrets) {
                             
+                            const label = (!!secret.expiresOn && secret.expiresOn < new Date()) ? `${secret.name}❗` : secret.name;
+
                             const node = {
-                                label: secret.name,
-                                tooltip: timestampToString(secret.createdOn as Date),
+                                label,
+                                tooltip: this.getSecretTooltip(secret),
+                                description: this.getSecretDescription(secret),
                                 nodeType: KeyVaultNodeTypeEnum.Secret,
                                 contextValue: 'key-vault-secret',
                                 subscriptionId: parent.subscriptionId,
@@ -151,7 +155,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                             };
     
                             // Sorting by name on the fly
-                            const index = result.findIndex(n => n.label! > node.label);
+                            const index = result.findIndex(n => n.secretId! > node.secretId);
                             result.splice(index < 0 ? result.length : index, 0, node);    
                         }                            
 
@@ -170,14 +174,15 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                      
                         const secretProvider = new KeyVaultSecretValueProvider(this._account);
 
-                        const secretVersions = await secretProvider.getSecretVersions(parent.keyVaultName!, parent.label as string);
+                        const secretVersions = await secretProvider.getSecretVersions(parent.keyVaultName!, parent.secretId as string);
     
                         for (const secretVersion of secretVersions) {
                             
                             const node = {
                                 label: secretVersion.version,
                                 updatedOn: secretVersion.updatedOn,
-                                tooltip: timestampToString(secretVersion.createdOn as Date),
+                                tooltip: this.getSecretTooltip(secretVersion),
+                                description: this.getSecretDescription(secretVersion),
                                 nodeType: KeyVaultNodeTypeEnum.SecretVersion,
                                 contextValue: 'key-vault-secret-version',
                                 subscriptionId: parent.subscriptionId,
@@ -311,7 +316,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
             return;
         }
 
-        const secretName = treeItem.label as string;
+        const secretName = treeItem.secretId as string;
         let secretValue;
 
         if (!!pickUpSecretValue) {
@@ -350,7 +355,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
         }
 
         const userResponse = await vscode.window.showWarningMessage(
-            `Secret ${treeItem.label} will be removed ("soft-deleted") from Key Vault. Do you want to proceed?`,
+            `Secret ${treeItem.secretId} will be removed ("soft-deleted") from Key Vault. Do you want to proceed?`,
             'Yes', 'No');
 
         if (userResponse !== 'Yes') {
@@ -367,7 +372,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
 
         await vscode.window.withProgress(progressOptions, async () => { 
 
-            const poller = await keyVaultClient.beginDeleteSecret(treeItem.label as string);
+            const poller = await keyVaultClient.beginDeleteSecret(treeItem.secretId as string);
             const removedSecret = await poller.pollUntilDone();
 
             this._log(`Removed ${removedSecret.name} from ${treeItem.keyVaultName} Key Vault`, true, true);
@@ -375,6 +380,43 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
 
         this.refresh();
 
-        vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.label} was removed from Key Vault`);
+        vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.secretId} was removed from Key Vault`);
+    }
+
+    private getSecretTooltip(secret: SecretProperties): string {
+
+        let result = timestampToString(secret.createdOn as Date);
+
+        if (!!secret.expiresOn) {
+            
+            if (!!result) {
+                result += ', ';
+            }
+
+            if (secret.expiresOn < new Date()) {
+                
+                result += `expired`;
+
+            } else {
+
+                result += `expires on ${secret.expiresOn.toDateString()}`;
+            }
+        }
+        
+        return result;
+    }
+
+    private getSecretDescription(secret: SecretProperties): string {
+
+        if (!secret.enabled) {
+            
+            return 'disabled';
+
+        } else if (!!secret.contentType) {
+            
+            return secret.contentType;
+        }
+        
+        return '';
     }
 }
