@@ -64,6 +64,36 @@ export class KeeShepherd extends KeeShepherdBase {
             new VsCodeSecretStorageTreeView(context, valuesProvider, resourcesFolder, log),
             log
         );
+
+        if (!!this._account.azureAccount) {
+            
+            const refreshViews = () => {
+                this.keyVaultTreeView.refresh();
+                this.treeView.refresh();
+            };
+
+            // When user changes their list of filtered subscriptions (or just relogins to Azure)...
+
+            if (!!this._account.azureAccount.onStatusChanged) {
+                
+                this._context.subscriptions.push(this._account.azureAccount.onStatusChanged(() => refreshViews()));
+            }
+
+            if (!!this._account.azureAccount.onFiltersChanged) {
+                
+                this._context.subscriptions.push(this._account.azureAccount.onFiltersChanged(() => refreshViews()));
+            }
+
+            if (!!this._account.azureAccount.onSessionsChanged) {
+                
+                this._context.subscriptions.push(this._account.azureAccount.onSessionsChanged(() => refreshViews()));
+            }
+
+            if (!!this._account.azureAccount.onSubscriptionsChanged) {
+                
+                this._context.subscriptions.push(this._account.azureAccount.onSubscriptionsChanged(() => refreshViews()));
+            }
+        }
     }
 
     get metadataRepo(): IKeyMetadataRepo {

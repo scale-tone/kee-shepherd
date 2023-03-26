@@ -29,6 +29,8 @@ export class AzureAccountWrapper {
         this._account = !!azureAccountExtension ? azureAccountExtension.exports : undefined;
     }
 
+    get azureAccount(): any { return this._account; }
+
     async picUpStorageAccount(storageManagementClient: StorageManagementClient): Promise<StorageAccount | undefined> {
 
         const storageAccounts: StorageAccount[] = [];
