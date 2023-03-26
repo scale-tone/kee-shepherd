@@ -809,6 +809,60 @@ export class KeeShepherd extends KeeShepherdBase {
         vscode.window.showInformationMessage(`KeeShepherd: ${secret.name} was added successfully.`);
     }
 
+    async checkForExpiredSecrets(): Promise<void> {
+
+        const daysBeforeExpiration = 3;
+
+        const expiringSecrets: ControlledSecret[] = [];
+        const expiredSecrets: ControlledSecret[] = [];
+
+        const allSecrets = [...await this._repo.getAllCachedSecrets(), ...await this._repo.getSecrets('', false, ShortcutsSpecialMachineName)];
+
+        for (const secret of allSecrets) {
+         
+            // Currently only Azure DevOps PATs are supported
+            const azDoPatProps = secret.properties?.azDoPatProperties;
+            if (!!azDoPatProps) {
+
+                const validToTicks = Date.parse(azDoPatProps.validTo);
+                if ((!isNaN(validToTicks)) && (!secret.properties.expiredNotificationShown)) {
+
+                    const validToDate = new Date(validToTicks);
+                    const now = new Date();
+                    let threeDaysAhead = new Date();
+                    threeDaysAhead.setDate(threeDaysAhead.getDate() + daysBeforeExpiration);
+
+                    if (validToDate < now) {
+                        
+                        expiredSecrets.push(secret);
+
+                        // Also saving the flag that notification was shown
+                        secret.properties.expiredNotificationShown = true;
+                        await this._repo.addSecret(secret);
+
+                    } else if (validToDate < threeDaysAhead) {
+                        
+                        expiringSecrets.push(secret);
+                    }
+                }
+            }
+        }
+
+        if (!!expiringSecrets.length) {
+
+            const distinctSecretNames = expiringSecrets.map(s => s.name).filter((name, index, self) => self.indexOf(name) === index);
+            
+            vscode.window.showWarningMessage(`Secret(s) ${distinctSecretNames.join(', ')} will expire in ${daysBeforeExpiration} days. Consider renewing them.`);
+        }
+
+        if (!!expiredSecrets.length) {
+
+            const distinctSecretNames = expiredSecrets.map(s => s.name).filter((name, index, self) => self.indexOf(name) === index);
+            
+            vscode.window.showWarningMessage(`Secret(s) ${distinctSecretNames.join(', ')} expired. Consider renewing them.`);
+        }
+    }
+
     static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
         
         // Zeroing settings

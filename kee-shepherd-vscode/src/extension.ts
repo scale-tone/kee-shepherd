@@ -199,6 +199,15 @@ export async function activate(context: vscode.ExtensionContext) {
         
         await doAndShowError(() => shepherd.stashUnstashAllSecretsInThisProject(false), 'KeeShepherd failed to unstash secrets at startup');
     }
+
+    const notifyAboutExpiringSecrets = config.get("notifyAboutExpiringSecrets");
+    if (!!notifyAboutExpiringSecrets) {
+
+        // Intentionally not awaiting
+        shepherd.checkForExpiredSecrets().catch(err => {
+            log(`Failed to check for expired secrets. ${err.message ?? err}`, true, true);
+        });
+    }
 }
 
 // this method is called when your extension is deactivated

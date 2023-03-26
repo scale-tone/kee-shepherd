@@ -988,6 +988,11 @@
                     "type": "boolean",
                     "default": "true",
                     "description": "Set git hooks for unstashed secrets (to prevent them from being committed)"
+                },
+                "kee-shepherd.notifyAboutExpiringSecrets": {
+                    "type": "boolean",
+                    "default": "true",
+                    "description": "Check and notify about expiring secrets at startup"
                 }
             }
         }
