@@ -91,10 +91,11 @@ export class ShortcutsTreeView extends TreeViewBase implements vscode.TreeDataPr
 
                     for (const secret of secrets) {
                      
-                        const description = `${SecretTypeEnum[secret.type]}`;
+                        let description = `${SecretTypeEnum[secret.type]}`;
         
-                        var icon = 'secret.svg';
-                        var tooltip = timestampToString(secret.timestamp);
+                        let icon = 'secret.svg';
+                        let tooltip = timestampToString(secret.timestamp);
+                        let label = secret.name;
 
                         if (!existingEnvVars[secret.name]) {
                             
@@ -106,8 +107,34 @@ export class ShortcutsTreeView extends TreeViewBase implements vscode.TreeDataPr
                             tooltip = 'mounted as Global Env Variable' + (!tooltip ? '' : ', ') + tooltip;
                         }
 
+                        const azDoPatProps = secret.properties?.azDoPatProperties;
+                        if (!!azDoPatProps) {
+
+                            description = `${SecretTypeEnum[SecretTypeEnum.AzureDevOpsPAT]}`;
+
+                            if (!!azDoPatProps.scope) {
+                                
+                                tooltip = `scopes: '${azDoPatProps.scope}'`;
+                            }
+
+                            if (!!azDoPatProps.validTo) {
+                                
+                                const validToDate = Date.parse(azDoPatProps.validTo);
+
+                                if (!isNaN(validToDate) && new Date(validToDate) < new Date()) {
+
+                                    label = `${secret.name}❗`;
+                                    tooltip += `${!tooltip ? '' : ', '}expired`;
+                                    
+                                } else {
+
+                                    tooltip += `${!tooltip ? '' : ', '}expires ${azDoPatProps.validTo.toString().slice(0, 10)}`;
+                                }
+                            }
+                        }
+
                         const node = {
-                            label: secret.name,
+                            label,
                             description,
                             tooltip,
                             collapsibleState: vscode.TreeItemCollapsibleState.None,
@@ -121,7 +148,7 @@ export class ShortcutsTreeView extends TreeViewBase implements vscode.TreeDataPr
                         };
 
                         // Sorting by name on the fly
-                        const index = result.findIndex(n => n.label! > node.label);
+                        const index = result.findIndex(n => n.secret?.name! > node.secret?.name!);
                         result.splice(index < 0 ? result.length : index, 0, node);
                     }
                 }
@@ -178,7 +205,7 @@ export class ShortcutsTreeView extends TreeViewBase implements vscode.TreeDataPr
             
             case 'shortcut':
 
-                secretNames = [treeItem.label as string];
+                secretNames = [treeItem.secret!.name as string];
                 
                 break;
             

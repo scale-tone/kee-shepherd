@@ -41,7 +41,7 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
 
         const accounts = accountsResponse?.data?.value as { accountId: string, accountName: string }[];
         if (!accounts || !accounts.length) {
-            return;
+            throw new Error(`Current Microsoft account does not have access to any Azure DevOps organizations`);
         }
 
         const allOrgsOption = { label: '[All organizations accessible by you]' };
