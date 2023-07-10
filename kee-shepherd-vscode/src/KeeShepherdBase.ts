@@ -357,9 +357,19 @@ export abstract class KeeShepherdBase {
 
             // Reading current file contents.
             let { text, byteOrderMark } = await KeeShepherdBase.readFile(fileUri);
+
+            if (!text) {
+                // Quitting, if something went wrong with the read (e.g. during the workspace unload vscode's methods are unstable and might theoretically produce an empty string instead of throwing)
+                return 0;
+            }
             
             // Replacing @KeeShepherd() links with secret values
             const outputFileText = await this.internalStashUnstashSecrets(filePath, text, managedSecretValues, stash);
+
+            if (outputFileText === text) {
+                // Quitting, if no secrets were replaced. This shouldn't happen, but just in case.
+                return 0;
+            }
 
             // Temporarily hiding everything. This seems to be the only way to prevent secret values from flashing.
             // Only doing this if the text has actually changed, because otherwise onDidChangeTextDocument event won't be triggered.
@@ -404,7 +414,7 @@ export abstract class KeeShepherdBase {
 
         const secrets = await this._repo.getSecrets(filePath, true);
         
-        const outputMap: SecretMapEntry[] = []
+        const outputMap: SecretMapEntry[] = [];
         const secretsFound: string[] = [];
 
         // Searching for all secrets in this text
