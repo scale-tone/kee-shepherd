@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import axios from "axios";
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 
 // Implements picking and retrieving secret values from Resource Manager REST API
@@ -10,7 +10,7 @@ export class ResourceManagerRestApiSecretValueProvider implements ISecretValuePr
 
     constructor(protected _account: AzureAccountWrapper) { }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getSecretValue(secret: SecretReference): Promise<string> {
 
         const token = await this._account.getToken();
 

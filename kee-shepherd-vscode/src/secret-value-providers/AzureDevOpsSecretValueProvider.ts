@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import axios from "axios";
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { ControlledSecret, SecretTypeEnum, AnchorPrefix, ControlTypeEnum } from "../KeyMetadataHelpers";
+import { SecretReference, SecretTypeEnum, AnchorPrefix, ControlTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { azureDevOpsScopeOptions } from './AzureDevOpsScopeOptions';
 import { SecretStorageUserChoice } from '../SecretValuesProvider';
@@ -19,7 +19,7 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
     ) {
     }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getSecretValue(secret: SecretReference): Promise<string> {
 
         // No way to retrieve an AzDO PAT after it was created, so just returning an empty string.
         return '';

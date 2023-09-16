@@ -41,6 +41,13 @@ export enum ControlTypeEnum {
     EnvVariable
 }
 
+export type SecretReference = {
+
+    name: string;
+    type: SecretTypeEnum;
+    properties?: any;
+};
+
 export type ControlledSecret = {
 
     name: string;

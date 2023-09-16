@@ -10,7 +10,7 @@ const sodium = require('libsodium-wrappers');
 const execAsync = util.promisify(cp.exec);
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { getAuthSession, Log } from '../helpers';
 
@@ -30,7 +30,7 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper, private _log: Log) { }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getSecretValue(secret: SecretReference): Promise<string> {
 
         const name = secret.properties?.name ?? secret.name;
 

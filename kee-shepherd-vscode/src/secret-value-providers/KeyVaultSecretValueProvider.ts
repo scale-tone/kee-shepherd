@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { SecretClient, SecretProperties } from "@azure/keyvault-secrets";
 
 import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
-import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
@@ -41,7 +41,7 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         }
     }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getSecretValue(secret: SecretReference): Promise<string> {
 
         const keyVaultClient = await this.getKeyVaultClient(secret.properties.keyVaultName);
 

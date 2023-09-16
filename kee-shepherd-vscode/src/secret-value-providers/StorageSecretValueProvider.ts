@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { StorageManagementClient } from '@azure/arm-storage';
 
@@ -10,7 +10,7 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getSecretValue(secret: SecretReference): Promise<string> {
 
         const tokenCredentials = await this._account.getTokenCredential();
         const storageManagementClient = new StorageManagementClient(tokenCredentials, secret.properties.subscriptionId);
