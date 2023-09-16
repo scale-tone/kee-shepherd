@@ -11,7 +11,7 @@ import { AzureAccountWrapper } from '../AzureAccountWrapper';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { AzureNamedKeyCredential } from '@azure/core-auth';
 import { KeyVaultSecretValueProvider } from '../secret-value-providers/KeyVaultSecretValueProvider';
-import { SettingNames } from '../KeeShepherd';
+import { SettingNames } from '../SettingNames';
 
 export const SaltKey = '|KeeShepherdSalt|';
 export const ShortcutsFolderPartitionKey = '|KeeShepherdSecretShortcutsFolder|';

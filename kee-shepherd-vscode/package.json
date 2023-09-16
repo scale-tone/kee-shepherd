@@ -114,6 +114,10 @@
                 "title": "KeeShepherd: Open Terminal with Environment Variables mounted"
             },
             {
+                "command": "kee-shepherd-vscode.copyMruToClipboard",
+                "title": "KeeShepherd: Copy Most Recently Used Secret to Clipboard..."
+            },
+            {
                 "command": "kee-shepherd-vscode.editor-context.superviseSecret",
                 "title": "Supervise this Secret..."
             },

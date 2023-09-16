@@ -110,6 +110,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copySecretValue', (item) => doAndShowError(() => shepherd.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
 
+        vscode.commands.registerCommand('kee-shepherd-vscode.copyMruToClipboard', () => doAndShowError(() => shepherd.copyMruSecretValue(), 'KeeShepherd failed to copy secret value')),
+
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.forgetAllSecrets', (item) => doAndShowError(() => shepherd.forgetAllSecrets(item), 'KeeShepherd failed to forget secrets')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createKeyVaultSecret', (item) => doAndShowError(() => shepherd.keyVaultTreeView.createKeyVaultSecret(item), 'KeeShepherd failed to add secret to Key Vault')),

@@ -6,10 +6,11 @@ import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { AzureAccountWrapper } from '../AzureAccountWrapper';
 import { KeyVaultSecretValueProvider } from '../secret-value-providers/KeyVaultSecretValueProvider';
 import { askUserForSecretName, Log, timestampToString } from '../helpers';
-import { ControlTypeEnum } from '../KeyMetadataHelpers';
+import { ControlTypeEnum, SecretTypeEnum } from '../KeyMetadataHelpers';
 import { SecretValuesProvider } from '../SecretValuesProvider';
 import { TreeViewBase } from './TreeViewBase';
 import { SecretProperties } from '@azure/keyvault-secrets';
+import { MruList } from '../MruList';
 
 export enum KeyVaultNodeTypeEnum {
     Subscription = 1,
@@ -33,7 +34,7 @@ export type KeyVaultTreeItem = vscode.TreeItem & {
 // Renders the 'Key Vault' TreeView
 export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(private readonly _account: AzureAccountWrapper,  private readonly _valuesProvider: SecretValuesProvider, resourcesFolder: string, log: Log) { 
+    constructor(private readonly _account: AzureAccountWrapper,  private readonly _valuesProvider: SecretValuesProvider, private readonly _mruList: MruList, resourcesFolder: string, log: Log) { 
         super(resourcesFolder, log);
     }
 
@@ -244,6 +245,15 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
         } else {
 
             vscode.env.clipboard.writeText(secret.value as string);
+
+            await this._mruList.add({
+                name: treeItem.secretId,
+                type: SecretTypeEnum.AzureKeyVault, 
+                properties: {
+                    keyVaultName: treeItem.keyVaultName,
+                    keyVaultSecretName: treeItem.secretId
+                }
+            });
         }
 
         vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${treeItem.secretId} was copied to Clipboard`);

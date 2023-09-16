@@ -3,10 +3,11 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { askUserForSecretName, Log } from '../helpers';
-import { ControlTypeEnum } from '../KeyMetadataHelpers';
+import { ControlTypeEnum, SecretTypeEnum } from '../KeyMetadataHelpers';
 import { CodespaceSecretKind, CodespaceSecretKinds, CodespaceSecretInfo, CodespaceSecretValueProvider, CodespaceSecretVisibility, GitHubActionsSecretKinds, GitHubActionsSecretKind } from '../secret-value-providers/CodespaceSecretValueProvider';
 import { SecretValuesProvider } from '../SecretValuesProvider';
 import { TreeViewBase } from './TreeViewBase';
+import { MruList } from '../MruList';
 
 export enum CodespacesNodeTypeEnum {
     CodespacesSecrets = 1,
@@ -43,7 +44,7 @@ export type CodespacesTreeItem = vscode.TreeItem & {
 // Renders the 'Codespaces Secrets' TreeView
 export class CodespacesTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
 
-    constructor(private readonly _valuesProvider: SecretValuesProvider, resourcesFolder: string, log: Log ) {
+    constructor(private readonly _valuesProvider: SecretValuesProvider, private readonly _mruList: MruList, resourcesFolder: string, log: Log ) {
         super(resourcesFolder, log);
     }
 
@@ -872,6 +873,8 @@ export class CodespacesTreeView extends TreeViewBase implements vscode.TreeDataP
         }
 
         vscode.env.clipboard.writeText(secretValue);
+
+        await this._mruList.add({ name: treeItem.secretInfo.name, type: SecretTypeEnum.Codespaces });
 
         vscode.window.showInformationMessage(`KeeShepherd: value of ${treeItem.secretInfo.name} was copied to Clipboard`);
     }

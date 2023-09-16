@@ -9,6 +9,7 @@ import { ControlledSecret, ControlTypeEnum, SecretTypeEnum, ShortcutsSpecialMach
 import { SecretValuesProvider } from '../SecretValuesProvider';
 import { IKeyMetadataRepo } from '../metadata-repositories/IKeyMetadataRepo';
 import { TreeViewBase } from './TreeViewBase';
+import { MruList } from '../MruList';
 
 type ShortcutsTreeNodeContextValues = 'shortcuts-root-folder' | 'shortcuts-folder' | 'shortcut';
 
@@ -28,6 +29,7 @@ export class ShortcutsTreeView extends TreeViewBase implements vscode.TreeDataPr
         private readonly _getRepo: () => IKeyMetadataRepo,
         private readonly _getSecretValuesAndCheckHashes: (secrets: ControlledSecret[]) => Promise<{ secret: ControlledSecret, value: string }[]>,
         private readonly _valuesProvider: SecretValuesProvider,
+        private readonly _mruList: MruList,
         resourcesFolder: string,
         log: Log
     ) { 
@@ -303,6 +305,8 @@ export class ShortcutsTreeView extends TreeViewBase implements vscode.TreeDataPr
         }
 
         vscode.env.clipboard.writeText(secretValue);
+
+        await this._mruList.add(secret);
 
         vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
     }

@@ -2,9 +2,9 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { SettingNames } from '../KeeShepherd';
 import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
+import { SettingNames } from '../SettingNames';
 
 // Implements picking and retrieving secret values from VsCode SecretStorage
 export class VsCodeSecretStorageValueProvider implements ISecretValueProvider {

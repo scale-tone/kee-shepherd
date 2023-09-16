@@ -21,16 +21,8 @@ import { Log, askUserForSecretName, askUserForDifferentNonEmptySecretName } from
 import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
 import { ShortcutsTreeView } from './tree-views/ShortcutsTreeView';
 import { VsCodeSecretStorageTreeView } from './tree-views/VsCodeSecretStorageTreeView';
-
-export const SettingNames = {
-    StorageType: 'KeeShepherdStorageType',
-    SubscriptionId: 'KeeShepherdTableStorageSubscriptionId',
-    ResourceGroupName: 'KeeShepherdTableStorageResourceGroupName',
-    StorageAccountName: 'KeeShepherdTableStorageAccountName',
-    TableName: 'KeeShepherdTableName',
-    EnvVarsAlreadyMigrated: 'KeeShepherdEnvVarsAlreadyMigrated',
-    VsCodeSecretStorageSecretNames: 'KeeShepherdVsCodeSecretStorageSecretNames'
-};
+import { MruList } from './MruList';
+import { SettingNames } from './SettingNames';
 
 // Main functionality lies here
 export class KeeShepherd extends KeeShepherdBase {
@@ -44,6 +36,8 @@ export class KeeShepherd extends KeeShepherdBase {
         log: Log
     ) {
         const valuesProvider = new SecretValuesProvider(context, _account, log);
+
+        const mruList = new MruList(context);
         
         super(
             context,
@@ -51,19 +45,22 @@ export class KeeShepherd extends KeeShepherdBase {
             repo,
             mapRepo,
             new SecretTreeView(_account, () => this._repo, resourcesFolder, log),
-            new KeyVaultTreeView(_account, valuesProvider, resourcesFolder, log),
-            new CodespacesTreeView(valuesProvider, resourcesFolder, log),
+            new KeyVaultTreeView(_account, valuesProvider, mruList, resourcesFolder, log),
+            new CodespacesTreeView(valuesProvider, mruList, resourcesFolder, log),
             new ShortcutsTreeView(
                 context,
                 () => this._repo,
                 (secrets: ControlledSecret[]) => this.getSecretValuesAndCheckHashes(secrets),
                 valuesProvider,
+                mruList,
                 resourcesFolder,
                 log
             ),
-            new VsCodeSecretStorageTreeView(context, valuesProvider, resourcesFolder, log),
+            new VsCodeSecretStorageTreeView(context, valuesProvider, mruList, resourcesFolder, log),
             log
         );
+
+        this._mruList = mruList;
 
         if (!!this._account.azureAccount) {
             
@@ -767,7 +764,43 @@ export class KeeShepherd extends KeeShepherdBase {
 
         vscode.env.clipboard.writeText(secretValue);
 
+        await this._mruList.add(secret);
+
         vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
+    }
+
+    async copyMruSecretValue(): Promise<void> {
+
+        const list = await this._mruList.get();
+
+        if (!list.length) {
+
+            vscode.window.showWarningMessage(`KeeShepherd: the list of most recently used secrets is empty`);
+            
+            return;
+        }
+
+        const selectedSecret = await vscode.window.showQuickPick(list.map(s => {
+                return {
+                    label: s.name,
+                    description: `${SecretTypeEnum[s.type]}`,
+                    secret: s
+                };
+            }), 
+            { title: 'Select Most Recently Used Secret' }
+        );
+
+        if (!selectedSecret) {
+            return;
+        }
+
+        const secretValue = await this._valuesProvider.getSecretValue(selectedSecret.secret);
+
+        vscode.env.clipboard.writeText(secretValue);
+
+        await this._mruList.add(selectedSecret.secret);
+
+        vscode.window.showInformationMessage(`KeeShepherd: value of ${selectedSecret.secret.name} was copied to Clipboard`);
     }
 
     async insertKeyVaultSecretAsManaged(treeItem: KeyVaultTreeItem): Promise<void> {
@@ -1013,6 +1046,8 @@ export class KeeShepherd extends KeeShepherdBase {
 
         return result;
     }
+
+    private readonly _mruList: MruList;
 
     private async persistSecretValue(secretName: string, secretValue: string, controlType: ControlTypeEnum, sourceFileName: string): Promise<boolean> {
 

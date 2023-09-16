@@ -2,7 +2,7 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "./AzureAccountWrapper";
-import { AnchorPrefix, ControlledSecret, SecretTypeEnum, ControlTypeEnum } from "./KeyMetadataHelpers";
+import { AnchorPrefix, ControlledSecret, SecretTypeEnum, ControlTypeEnum, SecretReference } from "./KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from './secret-value-providers/ISecretValueProvider';
 import { KeyVaultSecretValueProvider } from './secret-value-providers/KeyVaultSecretValueProvider';
 import { StorageSecretValueProvider } from './secret-value-providers/StorageSecretValueProvider';
@@ -22,7 +22,7 @@ import { CodespaceSecretValueProvider, CodespaceSecretKind, CodespaceSecretVisib
 import { Log } from './helpers';
 import { VsCodeSecretStorageValueProvider } from './secret-value-providers/VsCodeSecretStorageValueProvider';
 import { CodespacesTreeView } from './tree-views/CodespacesTreeView';
-import { SettingNames } from './KeeShepherd';
+import { SettingNames } from './SettingNames';
 
 // Handles fetching secret values from all supported sources
 export class SecretValuesProvider {
@@ -49,7 +49,7 @@ export class SecretValuesProvider {
         this._providers[SecretTypeEnum.VsCodeSecretStorage] = new VsCodeSecretStorageValueProvider(_context, _account);
     }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getSecretValue(secret: SecretReference): Promise<string> {
 
         const provider = this._providers[secret.type];
         return !provider ? '' : provider.getSecretValue(secret);

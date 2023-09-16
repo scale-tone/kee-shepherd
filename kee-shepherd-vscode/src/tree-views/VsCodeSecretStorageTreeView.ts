@@ -2,10 +2,11 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { askUserForSecretName, Log } from '../helpers';
-import { SettingNames } from '../KeeShepherd';
-import { ControlTypeEnum } from '../KeyMetadataHelpers';
+import { ControlTypeEnum, SecretTypeEnum } from '../KeyMetadataHelpers';
 import { SecretValuesProvider } from '../SecretValuesProvider';
 import { TreeViewBase } from './TreeViewBase';
+import { SettingNames } from '../SettingNames';
+import { MruList } from '../MruList';
 
 // Renders the 'VsCode Secret Storage' TreeView
 export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.TreeDataProvider<vscode.TreeItem> {
@@ -13,6 +14,7 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
     constructor(
         protected readonly _context: vscode.ExtensionContext,
         private readonly _valuesProvider: SecretValuesProvider,
+        private readonly _mruList: MruList,
         resourcesFolder: string,
         log: Log
     ) { 
@@ -156,6 +158,8 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
         }
 
         vscode.env.clipboard.writeText(secretValue);
+
+        await this._mruList.add({ name: secretName, type: SecretTypeEnum.VsCodeSecretStorage });
 
         vscode.window.showInformationMessage(`KeeShepherd: value of ${secretName} was copied to Clipboard`);
     }
