@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { SettingNames } from '../KeeShepherd';
-import { ControlledSecret, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 
 // Implements picking and retrieving secret values from VsCode SecretStorage
@@ -11,7 +11,7 @@ export class VsCodeSecretStorageValueProvider implements ISecretValueProvider {
 
     constructor(private readonly _context: vscode.ExtensionContext, protected readonly _account: AzureAccountWrapper) { }
 
-    async getSecretValue(secret: ControlledSecret): Promise<string> {
+    async getSecretValue(secret: SecretReference): Promise<string> {
 
         const secretValue = await this._context.secrets.get(secret.properties?.name ?? secret.name);
 
