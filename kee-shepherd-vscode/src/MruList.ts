@@ -37,7 +37,7 @@ export class MruList {
         }
 
         // Cleanup, if needed
-        if (list.length >= MAX_MRU_ITEMS) {
+        while (list.length >= MAX_MRU_ITEMS) {
             
             list.pop();
         }
