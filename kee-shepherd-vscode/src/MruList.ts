@@ -47,4 +47,29 @@ export class MruList {
 
         await this._context.globalState.update(SettingNames.MruList, list);
     }
+
+    async remove(secret: SecretReference) {
+
+        // Making sure only the required fields are stored in globalState
+        const reference: SecretReference = {
+            name: secret.name,
+            type: secret.type,
+            properties: secret.properties
+        };
+        const referenceJson = JSON.stringify(reference);
+        
+        const list = this._context.globalState.get(SettingNames.MruList) as SecretReference[] ?? [];
+
+        // Dropping this secret
+        let i = list.length;
+        while (i--) {
+
+            if (JSON.stringify(list[i]) === referenceJson) {
+
+                list.splice(i, 1);
+            }
+        }
+
+        await this._context.globalState.update(SettingNames.MruList, list);
+    }
 }

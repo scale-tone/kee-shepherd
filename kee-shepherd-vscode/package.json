@@ -112,7 +112,7 @@
             },
             {
                 "command": "kee-shepherd-vscode.copyMruToClipboard",
-                "title": "KeeShepherd: Copy Most Recently Used Secret to Clipboard..."
+                "title": "KeeShepherd: Copy Secret to Clipboard..."
             },
             {
                 "command": "kee-shepherd-vscode.editor-context.superviseSecret",

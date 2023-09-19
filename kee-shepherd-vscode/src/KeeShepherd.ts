@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 
 import { StorageManagementClient } from '@azure/arm-storage';
 
-import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, SecretNameConflictError, ShortcutsSpecialMachineName } from './KeyMetadataHelpers';
+import { SecretTypeEnum, ControlTypeEnum, AnchorPrefix, ControlledSecret, StorageTypeEnum, getAnchorName, SecretNameConflictError, ShortcutsSpecialMachineName, SecretReference } from './KeyMetadataHelpers';
 import { IKeyMetadataRepo, MetadataRepoType } from './metadata-repositories/IKeyMetadataRepo';
 import { KeyMetadataLocalRepo } from './metadata-repositories/KeyMetadataLocalRepo';
 import { KeyMapRepo } from './KeyMapRepo';
@@ -773,34 +773,62 @@ export class KeeShepherd extends KeeShepherdBase {
 
         const list = await this._mruList.get();
 
-        if (!list.length) {
-
-            vscode.window.showWarningMessage(`KeeShepherd: the list of most recently used secrets is empty`);
-            
-            return;
-        }
-
-        const selectedSecret = await vscode.window.showQuickPick(list.map(s => {
-                return {
-                    label: s.name,
-                    description: `${SecretTypeEnum[s.type]}`,
-                    secret: s
-                };
-            }), 
+        const selectedOption = await vscode.window.showQuickPick(
+            [
+                {
+                    label: 'Pick Up a Secret...',
+                    secret: undefined
+                },
+                ...list.map(s => {
+                    return {
+                        label: s.name,
+                        description: `${SecretTypeEnum[s.type]}`,
+                        secret: s
+                    };
+                })            
+            ], 
             { title: 'Select Most Recently Used Secret' }
         );
 
-        if (!selectedSecret) {
+        if (!selectedOption) {
             return;
         }
 
-        const secretValue = await this._valuesProvider.getSecretValue(selectedSecret.secret);
+        let secret: SecretReference | undefined;
+        let secretValue: string | undefined;
+
+        if (!selectedOption.secret) {
+
+            const pickedUpSecret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+            if (!pickedUpSecret) {
+                return;
+            }
+
+            secret = pickedUpSecret;
+            secretValue = pickedUpSecret.value;
+
+        } else {
+
+            secret = selectedOption.secret;
+
+            try {
+
+                secretValue = await this._valuesProvider.getSecretValue(secret);
+
+            } catch (err) {
+
+                // Dropping this secret from MRU, if not able to retrieve
+                await this._mruList.remove(secret);
+                
+                throw err;
+            }
+        }
 
         vscode.env.clipboard.writeText(secretValue);
 
-        await this._mruList.add(selectedSecret.secret);
+        await this._mruList.add(secret);
 
-        vscode.window.showInformationMessage(`KeeShepherd: value of ${selectedSecret.secret.name} was copied to Clipboard`);
+        vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
     }
 
     async insertKeyVaultSecretAsManaged(treeItem: KeyVaultTreeItem): Promise<void> {
