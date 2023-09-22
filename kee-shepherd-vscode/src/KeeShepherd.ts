@@ -808,7 +808,7 @@ export class KeeShepherd extends KeeShepherdBase {
             );
         }
 
-        const selectedOption = await vscode.window.showQuickPick(options, { title: 'Select Most Recently Used Secret' });
+        const selectedOption = await vscode.window.showQuickPick(options, { title: 'Select Secret' });
 
         if (!selectedOption) {
             return;
@@ -818,7 +818,7 @@ export class KeeShepherd extends KeeShepherdBase {
         let secretValue: string | undefined;
 
         switch (selectedOption.label) {
-            
+
             case 'Clear Recently Used':
 
                 await this._mruList.clear();
