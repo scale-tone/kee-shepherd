@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 2.2
+
+- `Copy Secret to Clipboard...` command (with MRU list):
+
+  <img src="https://github.com/scale-tone/kee-shepherd/assets/5447190/11d58243-e5b4-456f-aef3-294b64150e2d" width="600">
+
+
+
 ## Version 2.1
 
 - Secret generator:
