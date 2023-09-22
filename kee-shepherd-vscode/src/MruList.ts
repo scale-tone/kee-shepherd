@@ -72,4 +72,9 @@ export class MruList {
 
         await this._context.globalState.update(SettingNames.MruList, list);
     }
+
+    async clear() {
+
+        await this._context.globalState.update(SettingNames.MruList, []);
+    }
 }

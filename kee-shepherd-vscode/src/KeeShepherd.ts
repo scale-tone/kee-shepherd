@@ -773,22 +773,42 @@ export class KeeShepherd extends KeeShepherdBase {
 
         const list = await this._mruList.get();
 
-        const selectedOption = await vscode.window.showQuickPick(
+        const options =
             [
                 {
                     label: 'Pick Up a Secret...',
                     secret: undefined
                 },
+
+                {
+                    label: '',
+                    kind: vscode.QuickPickItemKind.Separator
+                },
+
                 ...list.map(s => {
                     return {
                         label: s.name,
                         description: `${SecretTypeEnum[s.type]}`,
                         secret: s
                     };
-                })            
-            ], 
-            { title: 'Select Most Recently Used Secret' }
-        );
+                })
+            ];
+
+        if (list.length > 0) {
+            
+            options.push(
+                {
+                    label: '',
+                    kind: vscode.QuickPickItemKind.Separator
+                },
+                {
+                    label: 'Clear Recently Used',
+                    secret: undefined
+                },
+            );
+        }
+
+        const selectedOption = await vscode.window.showQuickPick(options, { title: 'Select Most Recently Used Secret' });
 
         if (!selectedOption) {
             return;
@@ -797,31 +817,41 @@ export class KeeShepherd extends KeeShepherdBase {
         let secret: SecretReference | undefined;
         let secretValue: string | undefined;
 
-        if (!selectedOption.secret) {
+        switch (selectedOption.label) {
+            
+            case 'Clear Recently Used':
 
-            const pickedUpSecret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
-            if (!pickedUpSecret) {
-                return;
-            }
-
-            secret = pickedUpSecret;
-            secretValue = pickedUpSecret.value;
-
-        } else {
-
-            secret = selectedOption.secret;
-
-            try {
-
-                secretValue = await this._valuesProvider.getSecretValue(secret);
-
-            } catch (err) {
-
-                // Dropping this secret from MRU, if not able to retrieve
-                await this._mruList.remove(secret);
+                await this._mruList.clear();
                 
-                throw err;
-            }
+                return;
+            
+            case 'Pick Up a Secret...':
+
+                const pickedUpSecret = await this._valuesProvider.pickUpSecret(ControlTypeEnum.Supervised);
+                if (!pickedUpSecret) {
+                    return;
+                }
+
+                secret = pickedUpSecret;
+                secretValue = pickedUpSecret.value;                
+                
+                break;
+            
+            default:
+
+                secret = selectedOption.secret!;
+
+                try {
+
+                    secretValue = await this._valuesProvider.getSecretValue(secret);
+
+                } catch (err) {
+
+                    // Dropping this secret from MRU, if not able to retrieve
+                    await this._mruList.remove(secret);
+                    
+                    throw err;
+                }
         }
 
         vscode.env.clipboard.writeText(secretValue);
