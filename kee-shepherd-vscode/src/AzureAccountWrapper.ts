@@ -3,10 +3,9 @@ import * as vscode from 'vscode';
 import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
 import { TokenCredential, GetTokenOptions } from "@azure/core-auth";
-import { getAuthSession } from './helpers';
 
 // Full typings for this can be found here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
-export type AzureSubscription = { session: { credentials2: any }, subscription: { subscriptionId: string, displayName: string } };
+export type AzureSubscription = { session: { credentials2: any, tenantId: string }, subscription: { subscriptionId: string, displayName: string } };
 
 export interface TokenResponse {
     tokenType: string;
@@ -115,7 +114,7 @@ export class AzureAccountWrapper {
     // Uses vscode.authentication to get a token with custom scopes
     async getToken(scopes: string[] = ['https://management.core.windows.net/user_impersonation']): Promise<string> {
 
-        const authSession = await getAuthSession('microsoft', scopes);
+        const authSession = await this.getAuthSession(scopes);
         
         return authSession.accessToken;
     }
@@ -160,4 +159,35 @@ export class AzureAccountWrapper {
     }
 
     private readonly _account: any;
+
+    private async getAuthSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
+
+        const providerId = 'microsoft';
+
+        // Trying to clarify the correct tenantId
+        const subscriptions = await this.getSubscriptions();
+        if (!!subscriptions?.length) {
+
+            const subscription = subscriptions[0];
+            const tenantId = subscription.session.tenantId;
+
+            if (!!tenantId) {
+                
+                scopes.push(`VSCODE_TENANT:${subscription.session.tenantId}`);
+            }
+        }
+
+        // First trying silent mode
+        let authSession = await vscode.authentication.getSession(providerId, scopes, { silent: true });
+
+        if (!!authSession) {
+            
+            return authSession;
+        }
+
+        // Now asking to authenticate, if needed
+        authSession = await vscode.authentication.getSession(providerId, scopes, { createIfNone: true });
+
+        return authSession;        
+    }
 }

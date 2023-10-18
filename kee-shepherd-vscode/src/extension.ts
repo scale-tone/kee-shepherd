@@ -156,11 +156,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.createSecretShortcutFromClipboard', () => doAndShowError(() => shepherd.shortcutsTreeView.createFromClipboard(), 'KeeShepherd failed to create a secret from Clipboard')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createSecretShortcutFromClipboard', (item) => doAndShowError(() => shepherd.shortcutsTreeView.createFromClipboard(item), 'KeeShepherd failed to create a secret from Clipboard')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createShortcutsFolder', () => doAndShowError(async () => shepherd.shortcutsTreeView.createShortcutsFolder(), 'KeeShepherd failed to create shortcuts folder')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeShortcutsFolder', (item) => doAndShowError(async () => shepherd.shortcutsTreeView.removeShortcutsFolder(item), 'KeeShepherd failed to remove shortcuts folder')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createShortcutsFolder', () => doAndShowError(() => shepherd.shortcutsTreeView.createShortcutsFolder(), 'KeeShepherd failed to create shortcuts folder')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeShortcutsFolder', (item) => doAndShowError(() => shepherd.shortcutsTreeView.removeShortcutsFolder(item), 'KeeShepherd failed to remove shortcuts folder')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.addSecretShortcut', (item) => doAndShowError(() => shepherd.shortcutsTreeView.createSecretShortcut(item), 'KeeShepherd failed')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeSecretShortcut', (item) => doAndShowError(async () => shepherd.shortcutsTreeView.removeShortcutsFolder(item), 'KeeShepherd failed to remove shortcut')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyShortcutSecretValue', (item) => doAndShowError(async () => shepherd.shortcutsTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeSecretShortcut', (item) => doAndShowError(() => shepherd.shortcutsTreeView.removeShortcutsFolder(item), 'KeeShepherd failed to remove shortcut')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyShortcutSecretValue', (item) => doAndShowError(() => shepherd.shortcutsTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.mountAsGlobalEnvVariable', (item) => doAndShowError(() => shepherd.shortcutsTreeView.mountAsGlobalEnv(item), 'KeeShepherd failed to mount secret as global environment variable')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.unmountAsGlobalEnvVariable', (item) => doAndShowError(() => shepherd.shortcutsTreeView.unmountAsGlobalEnv(item), 'KeeShepherd failed to unmount secret from global environment variables')),
@@ -173,7 +173,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecret', () => doAndShowError(() => shepherd.secretStorageTreeView.createSecret(false), 'KeeShepherd failed to create VsCode SecretStorage secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecretFrom', () => doAndShowError(() => shepherd.secretStorageTreeView.createSecret(true), 'KeeShepherd failed to create VsCode SecretStorage secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret', (item) => doAndShowError(() => shepherd.secretStorageTreeView.removeSecret(item), 'KeeShepherd failed to remove VsCode SecretStorage secret')),
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue', (item) => doAndShowError(async () => shepherd.secretStorageTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue', (item) => doAndShowError(() => shepherd.secretStorageTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
 
         vscode.window.onDidChangeActiveTextEditor((editor) => doAndShowError(() => shepherd.maskSecretsInThisFile(true), 'KeeShepherd failed to mask secrets')),
  
