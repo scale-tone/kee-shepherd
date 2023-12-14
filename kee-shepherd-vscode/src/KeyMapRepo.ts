@@ -23,7 +23,7 @@ export class KeyMapRepo {
             return [];
         }
 
-        const json = await fs.promises.readFile(filePath, 'utf8')
+        const json = await fs.promises.readFile(filePath, 'utf8');
 
         return JSON.parse(json);
     }
@@ -34,7 +34,8 @@ export class KeyMapRepo {
 
         if (folders.length <= 0) {
 
-            await fs.promises.rm(filePath, {force: true});
+            await fs.promises.rm(filePath, { force: true });
+            
         } else {
 
             await fs.promises.writeFile(filePath, JSON.stringify(folders, null, 3));

@@ -52,7 +52,16 @@ export async function activate(context: vscode.ExtensionContext) {
         return commandChain;
     };
 
-    await doAndShowError(() => shepherd.stashPendingFolders(), `KeeShepherd failed to stash pending folders at startup`);
+
+    const config = vscode.workspace.getConfiguration('kee-shepherd');
+    const autoStashMode = config.get("autoStashMode");
+
+    // Stashing what failed to be stashed during previous shutdown, but only if autostash is on
+    if (autoStashMode === 'When a workspace is closed') {
+
+        await doAndShowError(() => shepherd.stashPendingFolders(), `KeeShepherd failed to stash pending folders at startup`);
+    }
+        
     await doAndShowError(() => shepherd.maskSecretsInThisFile(false), `KeeShepherd failed to mask secrets at startup`);
 
     const anchorCompletionProvider = new AnchorCompletionProvider(shepherd);
@@ -194,15 +203,14 @@ export async function activate(context: vscode.ExtensionContext) {
         );
     }
 
-    const config = vscode.workspace.getConfiguration('kee-shepherd');
-    const autoUnstashMode = config.get("autoUnstashMode");
+    const autoUnstashMode = config.get('autoUnstashMode');
 
-    if (autoUnstashMode === "When a workspace is opened") {
+    if (autoUnstashMode === 'When a workspace is opened') {
         
         await doAndShowError(() => shepherd.stashUnstashAllSecretsInThisProject(false), 'KeeShepherd failed to unstash secrets at startup');
     }
 
-    const notifyAboutExpiringSecrets = config.get("notifyAboutExpiringSecrets");
+    const notifyAboutExpiringSecrets = config.get('notifyAboutExpiringSecrets');
     if (!!notifyAboutExpiringSecrets) {
 
         // Intentionally not awaiting
@@ -216,9 +224,9 @@ export async function activate(context: vscode.ExtensionContext) {
 export async function deactivate() {
 
     const config = vscode.workspace.getConfiguration('kee-shepherd');
-    const autoStashMode = config.get("autoStashMode");
+    const autoStashMode = config.get('autoStashMode');
 
-    if (autoStashMode === "When a workspace is closed") {
+    if (autoStashMode === 'When a workspace is closed') {
         
         try {
 

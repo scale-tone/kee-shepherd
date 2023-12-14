@@ -558,15 +558,10 @@ export class KeeShepherd extends KeeShepherdBase {
 
         const folders = vscode.workspace.workspaceFolders.map(f => f.uri.toString());
 
-        // Persisting this list, in case the process gets killed in the middle
-        if (!!stash) {
-            await this._mapRepo.savePendingFolders(folders);
-        }
-
         await this.stashUnstashAllSecretsInFolders(folders, stash);
 
-        // Cleanup upon success
-        await this._mapRepo.savePendingFolders([]);
+        // Persisting the list of folders upon unstash and doing cleanup upon stash
+        await this._mapRepo.savePendingFolders(!!stash ? [] : folders);
     }
 
     async stashPendingFolders(): Promise<void> {
