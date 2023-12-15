@@ -14,6 +14,21 @@ export class TreeViewBase {
         protected readonly _log: Log
     ) { }
 
+    createTreeView(viewId: string): vscode.TreeView<vscode.TreeItem> {
+
+        this._viewId = viewId;
+        this._treeView = vscode.window.createTreeView(viewId, { treeDataProvider: this as any });
+
+        return this._treeView;
+    }
+
+    public get viewId(): string {
+        return this._viewId!;
+    }
+
+    protected _viewId?: string;
+    protected _treeView?: vscode.TreeView<vscode.TreeItem>;
+
     protected askUserForSecretValue(): Promise<string | undefined> {
 
         var inputBox = vscode.window.createInputBox();

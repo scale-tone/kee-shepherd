@@ -28,7 +28,8 @@ export type KeyVaultTreeItem = vscode.TreeItem & {
     subscriptionId?: string,
     keyVaultName?: string,
     secretId?: string,
-    updatedOn?: Date
+    updatedOn?: Date,
+    parent?: KeyVaultTreeItem
 };
 
 // Renders the 'Key Vault' TreeView
@@ -43,6 +44,11 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
 
     refresh(): void {
         this._onDidChangeTreeData.fire(undefined);
+    }
+
+    getParent(element: KeyVaultTreeItem): vscode.ProviderResult<KeyVaultTreeItem> {
+        
+        return element.parent;
     }
     
     // Does nothing, actually
@@ -65,6 +71,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                         for (const subscription of subscriptions) {
     
                             const node = {
+                                parent,
                                 label: subscription.subscription.displayName,
                                 nodeType: KeyVaultNodeTypeEnum.Subscription,
                                 credentials: subscription.session.credentials2,
@@ -82,6 +89,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                     } else {
 
                         result.push({
+                            parent,
                             label: 'Sign in to Azure...',
                             nodeType: KeyVaultNodeTypeEnum.InitialCommand,
                             command: {
@@ -107,13 +115,14 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                         for (const vault of response.data) {
                             
                             const node = {
+                                parent,
                                 label: vault.name,
                                 tooltip: !!vault.resourceGroup ? `resource group: ${vault.resourceGroup}` : ``,
                                 keyVaultName: vault.name,
                                 nodeType: KeyVaultNodeTypeEnum.KeyVault,
                                 contextValue: 'key-vault',
                                 subscriptionId: parent.subscriptionId,
-                                collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                                collapsibleState: this._selectedKeyVaultName === vault.name ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
                                 iconPath: {
                                     light: path.join(this._resourcesFolder, 'light', 'key-vault.svg'),
                                     dark: path.join(this._resourcesFolder, 'dark', 'key-vault.svg')
@@ -122,7 +131,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
     
                             // Sorting by name on the fly
                             const index = result.findIndex(n => n.label! > node.label);
-                            result.splice(index < 0 ? result.length : index, 0, node);    
+                            result.splice(index < 0 ? result.length : index, 0, node);
                         }
                     }
                 }
@@ -130,6 +139,13 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                 case KeyVaultNodeTypeEnum.KeyVault: {
 
                     try {
+
+                        // Focusing the selected node
+                        if (this._selectedKeyVaultName === parent.keyVaultName) {
+
+                            this._selectedKeyVaultName = undefined;
+                            setTimeout(() => this._treeView?.reveal(parent, { select: true, focus: true }), 1000);
+                        }
                      
                         const secretProvider = new KeyVaultSecretValueProvider(this._account);
                         const secrets = await secretProvider.getSecrets(parent.label as string);
@@ -139,6 +155,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                             const label = (!!secret.expiresOn && secret.expiresOn < new Date()) ? `${secret.name}❗` : secret.name;
 
                             const node = {
+                                parent,
                                 label,
                                 tooltip: this.getSecretTooltip(secret),
                                 description: this.getSecretDescription(secret),
@@ -147,7 +164,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                                 subscriptionId: parent.subscriptionId,
                                 secretId: secret.name,
                                 keyVaultName: parent.keyVaultName,
-                                collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                                collapsibleState: this._selectedSecretName === secret.name ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
     
                                 iconPath: {
                                     light: path.join(this._resourcesFolder, 'light', 'secret.svg'),
@@ -157,7 +174,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
     
                             // Sorting by name on the fly
                             const index = result.findIndex(n => n.secretId! > node.secretId);
-                            result.splice(index < 0 ? result.length : index, 0, node);    
+                            result.splice(index < 0 ? result.length : index, 0, node);
                         }                            
 
                     } catch (err: any) {
@@ -172,6 +189,13 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                 case KeyVaultNodeTypeEnum.Secret: {
 
                     try {
+
+                        // Focusing the selected node
+                        if (this._selectedSecretName === parent.secretId) {
+
+                            this._selectedSecretName = undefined;
+                            setTimeout(() => this._treeView?.reveal(parent, { select: true, focus: true }), 1500);
+                        }
                      
                         const secretProvider = new KeyVaultSecretValueProvider(this._account);
 
@@ -180,6 +204,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                         for (const secretVersion of secretVersions) {
                             
                             const node = {
+                                parent,
                                 label: secretVersion.version,
                                 updatedOn: secretVersion.updatedOn,
                                 tooltip: this.getSecretTooltip(secretVersion),
@@ -259,10 +284,23 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
         vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${treeItem.secretId} was copied to Clipboard`);
     }
 
-    async createKeyVaultSecret(treeItem: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
+    async createKeyVaultSecret(treeItem?: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
 
-        if (treeItem.nodeType !== KeyVaultNodeTypeEnum.KeyVault || !treeItem.subscriptionId || !treeItem.keyVaultName) {
-            return;
+        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
+
+        let keyVaultName: string;
+
+        if (!treeItem) {
+
+            keyVaultName = await keyVaultProvider.pickUpKeyVault();
+
+        } else {
+
+            if (treeItem.nodeType !== KeyVaultNodeTypeEnum.KeyVault || !treeItem.subscriptionId || !treeItem.keyVaultName) {
+                return;
+            }
+    
+            keyVaultName = treeItem.keyVaultName;
         }
 
         let secretName;
@@ -296,8 +334,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
             return;
         }
 
-        const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
-        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(treeItem.keyVaultName);
+        const keyVaultClient = await keyVaultProvider.getKeyVaultClient(keyVaultName);
 
         const checkResult = await KeyVaultSecretValueProvider.checkIfSecretExists(keyVaultClient, secretName);
         if (checkResult === 'not-ok-to-overwrite') {
@@ -306,16 +343,24 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
         
         await keyVaultClient.setSecret(secretName, secretValue);
 
+        // Trying to focus on the newly created node
+        if (!!treeItem) {
+
+            this._treeView?.reveal(treeItem, { select: true, focus: true, expand: true });
+        }
+        this._selectedKeyVaultName = keyVaultName;
+        this._selectedSecretName = secretName;
+
         this.refresh();
 
         if (checkResult === 'does-not-exist') {
             
-            this._log(`Created ${secretName} in ${treeItem.keyVaultName} Key Vault`, true, true);
+            this._log(`Created ${secretName} in ${keyVaultName} Key Vault`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`);
 
         } else {
 
-            this._log(`Added a new version of ${secretName} to ${treeItem.keyVaultName} Key Vault`, true, true);
+            this._log(`Added a new version of ${secretName} to ${keyVaultName} Key Vault`, true, true);
             vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
         }
     }
@@ -392,6 +437,9 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
 
         vscode.window.showInformationMessage(`KeeShepherd: ${treeItem.secretId} was removed from Key Vault`);
     }
+
+    private _selectedKeyVaultName?: string;
+    private _selectedSecretName?: string;
 
     private getSecretTooltip(secret: SecretProperties): string {
 

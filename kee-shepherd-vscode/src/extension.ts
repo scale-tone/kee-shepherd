@@ -82,10 +82,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.changeStorageType', () => doAndShowError(() => shepherd.changeStorageType(context), 'KeeShepherd failed to switch to another storage type')),
 
-        vscode.window.registerTreeDataProvider('kee-shepherd-tree-view', shepherd.treeView),
-        vscode.window.registerTreeDataProvider('kee-shepherd-key-vault-tree-view', shepherd.keyVaultTreeView),
-        vscode.window.registerTreeDataProvider('kee-shepherd-shortcuts-tree-view', shepherd.shortcutsTreeView),
-        vscode.window.registerTreeDataProvider('kee-shepherd-vscode-secret-storage-tree-view', shepherd.secretStorageTreeView),
+        shepherd.treeView.createTreeView('kee-shepherd-tree-view'),
+        shepherd.keyVaultTreeView.createTreeView('kee-shepherd-key-vault-tree-view'),
+        shepherd.shortcutsTreeView.createTreeView('kee-shepherd-shortcuts-tree-view'),
+        shepherd.secretStorageTreeView.createTreeView('kee-shepherd-vscode-secret-storage-tree-view'),
 
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.superviseSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Supervised), 'KeeShepherd failed to add a secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.controlSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Managed), 'KeeShepherd failed to add a secret')),
@@ -183,6 +183,8 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createVsCodeSecretStorageSecretFrom', () => doAndShowError(() => shepherd.secretStorageTreeView.createSecret(true), 'KeeShepherd failed to create VsCode SecretStorage secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.removeVsCodeSecretStorageSecret', (item) => doAndShowError(() => shepherd.secretStorageTreeView.removeSecret(item), 'KeeShepherd failed to remove VsCode SecretStorage secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue', (item) => doAndShowError(() => shepherd.secretStorageTreeView.copySecretValue(item), 'KeeShepherd failed to copy secret value')),
+
+        vscode.commands.registerCommand('kee-shepherd-vscode.generateSecret', () => doAndShowError(() => shepherd.generateSecret(), 'KeeShepherd failed to generate a secret')),
 
         vscode.window.onDidChangeActiveTextEditor((editor) => doAndShowError(() => shepherd.maskSecretsInThisFile(true), 'KeeShepherd failed to mask secrets')),
  

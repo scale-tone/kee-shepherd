@@ -979,6 +979,28 @@ export class KeeShepherd extends KeeShepherdBase {
         }
     }
 
+    async generateSecret(): Promise<void> {
+
+        const whereToStore = await vscode.window.showQuickPick(['Azure Key Vault', 'VsCode Secret Storage'], { title: 'Where to store the newly generated secret?' });
+
+        switch (whereToStore) {
+            case 'Azure Key Vault': {
+
+                await vscode.commands.executeCommand(`${this.keyVaultTreeView.viewId}.focus`);
+
+                await this.keyVaultTreeView.createKeyVaultSecret(undefined, false);
+            }
+            break;
+            case 'VsCode Secret Storage': {
+
+                await vscode.commands.executeCommand(`${this.secretStorageTreeView.viewId}.focus`);
+
+                await this.secretStorageTreeView.createSecret(false);
+            }
+            break;
+        }
+    }
+
     static async cleanupSettings(context: vscode.ExtensionContext): Promise<void> {
         
         // Zeroing settings

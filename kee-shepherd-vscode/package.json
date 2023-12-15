@@ -396,6 +396,10 @@
             {
                 "command": "kee-shepherd-vscode.view-context.copyVsCodeSecretStorageSecretValue",
                 "title": "Copy Value to Clipboard"
+            },
+            {
+                "command": "kee-shepherd-vscode.generateSecret",
+                "title": "KeeShepherd: Generate Secret..."
             }
         ],
         "submenus": [
