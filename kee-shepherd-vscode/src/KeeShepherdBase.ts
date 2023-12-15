@@ -373,7 +373,7 @@ export abstract class KeeShepherdBase {
 
             // Temporarily hiding everything. This seems to be the only way to prevent secret values from flashing.
             // Only doing this if the text has actually changed, because otherwise onDidChangeTextDocument event won't be triggered.
-            if (!!currentEditor && (outputFileText !== text)) {
+            if (!stash && !!currentEditor && (outputFileText !== text)) {
 
                 this.maskAllText(currentEditor);
             }
