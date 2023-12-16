@@ -123,7 +123,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.forgetAllSecrets', (item) => doAndShowError(() => shepherd.forgetAllSecrets(item), 'KeeShepherd failed to forget secrets')),
 
-        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createKeyVaultSecret', (item) => doAndShowError(() => shepherd.keyVaultTreeView.createKeyVaultSecret(item), 'KeeShepherd failed to add secret to Key Vault')),
+        vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createKeyVaultSecret', (item) => doAndShowError(() => shepherd.keyVaultTreeView.createKeyVaultSecret(item, false), 'KeeShepherd failed to add secret to Key Vault')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.createKeyVaultSecretFrom', (item) => doAndShowError(() => shepherd.keyVaultTreeView.createKeyVaultSecret(item, true), 'KeeShepherd failed to add secret to Key Vault')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.setKeyVaultSecretValue', (item) => doAndShowError(() => shepherd.keyVaultTreeView.setKeyVaultSecretValue(item), 'KeeShepherd failed to set secret value')),
         vscode.commands.registerCommand('kee-shepherd-vscode.view-context.setKeyVaultSecretValueFrom', (item) => doAndShowError(() => shepherd.keyVaultTreeView.setKeyVaultSecretValue(item, true), 'KeeShepherd failed to set secret value')),

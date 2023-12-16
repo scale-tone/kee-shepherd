@@ -63,7 +63,7 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
         return result;
     }
 
-    async createSecret(pickUpSecretValue: boolean = false): Promise<void> {
+    async createSecret(pickUpSecretValue: boolean, preGenerateSecretValue?: boolean): Promise<void> {
 
         let secretName;
         let secretValue;
@@ -89,7 +89,7 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
                 return;
             }
     
-            secretValue = await this.askUserForSecretValue();
+            secretValue = await this.askUserForSecretValue(preGenerateSecretValue);
         }
 
         if (!secretValue) {

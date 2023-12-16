@@ -988,14 +988,14 @@ export class KeeShepherd extends KeeShepherdBase {
 
                 await vscode.commands.executeCommand(`${this.keyVaultTreeView.viewId}.focus`);
 
-                await this.keyVaultTreeView.createKeyVaultSecret(undefined, false);
+                await this.keyVaultTreeView.createKeyVaultSecret(undefined, false, true);
             }
             break;
             case 'VsCode Secret Storage': {
 
                 await vscode.commands.executeCommand(`${this.secretStorageTreeView.viewId}.focus`);
 
-                await this.secretStorageTreeView.createSecret(false);
+                await this.secretStorageTreeView.createSecret(false, true);
             }
             break;
         }

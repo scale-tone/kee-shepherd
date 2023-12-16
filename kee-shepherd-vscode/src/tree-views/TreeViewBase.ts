@@ -29,7 +29,7 @@ export class TreeViewBase {
     protected _viewId?: string;
     protected _treeView?: vscode.TreeView<vscode.TreeItem>;
 
-    protected askUserForSecretValue(): Promise<string | undefined> {
+    protected askUserForSecretValue(preGenerateSecretValue?: boolean): Promise<string | undefined> {
 
         var inputBox = vscode.window.createInputBox();
     
@@ -98,6 +98,11 @@ export class TreeViewBase {
             inputBox.value = secretValue;
             inputBox.prompt = `${secretValue.length} symbols. `;
         };
+
+        if (!!preGenerateSecretValue) {
+
+            generateSecret();
+        }
     
         return new Promise<string | undefined>((resolve, reject) => { 
     

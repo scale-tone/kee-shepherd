@@ -284,7 +284,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
         vscode.window.showInformationMessage(`KeeShepherd: ${copyUri ? 'URI' : 'value'} of ${treeItem.secretId} was copied to Clipboard`);
     }
 
-    async createKeyVaultSecret(treeItem?: KeyVaultTreeItem, pickUpSecretValue: boolean = false): Promise<void> {
+    async createKeyVaultSecret(treeItem?: KeyVaultTreeItem, pickUpSecretValue?: boolean, preGenerateSecretValue?: boolean): Promise<void> {
 
         const keyVaultProvider = new KeyVaultSecretValueProvider(this._account);
 
@@ -327,7 +327,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                 return;
             }
     
-            secretValue = await this.askUserForSecretValue();
+            secretValue = await this.askUserForSecretValue(preGenerateSecretValue);
         }
 
         if (!secretValue) {
