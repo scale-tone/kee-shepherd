@@ -132,7 +132,12 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
         this._selectedSecretName = secretName;
         this.refresh();
 
-        vscode.window.showInformationMessage(`KeeShepherd: secret ${secretName} was created`);
+        const userResponse = await vscode.window.showInformationMessage(`KeeShepherd: secret ${secretName} was created`, 'Copy Value to Clipboard');
+        if (userResponse === 'Copy Value to Clipboard') {
+            
+            vscode.env.clipboard.writeText(secretValue);
+            vscode.window.showInformationMessage(`KeeShepherd: value of ${secretName} was copied to Clipboard`);
+        }
     }
 
     async removeSecret(treeItem: vscode.TreeItem): Promise<void> {

@@ -353,15 +353,23 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
 
         this.refresh();
 
+        let userResponse: any;
+
         if (checkResult === 'does-not-exist') {
             
             this._log(`Created ${secretName} in ${keyVaultName} Key Vault`, true, true);
-            vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`);
-
+            userResponse = await vscode.window.showInformationMessage(`KeeShepherd: ${secretName} was created in Key Vault`, 'Copy Value to Clipboard');
+    
         } else {
 
             this._log(`Added a new version of ${secretName} to ${keyVaultName} Key Vault`, true, true);
-            vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`);
+            userResponse = await vscode.window.showInformationMessage(`KeeShepherd: new version of ${secretName} was added to Key Vault`, 'Copy Value to Clipboard');
+        }
+
+        if (userResponse === 'Copy Value to Clipboard') {
+                
+            vscode.env.clipboard.writeText(secretValue);
+            vscode.window.showInformationMessage(`KeeShepherd: value of ${secretName} was copied to Clipboard`);
         }
     }
 
