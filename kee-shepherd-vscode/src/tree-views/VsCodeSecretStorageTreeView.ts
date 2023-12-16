@@ -27,6 +27,11 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
     refresh(): void {
         this._onDidChangeTreeData.fire(undefined);
     }
+
+    getParent(element: vscode.TreeItem): vscode.ProviderResult<vscode.TreeItem> {
+        
+        return undefined;
+    }
     
     // Does nothing, actually
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
@@ -54,6 +59,13 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
                 // Sorting by name on the fly
                 const index = result.findIndex(n => n.label! > node.label);
                 result.splice(index < 0 ? result.length : index, 0, node);
+
+                // Focusing the selected node
+                if (this._selectedSecretName === secretName) {
+
+                    this._selectedSecretName = undefined;
+                    setTimeout(() => this._treeView?.reveal(node, { select: true, focus: true }), 1000);
+                }
             }
                 
         } catch (err) {
@@ -117,7 +129,9 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
 
         await this._context.globalState.update(SettingNames.VsCodeSecretStorageSecretNames, secretNames);
 
+        this._selectedSecretName = secretName;
         this.refresh();
+
         vscode.window.showInformationMessage(`KeeShepherd: secret ${secretName} was created`);
     }
 
@@ -163,4 +177,6 @@ export class VsCodeSecretStorageTreeView extends TreeViewBase implements vscode.
 
         vscode.window.showInformationMessage(`KeeShepherd: value of ${secretName} was copied to Clipboard`);
     }
+
+    private _selectedSecretName?: string;
 }
