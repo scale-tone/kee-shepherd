@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import axios from "axios";
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
@@ -22,25 +22,43 @@ export class AzureMapsSecretValueProvider implements ISecretValueProvider {
         return key;
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
+        let subscriptionId: string | undefined, accountName: string | undefined;
 
-        const subscriptionId = subscription.subscription.subscriptionId;
+        if (!!resourceId) {
 
-        const mapsAccount = await this.pickUpAccount(subscriptionId);
+            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.maps\/accounts\/(.+)/gi.exec(resourceId);
+            if (!resourceIdMatch) {
+                return;
+            }
 
-        if (!mapsAccount) {
-            return;
+            subscriptionId = resourceIdMatch[1];
+            accountName = resourceIdMatch[3];
+
+        } else {
+
+            const subscription = await this._account.pickUpSubscription();
+            if (!subscription) {
+                return;
+            }
+    
+            subscriptionId = subscription.subscription.subscriptionId;
+    
+            const account = await this.pickUpAccount(subscriptionId);
+    
+            if (!account) {
+                return;
+            }
+
+            resourceId = account.id;
+            accountName = account.name;
         }
 
         // Obtaining default token
         const token = await this._account.getToken();
 
-        const keysUri = `https://management.azure.com${mapsAccount.id}/listKeys?api-version=2020-02-01-preview`;
+        const keysUri = `https://management.azure.com${resourceId}/listKeys?api-version=2020-02-01-preview`;
         const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         const keys = keysResponse.data;
 
@@ -64,7 +82,7 @@ export class AzureMapsSecretValueProvider implements ISecretValueProvider {
 
         return {
             type: SecretTypeEnum.AzureMaps,
-            name: `${mapsAccount.name}-${selectedOption.label}`,
+            name: `${accountName}-${selectedOption.label}`,
             value: selectedOption.value,
             properties: {
                 subscriptionId,

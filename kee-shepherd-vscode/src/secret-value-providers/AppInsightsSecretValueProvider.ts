@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import axios from "axios";
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
@@ -24,25 +24,39 @@ export class AppInsightsSecretValueProvider implements ISecretValueProvider {
         return response.data?.properties[secret.properties.keyName];
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
+        let subscriptionId: string | undefined;
 
-        const subscriptionId = subscription.subscription.subscriptionId;
+        if (!!resourceId) {
+            
+            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.insights\/components\/(.+)/gi.exec(resourceId);
+            if (!resourceIdMatch) {
+                return;
+            }
 
-        const instanceId = await this.pickUpInstanceId(subscriptionId);
+            subscriptionId = resourceIdMatch[1];
 
-        if (!instanceId) {
-            return;
+        } else {
+
+            const subscription = await this._account.pickUpSubscription();
+            if (!subscription) {
+                return;
+            }
+    
+            subscriptionId = subscription.subscription.subscriptionId;
+    
+            resourceId = await this.pickUpInstanceId(subscriptionId);
+    
+            if (!resourceId) {
+                return;
+            }    
         }
 
         // Obtaining default token
         const token = await this._account.getToken();
 
-        const instanceUri = `https://management.azure.com${instanceId}?api-version=2015-05-01`;
+        const instanceUri = `https://management.azure.com${resourceId}?api-version=2015-05-01`;
         const instanceResponse = await axios.get(instanceUri, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const instanceName = instanceResponse.data?.name;

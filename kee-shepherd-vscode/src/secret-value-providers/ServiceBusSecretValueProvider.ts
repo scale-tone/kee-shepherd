@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import axios from "axios";
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
@@ -23,28 +23,46 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
         return key;
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
+        let subscriptionId: string | undefined, namespaceName: string | undefined;
 
-        const subscriptionId = subscription.subscription.subscriptionId;
+        if (!!resourceId) {
 
-        const namespace = await this.pickUpServiceBusNamespace(subscriptionId);
+            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.servicebus\/namespaces\/(.+)/gi.exec(resourceId);
+            if (!resourceIdMatch) {
+                return;
+            }
 
-        if (!namespace) {
-            return;
+            subscriptionId = resourceIdMatch[1];
+            namespaceName = resourceIdMatch[3];
+
+        } else {
+
+            const subscription = await this._account.pickUpSubscription();
+            if (!subscription) {
+                return;
+            }
+    
+            subscriptionId = subscription.subscription.subscriptionId;
+    
+            const namespace = await this.pickUpServiceBusNamespace(subscriptionId);
+    
+            if (!namespace) {
+                return;
+            }
+
+            resourceId = namespace.id;
+            namespaceName = namespace.name;
         }
 
         // Obtaining default token
         const token = await this._account.getToken();
 
         const promise = Promise.all([
-            this.getRootAuthRules(namespace.id, token),
-            this.getQueueAuthRules(namespace.id, token),
-            this.getTopicAuthRules(namespace.id, token)
+            this.getRootAuthRules(resourceId, token),
+            this.getQueueAuthRules(resourceId, token),
+            this.getTopicAuthRules(resourceId, token)
         ]);
 
         const authRules = (await promise).flat();
@@ -53,12 +71,12 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
             return;
         }
 
-        const authRule = await vscode.window.showQuickPick(authRules, { title: `Select ${namespace.name} Authorization Rule to use` });
+        const authRule = await vscode.window.showQuickPick(authRules, { title: `Select ${namespaceName} Authorization Rule to use` });
         if (!authRule) {
             return;
         }
 
-        const keysUri = `https://management.azure.com${namespace.id}/${authRule}/listKeys?api-version=2017-04-01`;
+        const keysUri = `https://management.azure.com${resourceId}/${authRule}/listKeys?api-version=2017-04-01`;
         const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         
         const keys = this.resourceManagerResponseToKeys(keysResponse.data);
@@ -74,7 +92,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
         return {
             type: SecretTypeEnum.AzureServiceBus,
-            name: `${namespace.name}-${key.label}`,
+            name: `${namespaceName}-${key.label}`,
             value: key.value,
             properties: {
                 subscriptionId,

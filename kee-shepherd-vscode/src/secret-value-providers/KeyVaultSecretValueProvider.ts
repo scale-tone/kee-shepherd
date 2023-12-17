@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { SecretClient, SecretProperties } from "@azure/keyvault-secrets";
 
 import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
-import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
@@ -49,12 +49,26 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
         return keyVaultSecret.value ?? '';
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
         
-        const keyVaultName = await this.pickUpKeyVault();
+        let keyVaultName: string | undefined;
 
-        if (!keyVaultName) {
-            return;
+        if (!!resourceId) {
+
+            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.keyvault\/vaults\/(.+)/gi.exec(resourceId);
+            if (!resourceIdMatch) {
+                return;
+            }
+
+            keyVaultName = resourceIdMatch[3];
+
+        } else {
+
+            keyVaultName = await this.pickUpKeyVault();
+
+            if (!keyVaultName) {
+                return;
+            }
         }
         
         const keyVaultClient = await this.getKeyVaultClient(keyVaultName);

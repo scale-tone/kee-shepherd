@@ -30,7 +30,7 @@ export class AzureAccountWrapper {
 
     get azureAccount(): any { return this._account; }
 
-    async picUpStorageAccount(storageManagementClient: StorageManagementClient): Promise<StorageAccount | undefined> {
+    async pickUpStorageAccount(storageManagementClient: StorageManagementClient): Promise<StorageAccount | undefined> {
 
         const storageAccounts: StorageAccount[] = [];
 

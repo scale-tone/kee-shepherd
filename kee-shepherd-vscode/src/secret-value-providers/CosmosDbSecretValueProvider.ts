@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import axios from "axios";
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
@@ -26,25 +26,39 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
         return key;
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
+        let subscriptionId: string | undefined;
 
-        const subscriptionId = subscription.subscription.subscriptionId;
+        if (!!resourceId) {
 
-        const accountId = await this.pickUpDatabaseAccountId(subscriptionId);
+            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.documentdb\/databaseaccounts\/(.+)/gi.exec(resourceId);
+            if (!resourceIdMatch) {
+                return;
+            }
 
-        if (!accountId) {
-            return;
+            subscriptionId = resourceIdMatch[1];
+
+        } else {
+
+            const subscription = await this._account.pickUpSubscription();
+            if (!subscription) {
+                return;
+            }
+    
+            subscriptionId = subscription.subscription.subscriptionId;
+    
+            resourceId = await this.pickUpDatabaseAccountId(subscriptionId);
+    
+            if (!resourceId) {
+                return;
+            }    
         }
 
         // Obtaining default token
         const token = await this._account.getToken();
 
-        const accountUri = `https://management.azure.com${accountId}?api-version=2021-10-15`;
+        const accountUri = `https://management.azure.com${resourceId}?api-version=2021-10-15`;
         const accountResponse = await axios.get(accountUri, { headers: { 'Authorization': `Bearer ${token}` } });
 
         const accountName = accountResponse.data?.name;
@@ -52,7 +66,7 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
 
         const connString = `AccountEndpoint=${documentEndpoint};`;
 
-        const keysUri = `https://management.azure.com${accountId}/listKeys?api-version=2021-10-15`;
+        const keysUri = `https://management.azure.com${resourceId}/listKeys?api-version=2021-10-15`;
         const keysResponse = await axios.post(keysUri, undefined, { headers: { 'Authorization': `Bearer ${token}` } });
         const keys = keysResponse.data;
 

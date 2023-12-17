@@ -97,7 +97,7 @@ export class KeeShepherd extends KeeShepherdBase {
         return this._repo;
     }
 
-    get valuesProvider(): ISecretValueProvider {
+    get valuesProvider(): SecretValuesProvider {
         return this._valuesProvider;
     }
 
@@ -1086,7 +1086,7 @@ export class KeeShepherd extends KeeShepherdBase {
                 subscriptionId = subscription.subscription.subscriptionId;
                 const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId as string);
     
-                const storageAccount = await account.picUpStorageAccount(storageManagementClient);
+                const storageAccount = await account.pickUpStorageAccount(storageManagementClient);
     
                 if (!storageAccount) {
                     throw new Error('No Azure Storage account selected');

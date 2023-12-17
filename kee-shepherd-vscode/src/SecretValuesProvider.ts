@@ -69,7 +69,7 @@ export class SecretValuesProvider {
                 { label: 'Azure Redis Cache', type: SecretTypeEnum.AzureRedisCache },
                 { label: 'Azure Application Insights', type: SecretTypeEnum.AzureAppInsights },
                 { label: 'Azure Maps', type: SecretTypeEnum.AzureMaps },
-                { label: 'Azure Cognitive Services', type: SecretTypeEnum.AzureCognitiveServices },
+                { label: 'Azure AI Services', type: SecretTypeEnum.AzureCognitiveServices },
                 { label: 'Azure Search', type: SecretTypeEnum.AzureSearch },
                 { label: 'Azure SignalR Services', type: SecretTypeEnum.AzureSignalR },
                 { label: 'Azure DevOps Personal Access Tokens', type: SecretTypeEnum.AzureDevOpsPAT },

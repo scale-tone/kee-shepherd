@@ -6,5 +6,5 @@ export type SelectedSecretType = { type: SecretTypeEnum, name: string, value: st
 export interface ISecretValueProvider {
 
     getSecretValue(secret: SecretReference): Promise<string>;
-    pickUpSecret(controlType: ControlTypeEnum): Promise<SelectedSecretType | undefined>;
+    pickUpSecret(controlType: ControlTypeEnum, suggestedResourceId?: string): Promise<SelectedSecretType | undefined>;
 }

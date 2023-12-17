@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { StorageManagementClient } from '@azure/arm-storage';
 
@@ -29,41 +29,72 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
         return storageKey;
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
-        
-        const subscriptionId = subscription.subscription.subscriptionId;
+        let subscriptionId: string | undefined, resourceGroupName: string | undefined, accountName: string | undefined;
+        let storageEndpoints = ''; 
+
         const tokenCredentials = await this._account.getTokenCredential();
+        let storageManagementClient: StorageManagementClient;
 
-        const storageManagementClient = new StorageManagementClient(tokenCredentials, subscriptionId);
+        if (!!resourceId) {
 
-        const storageAccount = await this._account.picUpStorageAccount(storageManagementClient);
+            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.storage\/storageaccounts\/(.+)/gi.exec(resourceId);
+            if (!resourceIdMatch) {
+                return;
+            }
 
-        if (!storageAccount) {
-            return;
-        }
+            subscriptionId = resourceIdMatch[1];
+            resourceGroupName = resourceIdMatch[2];
+            accountName = resourceIdMatch[3];
 
-        var storageEndpoints = ''; 
-        if (!!storageAccount.primaryEndpoints) {
-            storageEndpoints = `BlobEndpoint=${storageAccount.primaryEndpoints!.blob};QueueEndpoint=${storageAccount.primaryEndpoints!.queue};TableEndpoint=${storageAccount.primaryEndpoints!.table};FileEndpoint=${storageAccount.primaryEndpoints!.file};`;
+            storageManagementClient = new StorageManagementClient(tokenCredentials, subscriptionId);
+            
+            const storageAccount = await storageManagementClient.storageAccounts.getProperties(resourceGroupName, accountName);
+
+            if (!!storageAccount.primaryEndpoints) {
+                storageEndpoints = `BlobEndpoint=${storageAccount.primaryEndpoints!.blob};QueueEndpoint=${storageAccount.primaryEndpoints!.queue};TableEndpoint=${storageAccount.primaryEndpoints!.table};FileEndpoint=${storageAccount.primaryEndpoints!.file};`;
+            } else {
+                storageEndpoints = `BlobEndpoint=https://${storageAccount.name}.blob.core.windows.net/;QueueEndpoint=https://${storageAccount.name}.queue.core.windows.net/;TableEndpoint=https://${storageAccount.name}.table.core.windows.net/;FileEndpoint=https://${storageAccount.name}.file.core.windows.net/;`;
+            }
+
         } else {
-            storageEndpoints = `BlobEndpoint=https://${storageAccount.name}.blob.core.windows.net/;QueueEndpoint=https://${storageAccount.name}.queue.core.windows.net/;TableEndpoint=https://${storageAccount.name}.table.core.windows.net/;FileEndpoint=https://${storageAccount.name}.file.core.windows.net/;`;
+
+            const subscription = await this._account.pickUpSubscription();
+            if (!subscription) {
+                return;
+            }
+            
+            subscriptionId = subscription.subscription.subscriptionId;
+
+            storageManagementClient = new StorageManagementClient(tokenCredentials, subscriptionId);
+    
+            const storageAccount = await this._account.pickUpStorageAccount(storageManagementClient);
+    
+            if (!storageAccount) {
+                return;
+            }
+
+            resourceId = storageAccount.id;
+            accountName = storageAccount.name;
+
+            // Extracting resource group name
+            const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(resourceId!);
+            if (!match || match.length <= 0) {
+                return;
+            }
+            resourceGroupName = match[1];            
+
+            if (!!storageAccount.primaryEndpoints) {
+                storageEndpoints = `BlobEndpoint=${storageAccount.primaryEndpoints!.blob};QueueEndpoint=${storageAccount.primaryEndpoints!.queue};TableEndpoint=${storageAccount.primaryEndpoints!.table};FileEndpoint=${storageAccount.primaryEndpoints!.file};`;
+            } else {
+                storageEndpoints = `BlobEndpoint=https://${storageAccount.name}.blob.core.windows.net/;QueueEndpoint=https://${storageAccount.name}.queue.core.windows.net/;TableEndpoint=https://${storageAccount.name}.table.core.windows.net/;FileEndpoint=https://${storageAccount.name}.file.core.windows.net/;`;
+            }
         }
 
-        const storageConnString = `DefaultEndpointsProtocol=https;${storageEndpoints}AccountName=${storageAccount.name};`;
+        const storageConnString = `DefaultEndpointsProtocol=https;${storageEndpoints}AccountName=${accountName};`;
 
-        // Extracting resource group name
-        const match = /\/resourceGroups\/([^\/]+)\/providers/gi.exec(storageAccount.id!);
-        if (!match || match.length <= 0) {
-            return;
-        }
-        const resourceGroupName = match[1];
-
-        const storageKeys = await storageManagementClient.storageAccounts.listKeys(resourceGroupName, storageAccount.name!);
+        const storageKeys = await storageManagementClient.storageAccounts.listKeys(resourceGroupName, accountName!);
 
         const options = storageKeys.keys!.map(key => {
             return [
@@ -90,15 +121,15 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
 
         return {
             type: SecretTypeEnum.AzureStorage,
-            name: `${storageAccount.name}-${selectedOption.label}`,
+            name: `${accountName}-${selectedOption.label}`,
             value: selectedOption.value,
             properties: {
                 subscriptionId: subscriptionId,
                 resourceGroupName,
-                storageAccountName: storageAccount.name,
+                storageAccountName: accountName,
                 storageAccountKeyName: selectedOption.keyName,
                 storageConnectionString: selectedOption.connString
             }
-        }
+        };
     }
 }

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import axios from "axios";
 
 import { AzureAccountWrapper } from "../AzureAccountWrapper";
-import { SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
+import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 
@@ -26,25 +26,43 @@ export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
         return key;
     }
 
-    async pickUpSecret(): Promise<SelectedSecretType | undefined> {
+    async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
 
-        const subscription = await this._account.pickUpSubscription();
-        if (!subscription) {
-            return;
-        }
+        let subscriptionId: string | undefined, serviceName: string | undefined;
 
-        const subscriptionId = subscription.subscription.subscriptionId;
+        if (!!resourceId) {
+            
+            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.signalrservice\/signalr\/(.+)/gi.exec(resourceId);
+            if (!resourceIdMatch) {
+                return;
+            }
 
-        const service = await this.pickUpService(subscriptionId);
+            subscriptionId = resourceIdMatch[1];
+            serviceName = resourceIdMatch[3];
 
-        if (!service) {
-            return;
+        } else {
+
+            const subscription = await this._account.pickUpSubscription();
+            if (!subscription) {
+                return;
+            }
+    
+            subscriptionId = subscription.subscription.subscriptionId;
+    
+            const service = await this.pickUpService(subscriptionId);
+    
+            if (!service) {
+                return;
+            }
+
+            resourceId = service.id;
+            serviceName = service.name;
         }
 
         // Obtaining default token
         const token = await this._account.getToken();
 
-        const keysUri = `https://management.azure.com${service.id}/listKeys?api-version=2021-09-01-preview`;
+        const keysUri = `https://management.azure.com${resourceId}/listKeys?api-version=2021-09-01-preview`;
         const keysResponse = await axios.post(keysUri, undefined, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -72,7 +90,7 @@ export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
 
         return {
             type: SecretTypeEnum.AzureSignalR,
-            name: `${service.name}-${selectedOption.label}`,
+            name: `${serviceName}-${selectedOption.label}`,
             value: selectedOption.value,
             properties: {
                 subscriptionId,
