@@ -11,6 +11,8 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const token = await this._account.getToken();
@@ -34,13 +36,13 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
 
         if (!!resourceId) {
 
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.search\/searchservices\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            subscriptionId = resourceIdMatch[1];
-            serviceName = resourceIdMatch[3];
+            ({ subscriptionId, serviceName} = parseResult);
 
             const userResponse = await vscode.window.showQuickPick(['Query Keys', 'Admin Keys'], { title: 'Which keys to use?' });
             if (!userResponse) {
@@ -187,5 +189,15 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
                 isAdminKey: pickResult.isAdminKey
             };
         }
-    }    
+    }
+
+    private parseResourceId(resourceId: string): { subscriptionId: string, serviceName: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.search\/searchservices\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            subscriptionId: match[1],
+            serviceName: match[3]
+        };
+    }
 } 

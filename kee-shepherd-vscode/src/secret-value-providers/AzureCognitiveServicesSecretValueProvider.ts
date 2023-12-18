@@ -11,6 +11,8 @@ export class AzureCognitiveServicesSecretValueProvider implements ISecretValuePr
 
     constructor(protected _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const token = await this._account.getToken();
@@ -27,14 +29,14 @@ export class AzureCognitiveServicesSecretValueProvider implements ISecretValuePr
 
         if (!!resourceId) {
 
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.cognitiveservices\/accounts\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            subscriptionId = resourceIdMatch[1];
-            accountName = resourceIdMatch[3];
-
+            ({ subscriptionId, accountName } = parseResult);
+            
         } else {
 
             const subscription = await this._account.pickUpSubscription();
@@ -126,5 +128,15 @@ export class AzureCognitiveServicesSecretValueProvider implements ISecretValuePr
                 name: pickResult.label
             };
         }
-    }    
+    }
+
+    private parseResourceId(resourceId: string): { subscriptionId: string, accountName: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.cognitiveservices\/accounts\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            subscriptionId: match[1],
+            accountName: match[3]
+        };
+    }
 } 

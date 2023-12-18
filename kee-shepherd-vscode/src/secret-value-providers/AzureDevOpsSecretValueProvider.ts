@@ -19,6 +19,8 @@ export class AzureDevOpsSecretValueProvider implements ISecretValueProvider {
     ) {
     }
 
+    isMyResourceId(resourceId: string): boolean { return false; }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         // No way to retrieve an AzDO PAT after it was created, so just returning an empty string.

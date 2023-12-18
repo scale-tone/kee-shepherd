@@ -11,6 +11,8 @@ export class VsCodeSecretStorageValueProvider implements ISecretValueProvider {
 
     constructor(private readonly _context: vscode.ExtensionContext, protected readonly _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return false; }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const secretValue = await this._context.secrets.get(secret.properties?.name ?? secret.name);

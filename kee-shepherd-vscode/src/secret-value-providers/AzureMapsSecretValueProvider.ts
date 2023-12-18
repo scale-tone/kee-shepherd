@@ -5,12 +5,13 @@ import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 
 // Implements picking and retrieving secret values from Azure Maps
 export class AzureMapsSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
+
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
 
     async getSecretValue(secret: SecretReference): Promise<string> {
 
@@ -28,13 +29,13 @@ export class AzureMapsSecretValueProvider implements ISecretValueProvider {
 
         if (!!resourceId) {
 
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.maps\/accounts\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            subscriptionId = resourceIdMatch[1];
-            accountName = resourceIdMatch[3];
+            ({ subscriptionId, accountName } = parseResult);
 
         } else {
 
@@ -128,5 +129,15 @@ export class AzureMapsSecretValueProvider implements ISecretValueProvider {
                 name: pickResult.label
             };
         }
-    }    
+    }
+
+    private parseResourceId(resourceId: string): { subscriptionId: string, accountName: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.maps\/accounts\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            subscriptionId: match[1],
+            accountName: match[3]
+        };
+    }
 } 

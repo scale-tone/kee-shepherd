@@ -11,6 +11,8 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const token = await this._account.getToken();
@@ -27,13 +29,13 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
 
         if (!!resourceId) {
 
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.eventgrid\/topics\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            subscriptionId = resourceIdMatch[1];
-            topicName = resourceIdMatch[3];
+            ({ subscriptionId, topicName} = parseResult);
 
         } else {
 
@@ -86,7 +88,7 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
                 resourceManagerUri: keysUri,
                 keyName: selectedOption.label,
             }
-        }
+        };
     }
 
     private async pickUpTopicId(subscriptionId: string): Promise<{ id: string, name: string } | undefined> {
@@ -125,5 +127,15 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
                 name: pickResult.label
             };
         }
-    }    
+    }
+
+    private parseResourceId(resourceId: string): { subscriptionId: string, topicName: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.eventgrid\/topics\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            subscriptionId: match[1],
+            topicName: match[3]
+        };
+    }
 } 

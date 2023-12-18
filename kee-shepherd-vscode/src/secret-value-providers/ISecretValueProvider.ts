@@ -7,4 +7,5 @@ export interface ISecretValueProvider {
 
     getSecretValue(secret: SecretReference): Promise<string>;
     pickUpSecret(controlType: ControlTypeEnum, suggestedResourceId?: string): Promise<SelectedSecretType | undefined>;
+    isMyResourceId(resourceId: string): boolean;
 }

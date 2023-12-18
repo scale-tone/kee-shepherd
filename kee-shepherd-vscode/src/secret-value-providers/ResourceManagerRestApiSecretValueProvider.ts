@@ -10,6 +10,8 @@ export class ResourceManagerRestApiSecretValueProvider implements ISecretValuePr
 
     constructor(protected _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return false; }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const token = await this._account.getToken();

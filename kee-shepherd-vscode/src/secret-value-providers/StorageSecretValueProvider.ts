@@ -10,6 +10,8 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const tokenCredentials = await this._account.getTokenCredential();
@@ -39,14 +41,13 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
 
         if (!!resourceId) {
 
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.storage\/storageaccounts\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            subscriptionId = resourceIdMatch[1];
-            resourceGroupName = resourceIdMatch[2];
-            accountName = resourceIdMatch[3];
+            ({ subscriptionId, resourceGroupName, accountName} = parseResult);
 
             storageManagementClient = new StorageManagementClient(tokenCredentials, subscriptionId);
             
@@ -130,6 +131,17 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
                 storageAccountKeyName: selectedOption.keyName,
                 storageConnectionString: selectedOption.connString
             }
+        };
+    }
+
+    private parseResourceId(resourceId: string): { subscriptionId: string, resourceGroupName: string, accountName: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.storage\/storageaccounts\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            subscriptionId: match[1],
+            resourceGroupName: match[2],
+            accountName: match[3],
         };
     }
 }

@@ -30,6 +30,8 @@ export class CodespaceSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper, private _log: Log) { }
 
+    isMyResourceId(resourceId: string): boolean { return false; }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const name = secret.properties?.name ?? secret.name;

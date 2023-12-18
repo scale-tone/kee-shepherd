@@ -11,6 +11,8 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const token = await this._account.getToken();
@@ -29,13 +31,13 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
 
         if (!!resourceId) {
 
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.servicebus\/namespaces\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            subscriptionId = resourceIdMatch[1];
-            namespaceName = resourceIdMatch[3];
+            ({ subscriptionId, namespaceName} = parseResult);
 
         } else {
 
@@ -217,5 +219,15 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
                 id: pickResult.id
             };
         }
-    }    
+    }
+
+    private parseResourceId(resourceId: string): { subscriptionId: string, namespaceName: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.servicebus\/namespaces\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            subscriptionId: match[1],
+            namespaceName: match[3]
+        };
+    }
 } 

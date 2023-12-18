@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SecretClient, SecretProperties } from "@azure/keyvault-secrets";
 
-import { AzureAccountWrapper, AzureSubscription } from "../AzureAccountWrapper";
+import { AzureAccountWrapper } from "../AzureAccountWrapper";
 import { ControlTypeEnum, SecretReference, SecretTypeEnum } from "../KeyMetadataHelpers";
 import { ISecretValueProvider, SelectedSecretType } from "./ISecretValueProvider";
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
@@ -10,6 +10,8 @@ import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
+
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
 
     async getKeyVaultClient(keyVaultName: string): Promise<SecretClient> {
 
@@ -51,16 +53,21 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     async pickUpSecret(controlType: ControlTypeEnum, resourceId?: string): Promise<SelectedSecretType | undefined> {
         
-        let keyVaultName: string | undefined;
+        let keyVaultName: string | undefined, secretName: string | undefined;
+
+        let keyVaultClient: SecretClient;
 
         if (!!resourceId) {
 
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.keyvault\/vaults\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            keyVaultName = resourceIdMatch[3];
+            ({ keyVaultName, secretName } = parseResult);
+            
+            keyVaultClient = await this.getKeyVaultClient(keyVaultName);
 
         } else {
 
@@ -69,23 +76,23 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
             if (!keyVaultName) {
                 return;
             }
-        }
-        
-        const keyVaultClient = await this.getKeyVaultClient(keyVaultName);
-        
-        const secretNames = [];
-        for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
-            secretNames.push(secretProps.name);
-        }
 
-        if (secretNames.length <= 0) {
-            throw new Error(`No secrets found in this Key Vault`);
-        }
+            keyVaultClient = await this.getKeyVaultClient(keyVaultName);
 
-        const secretName = await vscode.window.showQuickPick(secretNames, { title: 'Select Secret' });
-
-        if (!secretName) {
-            return;
+            const secretNames = [];
+            for await (const secretProps of keyVaultClient.listPropertiesOfSecrets()) {
+                secretNames.push(secretProps.name);
+            }
+    
+            if (secretNames.length <= 0) {
+                throw new Error(`No secrets found in this Key Vault`);
+            }
+    
+            secretName = await vscode.window.showQuickPick(secretNames, { title: 'Select Secret' });
+    
+            if (!secretName) {
+                return;
+            }
         }
 
         const secret = await keyVaultClient.getSecret(secretName);
@@ -191,5 +198,15 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
     
             pick.show();
         });
-    }    
+    }
+
+    private parseResourceId(resourceId: string): { keyVaultName: string, secretName: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.keyvault\/vaults\/([^\/]+)\/secrets\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            keyVaultName: match[3],
+            secretName: match[4]
+        };
+    }
 } 

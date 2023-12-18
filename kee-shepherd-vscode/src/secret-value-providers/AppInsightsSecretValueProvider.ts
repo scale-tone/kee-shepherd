@@ -11,6 +11,8 @@ export class AppInsightsSecretValueProvider implements ISecretValueProvider {
 
     constructor(protected _account: AzureAccountWrapper) { }
 
+    isMyResourceId(resourceId: string): boolean { return !!this.parseResourceId(resourceId); }
+
     async getSecretValue(secret: SecretReference): Promise<string> {
 
         const token = await this._account.getToken();
@@ -30,12 +32,13 @@ export class AppInsightsSecretValueProvider implements ISecretValueProvider {
 
         if (!!resourceId) {
             
-            const resourceIdMatch = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.insights\/components\/(.+)/gi.exec(resourceId);
-            if (!resourceIdMatch) {
+            const parseResult = this.parseResourceId(resourceId);
+
+            if (!parseResult) {
                 return;
             }
 
-            subscriptionId = resourceIdMatch[1];
+            ({ subscriptionId } = parseResult);
 
         } else {
 
@@ -119,5 +122,14 @@ export class AppInsightsSecretValueProvider implements ISecretValueProvider {
         );
 
         return !!pickResult ? pickResult.id : '';
-    }    
+    }
+
+    private parseResourceId(resourceId: string): { subscriptionId: string } | undefined {
+
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.insights\/components\/(.+)/gi.exec(resourceId);
+        
+        return !match ? undefined : {
+            subscriptionId: match[1]
+        };
+    }
 } 

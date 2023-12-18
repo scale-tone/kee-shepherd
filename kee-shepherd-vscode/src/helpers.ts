@@ -193,10 +193,3 @@ export async function areEnvVariablesSet(names: string[], log: Log): Promise<{ [
 
     return result;
 }
-
-export function extractSubscriptionIdFromResourceId(resourceId: string): string | undefined {
-
-    const match = /\/subscriptions\/([^\/]+)\/resourceGroups/gi.exec(resourceId);
-
-    return !!match ? match[1] : undefined;
-}
