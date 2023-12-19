@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 2.3
+
+- 'Generate Secret...' command, for quickly generating and storing secrets:
+
+  <img src="https://github.com/scale-tone/kee-shepherd/assets/5447190/43cc9a84-9c32-413a-b33b-95fec44c6721" width="600px"/>
+
+- Minor bugfixes.
+
 ## Version 2.2
 
 - `Copy Secret to Clipboard...` command (with MRU list):
