@@ -145,7 +145,7 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
     
     private parseResourceId(resourceId: string): { subscriptionId: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.documentdb\/databaseaccounts\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.documentdb\/databaseaccounts\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             subscriptionId: match[1]

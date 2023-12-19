@@ -132,7 +132,7 @@ export class AzureCognitiveServicesSecretValueProvider implements ISecretValuePr
 
     private parseResourceId(resourceId: string): { subscriptionId: string, accountName: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.cognitiveservices\/accounts\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.cognitiveservices\/accounts\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             subscriptionId: match[1],

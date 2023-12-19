@@ -193,7 +193,7 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
 
     private parseResourceId(resourceId: string): { subscriptionId: string, serviceName: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.search\/searchservices\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.search\/searchservices\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             subscriptionId: match[1],

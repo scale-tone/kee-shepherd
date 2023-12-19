@@ -142,7 +142,7 @@ export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
 
     private parseResourceId(resourceId: string): { subscriptionId: string, serviceName: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.signalrservice\/signalr\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.signalrservice\/signalr\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             subscriptionId: match[1],

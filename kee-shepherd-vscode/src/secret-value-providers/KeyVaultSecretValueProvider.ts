@@ -202,11 +202,11 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
 
     private parseResourceId(resourceId: string): { keyVaultName: string, secretName: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.keyvault\/vaults\/([^\/]+)\/secrets\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.keyvault\/vaults\/([^\/]+)\/(keys|secrets)\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             keyVaultName: match[3],
-            secretName: match[4]
+            secretName: match[5]
         };
     }
 } 

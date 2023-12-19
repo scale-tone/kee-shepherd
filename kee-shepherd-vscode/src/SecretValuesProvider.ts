@@ -55,6 +55,32 @@ export class SecretValuesProvider {
         return !provider ? '' : provider.getSecretValue(secret);
     }
 
+    async copySecretToClipboard(resourceId: string): Promise<void> {
+
+        if (await vscode.window.showQuickPick(['Yes', 'No'], { title: `Are you sure you want to copy a secret from '${resourceId}' resource to Clipboard?` }) !== 'Yes') {
+            return;
+        }
+
+        for (const secretType in this._providers) {
+            
+            const provider = this._providers[secretType];
+
+            if (provider.isMyResourceId(resourceId)) {
+                
+                const secret = await provider.pickUpSecret(ControlTypeEnum.Supervised, resourceId);
+
+                if (!!secret) {
+
+                    vscode.env.clipboard.writeText(secret.value);
+       
+                    vscode.window.showInformationMessage(`KeeShepherd: value of ${secret.name} was copied to Clipboard`);
+                }
+        
+                return;
+            }
+        }
+    }
+
     async pickUpSecret(controlType: ControlTypeEnum, excludedSecretTypes?: SecretTypeEnum[], selectedSecretType?: SecretTypeEnum): Promise<SelectedSecretType | undefined> {
 
         if (!selectedSecretType) {

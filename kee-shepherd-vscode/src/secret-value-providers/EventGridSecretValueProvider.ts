@@ -131,7 +131,7 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
 
     private parseResourceId(resourceId: string): { subscriptionId: string, topicName: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.eventgrid\/topics\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.eventgrid\/topics\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             subscriptionId: match[1],

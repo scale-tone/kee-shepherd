@@ -220,6 +220,10 @@ export async function activate(context: vscode.ExtensionContext) {
             log(`Failed to check for expired secrets. ${err.message ?? err}`, true, true);
         });
     }
+
+    return {
+        copySecretToClipboard: async (resourceId: string) => shepherd.valuesProvider.copySecretToClipboard(resourceId)
+    };
 }
 
 // this method is called when your extension is deactivated

@@ -136,7 +136,7 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
 
     private parseResourceId(resourceId: string): { subscriptionId: string, resourceGroupName: string, accountName: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.storage\/storageaccounts\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.storage\/storageaccounts\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             subscriptionId: match[1],

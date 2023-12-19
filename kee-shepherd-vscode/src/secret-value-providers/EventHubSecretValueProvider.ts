@@ -194,7 +194,7 @@ export class EventHubSecretValueProvider implements ISecretValueProvider {
 
     private parseResourceId(resourceId: string): { subscriptionId: string, namespaceName: string } | undefined {
 
-        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.eventhub\/namespaces\/(.+)/gi.exec(resourceId);
+        const match = /\/subscriptions\/([^\/]+)\/resourceGroups\/([^\/]+)\/providers\/microsoft.eventhub\/namespaces\/([^\/]+)$/gi.exec(resourceId);
         
         return !match ? undefined : {
             subscriptionId: match[1],
