@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { DeviceTokenCredentials } from '@azure/ms-rest-nodeauth';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { AzureAccountWrapper } from '../AzureAccountWrapper';
 import { KeyVaultSecretValueProvider } from '../secret-value-providers/KeyVaultSecretValueProvider';
@@ -24,7 +23,7 @@ export enum KeyVaultNodeTypeEnum {
 export type KeyVaultTreeItem = vscode.TreeItem & {
     
     nodeType: KeyVaultNodeTypeEnum,
-    credentials?: DeviceTokenCredentials,
+    credentials?: any,
     subscriptionId?: string,
     keyVaultName?: string,
     secretId?: string,
