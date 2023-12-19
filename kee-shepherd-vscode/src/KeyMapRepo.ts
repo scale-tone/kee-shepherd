@@ -59,7 +59,14 @@ export class KeyMapRepo {
             return [];
         }
 
-        const mapJson = await fs.promises.readFile(mapFilePath, 'utf8')
+        const mapJson = await fs.promises.readFile(mapFilePath, 'utf8');
+
+        if (!mapJson) {
+
+            // It still happens sometimes that a map file ends up being empty (when being overwritten at shutdown).
+            // We just need to cope with that.
+            return [];
+        }
 
         return JSON.parse(mapJson);
     }
