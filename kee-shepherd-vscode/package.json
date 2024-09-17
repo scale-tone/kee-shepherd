@@ -2,7 +2,7 @@
     "name": "kee-shepherd-vscode",
     "displayName": "KeeShepherd",
     "description": "Keeps an eye on credentials, that are spread across numerous config files on your devboxes. Also comes with UI for Azure Key Vault, GitHub secrets and VsCode SecretStorage",
-    "version": "2.3.0",
+    "version": "2.4.0",
     "engines": {
         "vscode": "^1.62.0"
     },
@@ -70,6 +70,10 @@
             ]
         },
         "commands": [
+            {
+                "command": "kee-shepherd-vscode.signInToAzure",
+                "title": "Sign in to Azure..."
+            },
             {
                 "command": "kee-shepherd-vscode.changeStorageType",
                 "title": "KeeShepherd: Switch to another Metadata Storage"
@@ -1030,15 +1034,16 @@
         "webpack-cli": "^4.8.0"
     },
     "extensionDependencies": [
-        "ms-vscode.azure-account"
     ],
     "dependencies": {
         "@azure/arm-resourcegraph": "^4.2.1",
         "@azure/arm-storage": "^16.1.2",
         "@azure/data-tables": "^13.0.0",
+        "@azure/identity": "^4.4.1",
         "@azure/keyvault-secrets": "^4.3.0",
         "@azure/ms-rest-azure-env": "^2.0.0",
         "@azure/msal-node": "^1.12.0",
+        "@microsoft/vscode-azext-azureauth": "^2.5.0",
         "axios": "^1.6.2",
         "libsodium-wrappers": "^0.7.10"
     }

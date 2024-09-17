@@ -175,7 +175,7 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
     
             resourceGraphClient.resources({
     
-                subscriptions: subscriptions.map(s => s.subscription.subscriptionId),
+                subscriptions: subscriptions.map(s => s.subscriptionId),
                 query: 'resources | where type == "microsoft.keyvault/vaults"'
                     
             }).then(response => {
@@ -184,11 +184,11 @@ export class KeyVaultSecretValueProvider implements ISecretValueProvider {
     
                     pick.items = response.data.map((keyVault: any) => {
 
-                        const subscription = subscriptions.find(s => s.subscription.subscriptionId === keyVault.subscriptionId);
+                        const subscription = subscriptions.find(s => s.subscriptionId === keyVault.subscriptionId);
 
                         return {
                             label: keyVault.name,
-                            detail: `${subscription?.subscription?.displayName} ${keyVault.subscriptionId}`
+                            detail: `${subscription?.name} ${keyVault.subscriptionId}`
                         };
                     });
     

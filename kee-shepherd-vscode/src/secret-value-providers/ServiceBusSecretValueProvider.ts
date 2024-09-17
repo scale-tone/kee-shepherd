@@ -46,7 +46,7 @@ export class ServiceBusSecretValueProvider implements ISecretValueProvider {
                 return;
             }
     
-            subscriptionId = subscription.subscription.subscriptionId;
+            subscriptionId = subscription.subscriptionId;
     
             const namespace = await this.pickUpServiceBusNamespace(subscriptionId);
     

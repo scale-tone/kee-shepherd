@@ -49,7 +49,7 @@ export class AzureSignalRSecretValueProvider implements ISecretValueProvider {
                 return;
             }
     
-            subscriptionId = subscription.subscription.subscriptionId;
+            subscriptionId = subscription.subscriptionId;
     
             const service = await this.pickUpService(subscriptionId);
     

@@ -181,7 +181,7 @@ export class SecretTreeView extends TreeViewBase implements vscode.TreeDataProvi
                                 isLocal: true,
                                 command: {
                                     title: 'Sign in to Azure...',
-                                    command: 'azure-account.login',
+                                    command: 'kee-shepherd-vscode.signInToAzure',
                                     arguments: []
                                 }
                             });

@@ -87,6 +87,8 @@ export async function activate(context: vscode.ExtensionContext) {
         shepherd.shortcutsTreeView.createTreeView('kee-shepherd-shortcuts-tree-view'),
         shepherd.secretStorageTreeView.createTreeView('kee-shepherd-vscode-secret-storage-tree-view'),
 
+        vscode.commands.registerCommand('kee-shepherd-vscode.signInToAzure', () => doAndShowError(() => shepherd.signInToAzure(), 'Failed to sign in to Azure')),
+
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.superviseSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Supervised), 'KeeShepherd failed to add a secret')),
         vscode.commands.registerCommand('kee-shepherd-vscode.editor-context.controlSecret', () => doAndShowError(() => shepherd.controlSecret(ControlTypeEnum.Managed), 'KeeShepherd failed to add a secret')),
 

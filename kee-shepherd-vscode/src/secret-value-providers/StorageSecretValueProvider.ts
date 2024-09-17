@@ -66,7 +66,7 @@ export class StorageSecretValueProvider implements ISecretValueProvider {
                 return;
             }
             
-            subscriptionId = subscription.subscription.subscriptionId;
+            subscriptionId = subscription.subscriptionId;
 
             storageManagementClient = new StorageManagementClient(tokenCredentials, subscriptionId);
     

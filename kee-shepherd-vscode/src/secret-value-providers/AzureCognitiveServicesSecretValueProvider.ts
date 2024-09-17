@@ -44,7 +44,7 @@ export class AzureCognitiveServicesSecretValueProvider implements ISecretValuePr
                 return;
             }
     
-            subscriptionId = subscription.subscription.subscriptionId;
+            subscriptionId = subscription.subscriptionId;
     
             const account = await this.pickUpAccount(subscriptionId);
     

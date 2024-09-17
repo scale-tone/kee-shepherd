@@ -49,7 +49,7 @@ export class CosmosDbSecretValueProvider implements ISecretValueProvider {
                 return;
             }
     
-            subscriptionId = subscription.subscription.subscriptionId;
+            subscriptionId = subscription.subscriptionId;
     
             resourceId = await this.pickUpDatabaseAccountId(subscriptionId);
     

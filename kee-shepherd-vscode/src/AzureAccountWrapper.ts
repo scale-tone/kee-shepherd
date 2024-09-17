@@ -4,8 +4,7 @@ import { StorageManagementClient } from '@azure/arm-storage';
 import { StorageAccount } from "@azure/arm-storage/src/models";
 import { TokenCredential, GetTokenOptions } from "@azure/core-auth";
 
-// Full typings for this can be found here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
-export type AzureSubscription = { session: { credentials2: any, tenantId: string }, subscription: { subscriptionId: string, displayName: string } };
+import { VSCodeAzureSubscriptionProvider, AzureSubscription } from '@microsoft/vscode-azext-azureauth';
 
 export interface TokenResponse {
     tokenType: string;
@@ -18,17 +17,6 @@ export interface TokenResponse {
 
 // Wraps Azure Acccount extension
 export class AzureAccountWrapper {
-
-    constructor() {
-
-        // Using Azure Account extension to connect to Azure, get subscriptions etc.
-        const azureAccountExtension = vscode.extensions.getExtension('ms-vscode.azure-account');
-
-        // Typings for azureAccount are here: https://github.com/microsoft/vscode-azure-account/blob/master/src/azure-account.api.d.ts
-        this._account = !!azureAccountExtension ? azureAccountExtension.exports : undefined;
-    }
-
-    get azureAccount(): any { return this._account; }
 
     async pickUpStorageAccount(storageManagementClient: StorageManagementClient): Promise<StorageAccount | undefined> {
 
@@ -81,8 +69,8 @@ export class AzureAccountWrapper {
                 subscriptions.map(s => {
                     return {
                         subscription: s,
-                        label: s.subscription.displayName,
-                        description: s.subscription.subscriptionId
+                        label: s.name,
+                        description: s.subscriptionId
                     };
                 }),
                 { title: 'Select Azure Subscription' }
@@ -108,7 +96,7 @@ export class AzureAccountWrapper {
             throw new Error(`You need to be signed in to Azure for this. Execute 'Azure: Sign In' command.`);
         }
         
-        return this._account.filters;
+        return this._provider.getSubscriptions(true);
     }
 
     // Uses vscode.authentication to get a token with custom scopes
@@ -148,17 +136,22 @@ export class AzureAccountWrapper {
         };
     }
 
+    async signIn(): Promise<boolean> {
+
+        return this._provider.signIn();
+    }
+
     async isSignedIn(): Promise<boolean> {
 
-        return !!this._account && !!(await this._account.waitForFilters());
+        return this._provider.isSignedIn();
     }
 
     async subscriptionsAvailable(): Promise<boolean> {
 
-        return !!this._account && !!(await this._account.waitForFilters()) && (this._account.filters.length > 0);
+        return (await this._provider.getSubscriptions(true)).length > 0;
     }
 
-    private readonly _account: any;
+    private readonly _provider: VSCodeAzureSubscriptionProvider = new VSCodeAzureSubscriptionProvider();
 
     private async getAuthSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
 
@@ -168,12 +161,10 @@ export class AzureAccountWrapper {
         const subscriptions = await this.getSubscriptions();
         if (!!subscriptions?.length) {
 
-            const subscription = subscriptions[0];
-            const tenantId = subscription.session.tenantId;
-
+            const tenantId = subscriptions[0].tenantId;
             if (!!tenantId) {
                 
-                scopes.push(`VSCODE_TENANT:${subscription.session.tenantId}`);
+                scopes.push(`VSCODE_TENANT:${tenantId}`);
             }
         }
 

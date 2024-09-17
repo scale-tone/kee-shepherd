@@ -44,7 +44,7 @@ export class EventGridSecretValueProvider implements ISecretValueProvider {
                 return;
             }
     
-            subscriptionId = subscription.subscription.subscriptionId;
+            subscriptionId = subscription.subscriptionId;
     
             const topic = await this.pickUpTopicId(subscriptionId);
     

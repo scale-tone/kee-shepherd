@@ -58,7 +58,7 @@ export class AzureSearchSecretValueProvider implements ISecretValueProvider {
                 return;
             }
     
-            const subscriptionId = subscription.subscription.subscriptionId;
+            const subscriptionId = subscription.subscriptionId;
     
             const service = await this.pickUpService(subscriptionId);
     

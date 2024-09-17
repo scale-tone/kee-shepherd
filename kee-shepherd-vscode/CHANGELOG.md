@@ -1,5 +1,9 @@
 # Change Log
 
+## Version 2.4
+
+- Decoupled from (soon deprecated) [Azure Account extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.azure-account).
+
 ## Version 2.3
 
 - 'Generate Secret...' command, for quickly generating and storing secrets:

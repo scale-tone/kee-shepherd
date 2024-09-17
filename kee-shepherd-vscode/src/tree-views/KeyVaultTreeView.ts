@@ -71,11 +71,11 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
     
                             const node = {
                                 parent,
-                                label: subscription.subscription.displayName,
+                                label: subscription.name,
                                 nodeType: KeyVaultNodeTypeEnum.Subscription,
-                                credentials: subscription.session.credentials2,
-                                subscriptionId: subscription.subscription.subscriptionId,
-                                tooltip: subscription.subscription.subscriptionId,
+                                credentials: subscription.credential,
+                                subscriptionId: subscription.subscriptionId,
+                                tooltip: subscription.subscriptionId,
                                 collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
                                 iconPath: path.join(this._resourcesFolder, 'azureSubscription.svg')
                             };
@@ -93,7 +93,7 @@ export class KeyVaultTreeView extends TreeViewBase implements vscode.TreeDataPro
                             nodeType: KeyVaultNodeTypeEnum.InitialCommand,
                             command: {
                                 title: 'Sign in to Azure...',
-                                command: 'azure-account.login',
+                                command: 'kee-shepherd-vscode.signInToAzure',
                                 arguments: []
                             }
                         });

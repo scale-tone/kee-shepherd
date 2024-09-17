@@ -61,36 +61,14 @@ export class KeeShepherd extends KeeShepherdBase {
         );
 
         this._mruList = mruList;
+    }
 
-        if (!!this._account.azureAccount) {
-            
-            const refreshViews = () => {
-                this.keyVaultTreeView.refresh();
-                this.treeView.refresh();
-            };
+    async signInToAzure(): Promise<void> {
 
-            // When user changes their list of filtered subscriptions (or just relogins to Azure)...
+        await this._account.signIn();
 
-            if (!!this._account.azureAccount.onStatusChanged) {
-                
-                this._context.subscriptions.push(this._account.azureAccount.onStatusChanged(() => refreshViews()));
-            }
-
-            if (!!this._account.azureAccount.onFiltersChanged) {
-                
-                this._context.subscriptions.push(this._account.azureAccount.onFiltersChanged(() => refreshViews()));
-            }
-
-            if (!!this._account.azureAccount.onSessionsChanged) {
-                
-                this._context.subscriptions.push(this._account.azureAccount.onSessionsChanged(() => refreshViews()));
-            }
-
-            if (!!this._account.azureAccount.onSubscriptionsChanged) {
-                
-                this._context.subscriptions.push(this._account.azureAccount.onSubscriptionsChanged(() => refreshViews()));
-            }
-        }
+        this.keyVaultTreeView.refresh();
+        this.treeView.refresh();
     }
 
     get metadataRepo(): IKeyMetadataRepo {
@@ -1029,7 +1007,8 @@ export class KeeShepherd extends KeeShepherdBase {
                 { label: 'Locally', detail: `in ${storageFolder}`, type: StorageTypeEnum.Local },
                 { label: 'In a shared Azure Table', type: StorageTypeEnum.AzureTable }
             ], {
-                title: 'Select where KeeShepherd should store secret metadata'
+                title: 'Select where KeeShepherd should store secret metadata',
+                ignoreFocusOut: true
             });
 
             if (!storageTypeResponse) {
@@ -1055,27 +1034,8 @@ export class KeeShepherd extends KeeShepherdBase {
             if (!accountName || !tableName || !subscriptionId || !resourceGroupName) {
 
                 if (!await account.isSignedIn()) {
-                    
-                    await vscode.commands.executeCommand('azure-account.login');
 
-                    const progressOptions = {
-                        location: vscode.ProgressLocation.Notification,
-                        title: `Waiting for Azure sign-in... `,
-                        cancellable: true
-                    };
-            
-                    await vscode.window.withProgress(progressOptions, async (progress, token) => {
-
-                        do {
-                            
-                            await new Promise(r => setTimeout(r, 500));
-
-                            if (token.isCancellationRequested) {
-                                throw new Error('Cancelled by user');
-                            }
-                        }
-                        while (!await account.subscriptionsAvailable());
-                    });
+                    await account.signIn();
                 }
             
                 const subscription = await account.pickUpSubscription();
@@ -1083,8 +1043,8 @@ export class KeeShepherd extends KeeShepherdBase {
                     throw new Error('No Azure subscription selected');
                 }
                 
-                subscriptionId = subscription.subscription.subscriptionId;
-                const storageManagementClient = new StorageManagementClient(subscription.session.credentials2, subscriptionId as string);
+                subscriptionId = subscription.subscriptionId;
+                const storageManagementClient = new StorageManagementClient(subscription.credential, subscriptionId as string);
     
                 const storageAccount = await account.pickUpStorageAccount(storageManagementClient);
     
